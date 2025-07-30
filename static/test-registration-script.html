@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Test Form Submission Script</title>
+</head>
+<body>
+    <h1>Test Form Submission Script</h1>
+    <form id="registrationForm" method="POST" action="/register" enctype="multipart/form-data">
+        <div>
+            <label for="name">Name:</label>
+            <input type="text" id="name" name="name" value="Test User" required>
+        </div>
+        <div>
+            <label for="email">Email:</label>
+            <input type="email" id="email" name="email" value="test@example.com" required>
+        </div>
+        <div>
+            <label for="password">Password:</label>
+            <input type="password" id="password" name="password" value="securePassword123!" required>
+        </div>
+        <div>
+            <label for="passwordConfirm">Confirm Password:</label>
+            <input type="password" id="passwordConfirm" name="passwordConfirm" value="securePassword123!" required>
+        </div>
+        <div>
+            <button type="submit">Register</button>
+        </div>
+    </form>
+    
+    <script>
+        // Automatically submit the form when the page loads
+        window.onload = function() {
+            const form = document.getElementById('registrationForm');
+            
+            // Create FormData object
+            const formData = new FormData(form);
+            
+            // Submit the form using fetch API
+            fetch('/register', {
+                method: 'POST',
+                body: formData,
+                // Note: The browser automatically sets the Origin header
+            })
+            .then(response => response.json())
+            .then(data => {
+                console.log('Success:', data);
+                document.body.innerHTML += '<p>Form submitted successfully!</p><pre>' + JSON.stringify(data, null, 2) + '</pre>';
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                document.body.innerHTML += '<p>Error submitting form: ' + error + '</p>';
+            });
+        };
+    </script>
+</body>
+</html>

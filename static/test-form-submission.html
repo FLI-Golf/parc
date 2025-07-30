@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Test Form Submission</title>
+</head>
+<body>
+    <h1>Test Form Submission</h1>
+    <form id="registrationForm">
+        <div>
+            <label for="name">Name:</label>
+            <input type="text" id="name" name="name" value="Test User" required>
+        </div>
+        <div>
+            <label for="email">Email:</label>
+            <input type="email" id="email" name="email" value="test@example.com" required>
+        </div>
+        <div>
+            <label for="password">Password:</label>
+            <input type="password" id="password" name="password" value="securePassword123!" required>
+        </div>
+        <div>
+            <label for="passwordConfirm">Confirm Password:</label>
+            <input type="password" id="passwordConfirm" name="passwordConfirm" value="securePassword123!" required>
+        </div>
+        <div>
+            <button type="submit">Register</button>
+        </div>
+    </form>
+
+    <div id="result"></div>
+
+    <script>
+        document.getElementById('registrationForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            // Get form data
+            const name = document.getElementById('name').value;
+            const email = document.getElementById('email').value;
+            const password = document.getElementById('password').value;
+            const passwordConfirm = document.getElementById('passwordConfirm').value;
+            
+            // Simple validation
+            if (password !== passwordConfirm) {
+                document.getElementById('result').innerHTML = '<p style="color: red;">Passwords do not match</p>';
+                return;
+            }
+            
+            if (password.length < 6) {
+                document.getElementById('result').innerHTML = '<p style="color: red;">Password must be at least 6 characters</p>';
+                return;
+            }
+            
+            try {
+                // Create user data object
+                const data = {
+                    name: name,
+                    email: email,
+                    password: password,
+                    passwordConfirm: passwordConfirm
+                };
+                
+                // Submit the form using fetch API
+                const response = await fetch('/register', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(data)
+                });
+                
+                const result = await response.json();
+                console.log('Success:', result);
+                
+                if (result.type === 'success') {
+                    document.getElementById('result').innerHTML = '<p style="color: green;">Form submitted successfully!</p><pre>' + JSON.stringify(result, null, 2) + '</pre>';
+                } else {
+                    document.getElementById('result').innerHTML = '<p style="color: red;">Error: ' + JSON.stringify(result, null, 2) + '</p>';
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                document.getElementById('result').innerHTML = '<p style="color: red;">Error submitting form: ' + error + '</p>';
+            }
+        });
+    </script>
+</body>
+</html>

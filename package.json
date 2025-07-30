@@ -30,6 +30,9 @@
 	},
 	"dependencies": {
 		"@libsql/client": "^0.14.0",
+		"form-data": "^4.0.4",
+		"lucide-svelte": "^0.534.0",
+		"node-fetch": "^3.3.2",
 		"pocketbase": "^0.26.2",
 		"sveltekit-superforms": "^2.27.1",
 		"zod": "^4.0.14"
