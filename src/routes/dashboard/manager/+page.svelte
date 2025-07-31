@@ -515,6 +515,21 @@
 		const ampm = hour24 >= 12 ? "pm" : "am";
 		return `${hour12}${minutes !== "00" ? ":" + minutes : ""}${ampm}`;
 	}
+
+	// Helper to get section name by ID
+	function getSectionName(sectionId) {
+		if (!sectionId || !$sections) return null;
+		const section = $sections.find(s => s.id === sectionId);
+		return section ? section.section_name : null;
+	}
+
+	// Helper to get staff member name
+	function getStaffMemberName(shift) {
+		if (shift.expand?.staff_member?.first_name && shift.expand?.staff_member?.last_name) {
+			return `${shift.expand.staff_member.first_name} ${shift.expand.staff_member.last_name}`;
+		}
+		return "Unassigned";
+	}
 </script>
 
 <div
@@ -576,7 +591,7 @@
 	<nav class="bg-gray-800/30 border-b border-gray-700">
 		<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
 			<div class="flex space-x-8 overflow-x-auto">
-				{#each [{ id: "overview", name: "Overview", icon: "📊" }, { id: "floor-plan", name: "Floor Plan", icon: "🏗️" }, { id: "maintenance", name: "Maintenance", icon: "🧹" }, { id: "inventory", name: "Inventory", icon: "📦" }, { id: "staff", name: "Staff", icon: "👥" }, { id: "shifts", name: "Shifts", icon: "🗓️" }, { id: "menu", name: "Menu", icon: "🍽️" }, { id: "vendors", name: "Vendors", icon: "🏢" }, { id: "events", name: "Events", icon: "🎉" }] as tab}
+				{#each [{ id: "overview", name: "Overview", icon: "📊" }, { id: "floor-plan", name: "Floor Plan", icon: "🏗️" }, { id: "sections", name: "Section Assignments", icon: "🎯" }, { id: "maintenance", name: "Maintenance", icon: "🧹" }, { id: "inventory", name: "Inventory", icon: "📦" }, { id: "staff", name: "Staff", icon: "👥" }, { id: "shifts", name: "Shifts", icon: "🗓️" }, { id: "menu", name: "Menu", icon: "🍽️" }, { id: "vendors", name: "Vendors", icon: "🏢" }, { id: "events", name: "Events", icon: "🎉" }] as tab}
 					<button
 						class="flex items-center space-x-2 py-4 px-3 border-b-2 font-medium text-sm whitespace-nowrap {activeTab ===
 						tab.id
@@ -1270,6 +1285,75 @@
 					</div>
 				</div>
 			</div>
+		{:else if activeTab === "sections"}
+			<!-- Section Assignments -->
+			<div class="mb-8 flex justify-between items-center">
+				<div>
+					<h2 class="text-3xl font-bold">Section Assignments</h2>
+					<p class="text-gray-400 mt-2">
+						Manage staff assignments to restaurant sections
+					</p>
+				</div>
+			</div>
+
+			<!-- Section Assignment Info -->
+			<div class="bg-gray-800/50 backdrop-blur-sm rounded-xl border border-gray-700 p-6 mb-8">
+				<h3 class="text-xl font-semibold mb-4">How Section Assignments Work</h3>
+				<div class="space-y-4">
+					<div class="bg-blue-900/30 rounded-lg p-4 border border-blue-700/50">
+						<h4 class="text-blue-300 font-medium mb-2">📋 Current Setup</h4>
+						<p class="text-gray-300 text-sm">
+							You have {$sections.length} sections configured. To assign staff to sections, you need to:
+						</p>
+						<ol class="list-decimal list-inside text-sm text-gray-400 mt-2 space-y-1">
+							<li>Add the "assigned_section" field to your PocketBase shifts collection</li>
+							<li>Use the Shift Management tab to assign staff to specific sections</li>
+							<li>View section coverage and assignments here</li>
+						</ol>
+					</div>
+					
+					<div class="bg-yellow-900/30 rounded-lg p-4 border border-yellow-700/50">
+						<h4 class="text-yellow-300 font-medium mb-2">🔧 Database Setup Required</h4>
+						<p class="text-gray-300 text-sm">
+							To enable section assignments, add this field to your PocketBase "shifts" collection:
+						</p>
+						<div class="bg-gray-900/50 rounded p-2 mt-2 font-mono text-xs text-gray-300">
+							Field Name: assigned_section<br/>
+							Type: Relation<br/>
+							Collection: sections<br/>
+							Max Select: 1<br/>
+							Required: No
+						</div>
+					</div>
+				</div>
+			</div>
+
+			<!-- Available Sections -->
+			<div class="bg-gray-800/50 backdrop-blur-sm rounded-xl border border-gray-700 p-6">
+				<h3 class="text-xl font-semibold mb-4">Available Sections</h3>
+				<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+					{#each $sections as section}
+						<div class="bg-gray-700/50 rounded-lg border border-gray-600 p-4">
+							<div class="flex items-center justify-between mb-3">
+								<div class="flex items-center space-x-2">
+									<span class="text-lg">{getSectionIcon(section.area_type)}</span>
+									<div>
+										<h4 class="font-semibold text-white">{section.section_name}</h4>
+										<p class="text-xs text-gray-400">{section.section_code} • {section.area_type}</p>
+									</div>
+								</div>
+								<span class="px-2 py-1 text-xs rounded-full bg-gray-600 text-gray-300">
+									Ready
+								</span>
+							</div>
+							<p class="text-gray-400 text-sm">
+								Tables: {section.table_count || 'N/A'} • Capacity: {section.max_capacity || 'N/A'}
+							</p>
+						</div>
+					{/each}
+				</div>
+			</div>
+
 		{:else if activeTab === "maintenance"}
 			<!-- Maintenance & Cleaning -->
 			<div class="mb-8 flex justify-between items-center">
@@ -1586,6 +1670,10 @@
 								>
 								<th
 									class="px-6 py-4 text-left text-sm font-medium text-gray-300"
+									>Section</th
+								>
+								<th
+									class="px-6 py-4 text-left text-sm font-medium text-gray-300"
 									>Date</th
 								>
 								<th
@@ -1610,9 +1698,16 @@
 							{#each $shifts as shift}
 								<tr class="hover:bg-gray-700/30">
 									<td class="px-6 py-4 text-sm text-white">
-										{shift.staff_member
-											? "Staff Member"
-											: "Unassigned"}
+										{getStaffMemberName(shift)}
+									</td>
+									<td class="px-6 py-4 text-sm text-gray-300">
+										{#if shift.assigned_section && getSectionName(shift.assigned_section)}
+											<span class="px-2 py-1 rounded-full text-xs bg-blue-900/50 text-blue-300">
+												{getSectionName(shift.assigned_section)}
+											</span>
+										{:else}
+											<span class="text-gray-500">No Section</span>
+										{/if}
 									</td>
 									<td class="px-6 py-4 text-sm text-gray-300">
 										{formatShortDate(shift.shift_date)}

@@ -1,6 +1,6 @@
 <script>
 	import { createEventDispatcher } from 'svelte';
-	import { collections, staff } from '$lib/stores/collections.js';
+	import { collections, staff, sections } from '$lib/stores/collections.js';
 	
 	export let isOpen = false;
 	export let editItem = null; // For editing existing shifts
@@ -10,6 +10,7 @@
 	// Form data
 	let formData = {
 		staff_member: '',
+		assigned_section: '',
 		shift_date: '',
 		start_time: '',
 		end_time: '',
@@ -48,6 +49,7 @@
 	$: if (editItem) {
 		formData = {
 			staff_member: editItem.staff_member || '',
+			assigned_section: editItem.assigned_section || '',
 			shift_date: editItem.shift_date || '',
 			start_time: editItem.start_time || '',
 			end_time: editItem.end_time || '',
@@ -193,8 +195,8 @@
 					</div>
 				{/if}
 				
-				<!-- Staff and Date -->
-				<div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+				<!-- Staff, Section and Date -->
+				<div class="grid grid-cols-1 md:grid-cols-3 gap-4">
 					<!-- Staff Member -->
 					<div>
 						<label for="staff_member" class="block text-sm font-medium text-gray-300 mb-2">
@@ -213,6 +215,26 @@
 							{/each}
 						</select>
 						<p class="text-xs text-gray-400 mt-1">Leave unassigned to create an open shift</p>
+					</div>
+					
+					<!-- Assigned Section -->
+					<div>
+						<label for="assigned_section" class="block text-sm font-medium text-gray-300 mb-2">
+							Assigned Section
+						</label>
+						<select
+							id="assigned_section"
+							bind:value={formData.assigned_section}
+							class="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+						>
+							<option value="">No Section Assignment</option>
+							{#each $sections as section}
+								<option value={section.id}>
+									{section.section_name} ({section.section_code}) - {section.area_type}
+								</option>
+							{/each}
+						</select>
+						<p class="text-xs text-gray-400 mt-1">Assign staff to a specific restaurant section</p>
 					</div>
 					
 					<!-- Shift Date -->
