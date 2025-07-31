@@ -1,0 +1,16 @@
+section_code,section_name,area_type,max_capacity
+A,Main Dining,dining,120
+B,Section B,dining,80
+P,Patio,outdoor,60
+BAR,Bar Area,bar,40
+HT,High Top Tables,dining,32
+PD,Private Dining,private,24
+EXPO,Expo Station,kitchen,3
+HOT,Hot Line,kitchen,2
+COLD,Cold Station,kitchen,2
+PREP,Prep Kitchen,kitchen,4
+DISH,Dish Pit,kitchen,2
+HOST,Host Stand,front,2
+WAIT,Wait Station,front,1
+OFFICE,Manager Office,admin,2
+STORAGE,Storage Areas,storage,1

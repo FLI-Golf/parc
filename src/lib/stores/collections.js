@@ -523,8 +523,26 @@ export const collections = {
 	async getSections() {
 		try {
 			loading.update(state => ({ ...state, sections: true }));
-			const records = await pb.collection('sections_collection').getFullList();
+			console.log('Attempting to fetch sections...');
+			
+			// Try the collection with the expected name first
+			let records;
+			try {
+				records = await pb.collection('sections_collection').getFullList();
+				console.log('Found sections_collection:', records);
+			} catch (firstError) {
+				console.log('sections_collection not found, trying sections:', firstError.message);
+				try {
+					records = await pb.collection('sections').getFullList();
+					console.log('Found sections:', records);
+				} catch (secondError) {
+					console.log('sections not found either:', secondError.message);
+					throw secondError;
+				}
+			}
+			
 			sections.set(records);
+			console.log('Sections loaded into store:', records.length);
 			return records;
 		} catch (error) {
 			console.error('Error fetching sections:', error);
