@@ -41,6 +41,8 @@
 	let editEventItem = null;
 	let showMaintenanceModal = false;
 	let editMaintenanceItem = null;
+	let maintenanceFilter = "all"; // For maintenance task filtering
+	let floorPlanFilter = "overview"; // For floor plan filtering
 
 	// Reactive declarations
 	$: lowStockItems = $inventoryItems.filter(
@@ -100,6 +102,9 @@
 
 	// Maintenance calculations using real data
 	$: displayMaintenanceTasks = $maintenanceTasks; // For compatibility with existing template
+	$: filteredMaintenanceTasks = maintenanceFilter === "all" 
+		? displayMaintenanceTasks 
+		: displayMaintenanceTasks.filter(task => task.frequency === maintenanceFilter);
 	$: overdueTasks = $maintenanceSchedules.filter(
 		(schedule) => schedule.status === "overdue"
 	);
@@ -899,11 +904,61 @@
 			</div>
 		{:else if activeTab === "floor-plan"}
 			<!-- Floor Plan -->
-			<div class="mb-8">
-				<h2 class="text-3xl font-bold">Restaurant Floor Plan</h2>
-				<p class="text-gray-400 mt-2">
-					Visual layout of dining areas, bar, patio, and waiting area
-				</p>
+			<div class="mb-8 flex justify-between items-center">
+				<div>
+					<h2 class="text-3xl font-bold">Restaurant Floor Plan</h2>
+					<p class="text-gray-400 mt-2">
+						Visual layout of dining areas, bar, patio, and waiting area
+					</p>
+				</div>
+			</div>
+
+			<!-- Floor Plan Filter Tabs -->
+			<div class="mb-6">
+				<div class="flex space-x-1 p-1 bg-gray-700/30 rounded-lg max-w-4xl">
+					<button
+						on:click={() => floorPlanFilter = "overview"}
+						class="flex-1 py-3 px-4 text-sm font-medium rounded-md {floorPlanFilter === 'overview' ? 'bg-blue-600 text-white' : 'text-gray-300 hover:bg-gray-600/30'} transition-colors"
+					>
+						<span class="mr-2">🏠</span>
+						Overview
+					</button>
+					<button
+						on:click={() => floorPlanFilter = "server-sections"}
+						class="flex-1 py-3 px-4 text-sm font-medium rounded-md {floorPlanFilter === 'server-sections' ? 'bg-blue-600 text-white' : 'text-gray-300 hover:bg-gray-600/30'} transition-colors"
+					>
+						<span class="mr-2">👥</span>
+						Server Sections
+					</button>
+					<button
+						on:click={() => floorPlanFilter = "busser-sections"}
+						class="flex-1 py-3 px-4 text-sm font-medium rounded-md {floorPlanFilter === 'busser-sections' ? 'bg-blue-600 text-white' : 'text-gray-300 hover:bg-gray-600/30'} transition-colors"
+					>
+						<span class="mr-2">🧹</span>
+						Busser Sections
+					</button>
+					<button
+						on:click={() => floorPlanFilter = "maintenance"}
+						class="flex-1 py-3 px-4 text-sm font-medium rounded-md {floorPlanFilter === 'maintenance' ? 'bg-blue-600 text-white' : 'text-gray-300 hover:bg-gray-600/30'} transition-colors"
+					>
+						<span class="mr-2">🔧</span>
+						Maintenance
+					</button>
+					<button
+						on:click={() => floorPlanFilter = "cleanliness"}
+						class="flex-1 py-3 px-4 text-sm font-medium rounded-md {floorPlanFilter === 'cleanliness' ? 'bg-blue-600 text-white' : 'text-gray-300 hover:bg-gray-600/30'} transition-colors"
+					>
+						<span class="mr-2">✨</span>
+						Cleanliness
+					</button>
+					<button
+						on:click={() => floorPlanFilter = "capacity"}
+						class="flex-1 py-3 px-4 text-sm font-medium rounded-md {floorPlanFilter === 'capacity' ? 'bg-blue-600 text-white' : 'text-gray-300 hover:bg-gray-600/30'} transition-colors"
+					>
+						<span class="mr-2">📊</span>
+						Capacity
+					</button>
+				</div>
 			</div>
 
 			<!-- Floor Plan Container -->
@@ -1372,6 +1427,150 @@
 					</div>
 				</div>
 
+				<!-- Dynamic Filter Content -->
+				{#if floorPlanFilter === "server-sections"}
+					<div class="mt-6 bg-blue-900/20 border border-blue-700/30 rounded-lg p-4">
+						<h4 class="text-lg font-semibold text-blue-300 mb-3">👥 Server Section Assignments</h4>
+						<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+							<div class="bg-blue-800/30 rounded-lg p-3">
+								<div class="flex items-center mb-2">
+									<span class="w-3 h-3 bg-blue-500 rounded-full mr-2"></span>
+									<span class="font-medium">Maria Garcia</span>
+								</div>
+								<p class="text-sm text-gray-300">Section A: Tables 1-6, High Tops 1-2</p>
+								<p class="text-xs text-blue-300">Currently serving 4 tables</p>
+							</div>
+							<div class="bg-green-800/30 rounded-lg p-3">
+								<div class="flex items-center mb-2">
+									<span class="w-3 h-3 bg-green-500 rounded-full mr-2"></span>
+									<span class="font-medium">James Wilson</span>
+								</div>
+								<p class="text-sm text-gray-300">Section B: Tables 7-12, Bar Area</p>
+								<p class="text-xs text-green-300">Currently serving 3 tables</p>
+							</div>
+							<div class="bg-purple-800/30 rounded-lg p-3">
+								<div class="flex items-center mb-2">
+									<span class="w-3 h-3 bg-purple-500 rounded-full mr-2"></span>
+									<span class="font-medium">Sarah Johnson</span>
+								</div>
+								<p class="text-sm text-gray-300">Section C: Patio Tables P1-P6</p>
+								<p class="text-xs text-purple-300">Currently serving 2 tables</p>
+							</div>
+						</div>
+					</div>
+				{:else if floorPlanFilter === "busser-sections"}
+					<div class="mt-6 bg-gray-700/20 border border-gray-600/30 rounded-lg p-4">
+						<h4 class="text-lg font-semibold text-gray-300 mb-3">🧹 Busser Coverage Areas</h4>
+						<div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+							<div class="bg-gray-600/30 rounded-lg p-3">
+								<div class="flex items-center mb-2">
+									<span class="w-3 h-3 bg-orange-500 rounded-full mr-2"></span>
+									<span class="font-medium">Carlos Rodriguez</span>
+								</div>
+								<p class="text-sm text-gray-300">Zone 1: Dining Area A & B</p>
+								<p class="text-xs text-orange-300">3 tables need clearing</p>
+							</div>
+							<div class="bg-gray-600/30 rounded-lg p-3">
+								<div class="flex items-center mb-2">
+									<span class="w-3 h-3 bg-teal-500 rounded-full mr-2"></span>
+									<span class="font-medium">Lisa Thompson</span>
+								</div>
+								<p class="text-sm text-gray-300">Zone 2: Bar & Patio Area</p>
+								<p class="text-xs text-teal-300">All clear - ready for next service</p>
+							</div>
+						</div>
+					</div>
+				{:else if floorPlanFilter === "maintenance"}
+					<div class="mt-6 bg-red-900/20 border border-red-700/30 rounded-lg p-4">
+						<h4 class="text-lg font-semibold text-red-300 mb-3">🔧 Maintenance Alerts by Area</h4>
+						<div class="space-y-3">
+							<div class="bg-red-800/20 border border-red-600/30 rounded-lg p-3">
+								<div class="flex justify-between items-center">
+									<div>
+										<p class="font-medium text-red-200">Kitchen Area</p>
+										<p class="text-sm text-red-300">HVAC Filter Replacement - Overdue</p>
+									</div>
+									<span class="px-2 py-1 bg-red-600 text-white text-xs rounded">URGENT</span>
+								</div>
+							</div>
+							<div class="bg-yellow-800/20 border border-yellow-600/30 rounded-lg p-3">
+								<div class="flex justify-between items-center">
+									<div>
+										<p class="font-medium text-yellow-200">Dining Area</p>
+										<p class="text-sm text-yellow-300">Grease Trap Cleaning - Due Soon</p>
+									</div>
+									<span class="px-2 py-1 bg-yellow-600 text-white text-xs rounded">PENDING</span>
+								</div>
+							</div>
+							<div class="bg-blue-800/20 border border-blue-600/30 rounded-lg p-3">
+								<div class="flex justify-between items-center">
+									<div>
+										<p class="font-medium text-blue-200">Bar Area</p>
+										<p class="text-sm text-blue-300">Ice Machine Cleaning - Scheduled</p>
+									</div>
+									<span class="px-2 py-1 bg-blue-600 text-white text-xs rounded">SCHEDULED</span>
+								</div>
+							</div>
+						</div>
+					</div>
+				{:else if floorPlanFilter === "cleanliness"}
+					<div class="mt-6 bg-green-900/20 border border-green-700/30 rounded-lg p-4">
+						<h4 class="text-lg font-semibold text-green-300 mb-3">✨ Cleanliness Status</h4>
+						<div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+							<div class="bg-green-800/30 rounded-lg p-3">
+								<div class="flex items-center justify-between mb-2">
+									<span class="font-medium">Kitchen</span>
+									<span class="text-green-400">✅</span>
+								</div>
+								<p class="text-sm text-green-300">Deep cleaned 2 hours ago</p>
+								<p class="text-xs text-gray-400">Next cleaning: 4:00 PM</p>
+							</div>
+							<div class="bg-green-800/30 rounded-lg p-3">
+								<div class="flex items-center justify-between mb-2">
+									<span class="font-medium">Dining Area</span>
+									<span class="text-green-400">✅</span>
+								</div>
+								<p class="text-sm text-green-300">Tables sanitized</p>
+								<p class="text-xs text-gray-400">Next cleaning: 6:00 PM</p>
+							</div>
+							<div class="bg-yellow-800/30 rounded-lg p-3">
+								<div class="flex items-center justify-between mb-2">
+									<span class="font-medium">Restrooms</span>
+									<span class="text-yellow-400">⏳</span>
+								</div>
+								<p class="text-sm text-yellow-300">Cleaning in progress</p>
+								<p class="text-xs text-gray-400">ETA: 15 minutes</p>
+							</div>
+						</div>
+					</div>
+				{:else if floorPlanFilter === "capacity"}
+					<div class="mt-6 bg-purple-900/20 border border-purple-700/30 rounded-lg p-4">
+						<h4 class="text-lg font-semibold text-purple-300 mb-3">📊 Real-Time Capacity & Reservations</h4>
+						<div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
+							<div class="bg-purple-800/30 rounded-lg p-3 text-center">
+								<div class="text-2xl font-bold text-purple-300">84%</div>
+								<div class="text-xs text-gray-400">Current Occupancy</div>
+							</div>
+							<div class="bg-blue-800/30 rounded-lg p-3 text-center">
+								<div class="text-2xl font-bold text-blue-300">12</div>
+								<div class="text-xs text-gray-400">Reservations Today</div>
+							</div>
+							<div class="bg-green-800/30 rounded-lg p-3 text-center">
+								<div class="text-2xl font-bold text-green-300">7</div>
+								<div class="text-xs text-gray-400">Available Now</div>
+							</div>
+							<div class="bg-orange-800/30 rounded-lg p-3 text-center">
+								<div class="text-2xl font-bold text-orange-300">45m</div>
+								<div class="text-xs text-gray-400">Avg Wait Time</div>
+							</div>
+						</div>
+						<div class="text-sm text-gray-300">
+							<p><strong>Peak times today:</strong> 12:30-1:30 PM (lunch), 7:00-8:30 PM (dinner)</p>
+							<p><strong>Next available 4-top:</strong> 6:45 PM</p>
+						</div>
+					</div>
+				{/if}
+
 				<!-- Quick Stats -->
 				<div class="mt-6 grid grid-cols-4 gap-4">
 					<div class="bg-gray-700/30 rounded-lg p-3 text-center">
@@ -1596,29 +1795,33 @@
 						class="flex space-x-1 mb-4 p-1 bg-gray-700/30 rounded-lg"
 					>
 						<button
-							class="flex-1 py-2 text-sm font-medium rounded-md bg-blue-600 text-white"
+							on:click={() => maintenanceFilter = "all"}
+							class="flex-1 py-2 text-sm font-medium rounded-md {maintenanceFilter === 'all' ? 'bg-blue-600 text-white' : 'text-gray-300 hover:bg-gray-600/30'}"
 						>
 							All
 						</button>
 						<button
-							class="flex-1 py-2 text-sm font-medium rounded-md text-gray-300 hover:bg-gray-600/30"
+							on:click={() => maintenanceFilter = "daily"}
+							class="flex-1 py-2 text-sm font-medium rounded-md {maintenanceFilter === 'daily' ? 'bg-blue-600 text-white' : 'text-gray-300 hover:bg-gray-600/30'}"
 						>
 							Daily
 						</button>
 						<button
-							class="flex-1 py-2 text-sm font-medium rounded-md text-gray-300 hover:bg-gray-600/30"
+							on:click={() => maintenanceFilter = "weekly"}
+							class="flex-1 py-2 text-sm font-medium rounded-md {maintenanceFilter === 'weekly' ? 'bg-blue-600 text-white' : 'text-gray-300 hover:bg-gray-600/30'}"
 						>
 							Weekly
 						</button>
 						<button
-							class="flex-1 py-2 text-sm font-medium rounded-md text-gray-300 hover:bg-gray-600/30"
+							on:click={() => maintenanceFilter = "monthly"}
+							class="flex-1 py-2 text-sm font-medium rounded-md {maintenanceFilter === 'monthly' ? 'bg-blue-600 text-white' : 'text-gray-300 hover:bg-gray-600/30'}"
 						>
 							Monthly
 						</button>
 					</div>
 
 					<div class="space-y-3 max-h-96 overflow-y-auto">
-						{#each displayMaintenanceTasks as task}
+						{#each filteredMaintenanceTasks as task}
 							<div
 								class="flex justify-between items-center p-3 bg-gray-700/30 rounded-lg hover:bg-gray-600/30 transition-colors"
 							>
