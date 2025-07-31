@@ -125,6 +125,12 @@
 		(schedule) => schedule.status === "completed"
 	);
 	$: recentRecords = $maintenanceRecords.slice(-5); // Last 5 completed records
+	
+	// Urgent maintenance tasks
+	$: urgentTasks = $maintenanceTasks.filter(task => 
+		task.priority === 'urgent' || task.priority === 'high' || 
+		(task.due_date && new Date(task.due_date) < new Date())
+	);
 
 	// Table management reactive declarations
 	$: tablesBySection = $tables.reduce((acc, table) => {
@@ -1399,9 +1405,81 @@
 				</div>
 			</div>
 
-			<!-- Maintenance Filter and Tasks Section will continue here -->
+			<!-- Maintenance Tasks List -->
 			<div class="space-y-6">
-				<!-- This is where the rest of the maintenance section content would go -->
+				<div class="bg-gray-800/50 backdrop-blur-sm rounded-xl border border-gray-700 p-6">
+					<h3 class="text-xl font-semibold mb-4">Maintenance Tasks</h3>
+					{#if $loading.maintenance}
+						<div class="flex justify-center items-center h-32">
+							<div class="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-blue-500"></div>
+						</div>
+					{:else if $maintenanceTasks.length > 0}
+						<div class="overflow-x-auto">
+							<table class="w-full">
+								<thead class="bg-gray-700/50">
+									<tr>
+										<th class="px-4 py-3 text-left text-sm font-medium text-gray-300">Task</th>
+										<th class="px-4 py-3 text-left text-sm font-medium text-gray-300">Priority</th>
+										<th class="px-4 py-3 text-left text-sm font-medium text-gray-300">Due Date</th>
+										<th class="px-4 py-3 text-left text-sm font-medium text-gray-300">Status</th>
+										<th class="px-4 py-3 text-left text-sm font-medium text-gray-300">Actions</th>
+									</tr>
+								</thead>
+								<tbody class="divide-y divide-gray-700">
+									{#each $maintenanceTasks as task}
+										<tr class="hover:bg-gray-700/30">
+											<td class="px-4 py-3 text-sm text-white">
+												<div>
+													<div class="font-medium">{task.task_name || 'Maintenance Task'}</div>
+													{#if task.description}
+														<div class="text-gray-400 text-xs">{task.description}</div>
+													{/if}
+												</div>
+											</td>
+											<td class="px-4 py-3 text-sm">
+												<span class="px-2 py-1 rounded-full text-xs {task.priority === 'urgent' ? 'bg-red-900/50 text-red-300' : task.priority === 'high' ? 'bg-orange-900/50 text-orange-300' : task.priority === 'medium' ? 'bg-yellow-900/50 text-yellow-300' : 'bg-gray-900/50 text-gray-300'}">
+													{task.priority || 'medium'}
+												</span>
+											</td>
+											<td class="px-4 py-3 text-sm text-gray-300">
+												{task.due_date ? formatShortDate(task.due_date) : 'No due date'}
+											</td>
+											<td class="px-4 py-3 text-sm">
+												<span class="px-2 py-1 rounded-full text-xs {task.status === 'completed' ? 'bg-green-900/50 text-green-300' : task.status === 'in_progress' ? 'bg-blue-900/50 text-blue-300' : 'bg-gray-900/50 text-gray-300'}">
+													{task.status || 'pending'}
+												</span>
+											</td>
+											<td class="px-4 py-3 text-sm">
+												<button
+													on:click={() => openMaintenanceModal(task)}
+													class="text-blue-400 hover:text-blue-300 mr-3"
+												>
+													Edit
+												</button>
+												<button
+													on:click={() => handleDeleteMaintenance(task)}
+													class="text-red-400 hover:text-red-300"
+												>
+													Delete
+												</button>
+											</td>
+										</tr>
+									{/each}
+								</tbody>
+							</table>
+						</div>
+					{:else}
+						<div class="text-center py-8">
+							<div class="text-gray-400 mb-4">No maintenance tasks scheduled</div>
+							<button
+								on:click={() => openMaintenanceModal()}
+								class="px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded-lg text-sm font-medium"
+							>
+								Schedule First Task
+							</button>
+						</div>
+					{/if}
+				</div>
 			</div>
 		{:else if activeTab === "inventory"}
 			<!-- Inventory Management -->
