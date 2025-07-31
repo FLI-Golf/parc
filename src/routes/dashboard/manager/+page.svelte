@@ -158,9 +158,16 @@
 	// Get section icon by area type
 	function getSectionIcon(areaType) {
 		switch (areaType) {
+			case 'dining':
 			case 'dining_room': return '🍽️';
 			case 'bar': return '🍺';
+			case 'kitchen': return '👨‍🍳';
+			case 'front': return '🏠';
+			case 'admin': return '💼';
+			case 'storage': return '📦';
+			case 'outdoor':
 			case 'patio': return '🌿';
+			case 'private':
 			case 'private_dining': return '🏛️';
 			case 'other': return '📍';
 			default: return '🏢';
@@ -170,13 +177,55 @@
 	// Get section colors by area type
 	function getSectionColors(areaType) {
 		switch (areaType) {
-			case 'dining_room': return 'from-green-900/50 to-green-800/30 border-green-700/50';
-			case 'bar': return 'from-purple-900/50 to-purple-800/30 border-purple-700/50';
-			case 'patio': return 'from-emerald-900/50 to-emerald-800/30 border-emerald-700/50';
-			case 'private_dining': return 'from-blue-900/50 to-blue-800/30 border-blue-700/50';
-			case 'other': return 'from-gray-900/50 to-gray-800/30 border-gray-700/50';
-			default: return 'from-gray-900/50 to-gray-800/30 border-gray-700/50';
+			case 'dining':
+			case 'dining_room': return { 
+				gradient: 'from-green-900/50 to-green-800/30 border-green-700/50',
+				badge: 'bg-green-900/50 text-green-300'
+			};
+			case 'bar': return { 
+				gradient: 'from-purple-900/50 to-purple-800/30 border-purple-700/50',
+				badge: 'bg-purple-900/50 text-purple-300'
+			};
+			case 'kitchen': return { 
+				gradient: 'from-orange-900/50 to-orange-800/30 border-orange-700/50',
+				badge: 'bg-orange-900/50 text-orange-300'
+			};
+			case 'front': return { 
+				gradient: 'from-blue-900/50 to-blue-800/30 border-blue-700/50',
+				badge: 'bg-blue-900/50 text-blue-300'
+			};
+			case 'admin': return { 
+				gradient: 'from-gray-900/50 to-gray-800/30 border-gray-700/50',
+				badge: 'bg-gray-900/50 text-gray-300'
+			};
+			case 'storage': return { 
+				gradient: 'from-yellow-900/50 to-yellow-800/30 border-yellow-700/50',
+				badge: 'bg-yellow-900/50 text-yellow-300'
+			};
+			case 'outdoor':
+			case 'patio': return { 
+				gradient: 'from-emerald-900/50 to-emerald-800/30 border-emerald-700/50',
+				badge: 'bg-emerald-900/50 text-emerald-300'
+			};
+			case 'private':
+			case 'private_dining': return { 
+				gradient: 'from-blue-900/50 to-blue-800/30 border-blue-700/50',
+				badge: 'bg-blue-900/50 text-blue-300'
+			};
+			case 'other': return { 
+				gradient: 'from-gray-900/50 to-gray-800/30 border-gray-700/50',
+				badge: 'bg-gray-900/50 text-gray-300'
+			};
+			default: return { 
+				gradient: 'from-gray-900/50 to-gray-800/30 border-gray-700/50',
+				badge: 'bg-gray-900/50 text-gray-300'
+			};
 		}
+	}
+
+	// Check if area type has tables vs work stations
+	function isTableArea(areaType) {
+		return ['dining', 'dining_room', 'bar', 'outdoor', 'patio', 'private', 'private_dining'].includes(areaType);
 	}
 
 	// Table status color helper
@@ -1140,7 +1189,7 @@
 							{@const sectionIcon = getSectionIcon(section.area_type)}
 							{@const sectionColors = getSectionColors(section.area_type)}
 							<div
-								class="bg-gradient-to-br {sectionColors} rounded-lg border p-4 relative min-h-[280px]"
+								class="bg-gradient-to-br {sectionColors.gradient} rounded-lg border p-4 relative min-h-[280px]"
 							>
 								<!-- Section Header -->
 								<div class="mb-4">
@@ -1150,54 +1199,87 @@
 									</h3>
 									<p class="text-gray-300 text-sm">
 										{section.section_code} • {section.area_type || 'Standard'} • 
-										{sectionTables.length} tables
+										{#if isTableArea(section.area_type)}
+											{sectionTables.length} tables
+										{:else}
+											0 tables
+										{/if}
 										{#if section.max_capacity}
 											• Max {section.max_capacity} people
 										{/if}
 									</p>
 								</div>
 
-								<!-- Tables in Section -->
-								<div class="grid grid-cols-3 gap-2 mb-4">
-									{#each sectionTables.slice(0, 9) as table}
-										{@const statusClasses = getTableStatusClasses(table.status)}
-										<div
-											class="{statusClasses.bg} rounded border {statusClasses.border} flex flex-col items-center justify-center relative group {statusClasses.hover} transition-colors cursor-pointer p-2 min-h-[60px]"
-										>
-											<span class="{statusClasses.text} text-xs font-medium"
-												>{table.table_name}</span
-											>
-											<span class="{statusClasses.text} text-xs opacity-75">
-												{table.capacity || 0}
-											</span>
+								{#if isTableArea(section.area_type)}
+									<!-- Tables in Section -->
+									<div class="grid grid-cols-3 gap-2 mb-4">
+										{#each sectionTables.slice(0, 9) as table}
+											{@const statusClasses = getTableStatusClasses(table.status)}
 											<div
-												class="absolute -top-1 -right-1 w-2 h-2 {statusClasses.indicator} rounded-full {table.status === 'available' ? 'animate-pulse' : ''}"
-											/>
-											<div
-												class="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity {statusClasses.overlay} rounded flex items-center justify-center"
+												class="{statusClasses.bg} rounded border {statusClasses.border} flex flex-col items-center justify-center relative group {statusClasses.hover} transition-colors cursor-pointer p-2 min-h-[60px]"
 											>
-												<span class="text-xs {statusClasses.text} text-center">
-													{table.capacity || 0} seats<br>{table.status || 'Unknown'}
+												<span class="{statusClasses.text} text-xs font-medium"
+													>{table.table_name}</span
+												>
+												<span class="{statusClasses.text} text-xs opacity-75">
+													{table.capacity || 0}
 												</span>
+												<div
+													class="absolute -top-1 -right-1 w-2 h-2 {statusClasses.indicator} rounded-full {table.status === 'available' ? 'animate-pulse' : ''}"
+												/>
+												<div
+													class="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity {statusClasses.overlay} rounded flex items-center justify-center"
+												>
+													<span class="text-xs {statusClasses.text} text-center">
+														{table.capacity || 0} seats<br>{table.status || 'Unknown'}
+													</span>
+												</div>
+											</div>
+										{/each}
+										<!-- Show more indicator if there are additional tables -->
+										{#if sectionTables.length > 9}
+											<div class="bg-gray-700/30 rounded border border-gray-600/50 flex items-center justify-center p-2 min-h-[60px]">
+												<span class="text-gray-400 text-xs">+{sectionTables.length - 9} more</span>
+											</div>
+										{/if}
+									</div>
+
+									<!-- Table Stats -->
+									<div class="absolute bottom-4 left-4 right-4">
+										<div class="flex justify-between text-xs text-gray-300">
+											<span>Available: {sectionTables.filter(t => t.status === 'available').length}</span>
+											<span>Occupied: {sectionTables.filter(t => t.status === 'occupied').length}</span>
+											<span>Reserved: {sectionTables.filter(t => t.status === 'reserved').length}</span>
+										</div>
+									</div>
+								{:else}
+									<!-- Work Station Information -->
+									<div class="flex-1 flex flex-col justify-center">
+										<div class="text-center py-8">
+											<div class="text-4xl mb-4">{getSectionIcon(section.area_type)}</div>
+											<p class="text-gray-300 text-sm mb-4">{section.description || 'Work station area'}</p>
+											
+											<!-- Placeholder for future ticket/order integration -->
+											<div class="grid grid-cols-2 gap-4 text-xs">
+												<div class="bg-gray-700/30 rounded p-3">
+													<div class="text-gray-400">Staff Assigned</div>
+													<div class="text-white font-medium">Coming Soon</div>
+												</div>
+												<div class="bg-gray-700/30 rounded p-3">
+													<div class="text-gray-400">Active Orders</div>
+													<div class="text-white font-medium">Coming Soon</div>
+												</div>
 											</div>
 										</div>
-									{/each}
-									<!-- Show more indicator if there are additional tables -->
-									{#if sectionTables.length > 9}
-										<div class="bg-gray-700/30 rounded border border-gray-600/50 flex items-center justify-center p-2 min-h-[60px]">
-											<span class="text-gray-400 text-xs">+{sectionTables.length - 9} more</span>
-										</div>
-									{/if}
-								</div>
-
-								<!-- Section Stats -->
-								<div class="absolute bottom-4 left-4 right-4">
-									<div class="flex justify-between text-xs text-gray-300">
-										<span>Available: {sectionTables.filter(t => t.status === 'available').length}</span>
-										<span>Occupied: {sectionTables.filter(t => t.status === 'occupied').length}</span>
-										<span>Reserved: {sectionTables.filter(t => t.status === 'reserved').length}</span>
 									</div>
-								</div>
+
+									<!-- Work Station Stats -->
+									<div class="absolute bottom-4 left-4 right-4">
+										<div class="text-center text-xs text-gray-300">
+											<span class="px-2 py-1 rounded-full {sectionColors.badge}">Work Station</span>
+										</div>
+									</div>
+								{/if}
 							</div>
 						{/each}
 

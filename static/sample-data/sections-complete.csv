@@ -1,0 +1,16 @@
+section_code,section_name,area_type,description,max_capacity,table_count
+A,Main Dining,dining,Primary dining area with standard tables,120,15
+B,Section B,dining,Secondary dining section,80,10
+P,Patio,outdoor,Outdoor dining area,60,8
+BAR,Bar Area,bar,Bar seating and cocktail area,40,12
+HT,High Top Tables,dining,High top table section,32,8
+PD,Private Dining,private,Private event and dining space,24,3
+EXPO,Expo Station,kitchen,Food expediting and plating station,3,0
+HOT,Hot Line,kitchen,Hot food preparation and cooking,2,0
+COLD,Cold Station,kitchen,Salad and cold appetizer prep,2,0
+PREP,Prep Kitchen,kitchen,Food preparation and storage,4,0
+DISH,Dish Pit,kitchen,Dishwashing and sanitation area,2,0
+HOST,Host Stand,front,Guest reception and seating coordination,2,0
+WAIT,Wait Station,front,Server station and beverage prep,1,0
+OFFICE,Manager Office,admin,Administrative and management space,2,0
+STORAGE,Storage Areas,storage,Food and supply storage areas,1,0
