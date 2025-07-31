@@ -10,7 +10,7 @@
 	let passwordConfirm = '';
 	let phone = '';
 	let avatar: File | null = null;
-	let role = 'Server';
+	let role = 'server';
 	let emailVisibility = true;
 	let error = data.error || '';
 	let success = data.success || false;
@@ -136,7 +136,7 @@
 	</div>
 
 	<!-- Role is set to Server by default and not user-selectable -->
-	<input type="hidden" name="role" value="Server" />
+	<input type="hidden" name="role" value="server" />
 
 	<div class="mb-6">
 		<label class="flex items-center">

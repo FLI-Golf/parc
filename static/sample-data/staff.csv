@@ -1,0 +1,15 @@
+user_id,first_name,last_name,email,phone,position,hourly_rate,hire_date,status
+,Pierre,Dubois,pierre.dubois@parcbistro.com,555-0101,manager,28.00,2024-09-01,active
+,Marie,Rousseau,marie.rousseau@parcbistro.com,555-0102,server,18.50,2024-09-15,active
+,Antoine,Moreau,antoine.moreau@parcbistro.com,555-0103,chef,26.00,2024-08-20,active
+,Isabelle,Laurent,isabelle.laurent@parcbistro.com,555-0104,server,18.50,2024-09-20,active
+,Jacques,Bernard,jacques.bernard@parcbistro.com,555-0105,bartender,22.00,2024-09-10,active
+,Céline,Petit,celine.petit@parcbistro.com,555-0106,host,17.00,2024-09-25,active
+,François,Martin,francois.martin@parcbistro.com,555-0107,server,18.50,2024-09-18,active
+,Sylvie,Leroy,sylvie.leroy@parcbistro.com,555-0108,chef,26.00,2024-08-25,active
+,Luc,Garcia,luc.garcia@parcbistro.com,555-0109,busser,16.00,2024-09-22,active
+,Amélie,Roux,amelie.roux@parcbistro.com,555-0110,server,18.50,2024-09-28,active
+,Philippe,Fournier,philippe.fournier@parcbistro.com,555-0111,dishwasher,15.50,2024-09-30,active
+,Nathalie,Girard,nathalie.girard@parcbistro.com,555-0112,kitchen_prep,17.50,2024-09-12,active
+,Henri,Blanc,henri.blanc@parcbistro.com,555-0113,bartender,22.00,2024-09-08,active
+,Camille,Durand,camille.durand@parcbistro.com,555-0114,host,17.00,2024-09-26,active

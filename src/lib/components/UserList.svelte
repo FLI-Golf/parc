@@ -7,7 +7,7 @@
   let loading = false;
   let error: string | null = null;
   let searchQuery = '';
-  let selectedRole: 'All' | 'Manager' | 'Server' = 'All';
+  let selectedRole: 'All' | 'owner' | 'manager' | 'server' | 'host' | 'bartender' | 'busser' | 'chef' | 'kitchen_prep' | 'dishwasher' = 'All';
   let showVerifiedOnly = false;
 
   // Load users on component mount
@@ -91,8 +91,15 @@
           class="w-full px-4 py-2 bg-gray-700/50 border border-gray-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
         >
           <option value="All">All Roles</option>
-          <option value="Manager">Manager</option>
-          <option value="Server">Server</option>
+          <option value="owner">Owner</option>
+          <option value="manager">Manager</option>
+          <option value="server">Server</option>
+          <option value="host">Host</option>
+          <option value="bartender">Bartender</option>
+          <option value="busser">Busser</option>
+          <option value="chef">Chef</option>
+          <option value="kitchen_prep">Kitchen Prep</option>
+          <option value="dishwasher">Dishwasher</option>
         </select>
       </div>
 
@@ -170,7 +177,7 @@
                 <p class="text-sm text-gray-400 truncate">{user.email}</p>
                 <div class="flex items-center mt-1">
                   <span class={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                    user.role === 'Manager' 
+                    user.role === 'manager' || user.role === 'owner' 
                       ? 'bg-blue-900/50 text-blue-300' 
                       : 'bg-green-900/50 text-green-300'
                   }`}>

@@ -55,11 +55,7 @@ The `sample_collections.json` file contains two sample collections:
 Update your `.env` file with the correct PocketBase URL:
 
 ```
-DATABASE_URL=file:local.db
-POCKETBASE_URL=https://pocketbase-app-1753896437.fly.dev
-PUBLIC_POCKETBASE_URL=https://pocketbase-app-1753896437.fly.dev
-POCKETBASE_EMAIL=ddinsmore8@gmail.com
-POCKETBASE_PASSWORD=your_secure_password
+VITE_POCKETBASE_URL=https://pocketbase-app-1753896437.fly.dev/
 ```
 
 ## Connecting from Your SvelteKit App

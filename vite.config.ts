@@ -6,7 +6,7 @@ export default defineConfig({
 	plugins: [tailwindcss(), sveltekit()],
 	server: {
 		allowedHosts: [
-			'5173-fligolf-parc-15dhzmo1ieo.ws-us120.gitpod.io'
+			'5173-fligolf-parc-yzgx6z7qjym.ws-us120.gitpod.io'
 		]
 	}
 });

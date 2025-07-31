@@ -1,0 +1,16 @@
+name,description,category,price,cost,ingredients,allergens,preparation_time,available
+Escargots de Bourgogne,Classic French snails in garlic herb butter,appetizer,16.99,6.50,"snails, garlic, parsley, butter","dairy",12,true
+Coq au Vin,Braised chicken in red wine sauce,main_course,28.99,12.25,"chicken, red wine, mushrooms, bacon",,45,true
+Bouillabaisse,Traditional Provençal fish stew,main_course,32.99,15.50,"fish, shellfish, saffron, tomatoes","fish,shellfish",35,true
+Crème Brûlée,Classic vanilla custard with caramelized sugar,dessert,12.99,4.25,"cream, vanilla, eggs, sugar","dairy,eggs",8,true
+Bordeaux Rouge,Premium French red wine,beverage,14.99,7.50,"red wine",,1,true
+Ratatouille,Traditional vegetable stew from Provence,main_course,22.99,8.75,"eggplant, zucchini, tomatoes, herbs",,25,true
+Baguette avec Beurre,Fresh baguette with French butter,side_dish,8.99,2.25,"baguette, butter","gluten,dairy",5,true
+Salade Niçoise,Nice-style salad with tuna and olives,appetizer,18.99,7.50,"mixed greens, tuna, olives, anchovies","fish",10,true
+Tarte Tatin,Upside-down apple tart,dessert,11.99,4.25,"apples, pastry, caramel","gluten,dairy,eggs",6,true
+Champagne Cocktail,Classic champagne with bitters,beverage,16.99,6.75,"champagne, bitters, sugar",,2,true
+Cassoulet,White bean stew with duck and sausage,main_course,26.99,11.75,"white beans, duck, sausage",,40,true
+Pâté de Foie Gras,Rich duck liver pâté,appetizer,24.99,12.25,"foie gras, cognac, herbs",,8,true
+Profiteroles,Cream puffs with chocolate sauce,dessert,10.99,3.50,"choux pastry, cream, chocolate","gluten,dairy,eggs",5,true
+Salade de Chèvre Chaud,Warm goat cheese salad,appetizer,15.99,6.75,"mixed greens, goat cheese, walnuts","dairy,nuts",12,true
+Moules Marinière,Mussels in white wine and herbs,main_course,24.99,9.25,"mussels, white wine, shallots","shellfish",18,true

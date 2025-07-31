@@ -1,50 +1,46 @@
 <script>
 	import { onMount } from 'svelte';
-	import PocketBase from 'pocketbase';
 	import { goto } from '$app/navigation';
-	
-	// Initialize PocketBase client
-	const pb = new PocketBase('https://pocketbase-app-1753896437.fly.dev');
+	import { authStore } from '$lib/auth.js';
 	
 	let user = null;
 	let loading = true;
 	let error = '';
 	
-	// Check if user is logged in and fetch user data
+	// Check if user is logged in and redirect to role-specific dashboard
 	onMount(async () => {
-		if (!pb.authStore.isValid) {
-			// Redirect to login if not authenticated
-			goto('/');
-		} else {
-			try {
-				// Fetch current user data
-				user = structuredClone(pb.authStore.model);
-				console.log('Current user:', user);
-			} catch (err) {
-				console.error('Error fetching user data:', err);
-				error = 'Failed to load user data';
-			} finally {
-				loading = false;
+		const unsubscribe = authStore.subscribe((auth) => {
+			if (!auth.isLoggedIn && !auth.isLoading) {
+				// Redirect to login if not authenticated
+				goto('/');
+				return;
 			}
-		}
+
+			if (auth.isLoggedIn) {
+				user = auth.user;
+				loading = false;
+
+				// Redirect to role-specific dashboard
+				const userRole = auth.role?.toLowerCase();
+				if (userRole === 'manager' || userRole === 'owner') {
+					goto('/dashboard/manager');
+				} else if (['server', 'host', 'bartender', 'busser', 'chef', 'kitchen_prep', 'dishwasher'].includes(userRole)) {
+					goto('/dashboard/server');
+				} else {
+					// For users without specific roles or unknown roles
+					console.log('User role:', auth.role);
+				}
+			}
+		});
+
+		return unsubscribe;
 	});
 	
 	// Handle logout
-	function handleLogout() {
-		pb.authStore.clear();
+	async function handleLogout() {
+		const { auth } = await import('$lib/auth.js');
+		await auth.logout();
 		goto('/');
-	}
-	
-	// Handle profile update
-	async function updateProfile() {
-		try {
-			// This would be implemented with a form and actual update logic
-			console.log('Profile update requested');
-			alert('Profile update functionality would be implemented here');
-		} catch (err) {
-			console.error('Error updating profile:', err);
-			error = 'Failed to update profile';
-		}
 	}
 </script>
 

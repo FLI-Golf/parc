@@ -1,0 +1,16 @@
+name,description,category,unit,current_stock,min_stock_level,max_stock_level,cost_per_unit,expiry_date
+Bordeaux Wine,Premium French red wine,beverages,bottle,24,12,60,22.50,2026-12-31
+Cognac,Premium French cognac,beverages,bottle,8,4,20,85.99,
+Champagne,French champagne,beverages,bottle,12,6,30,45.99,
+Duck Breast,Fresh duck breast,food,kg,15,8,40,18.99,2024-10-20
+French Butter,Normandy butter,food,kg,10,5,25,12.50,2024-10-25
+Baguette Flour,French bread flour,food,kg,50,20,150,3.75,2024-12-15
+Foie Gras,Duck liver pâté,food,kg,3,2,8,125.99,2024-10-18
+Snails,Escargots de Bourgogne,food,can,20,10,40,8.25,2024-11-30
+Gruyere Cheese,Aged French cheese,food,kg,8,4,20,28.50,2024-11-15
+White Wine,French Sauvignon Blanc,beverages,bottle,18,10,45,18.99,2025-08-30
+Cocktail Shakers,Stainless steel shakers,equipment,piece,12,6,25,24.99,
+Fresh Herbs,Mixed French herbs,food,kg,5,3,15,15.75,2024-10-15
+Saffron,Premium saffron threads,food,gram,50,25,100,8.99,2025-06-30
+Bar Towels,Professional bar towels,supplies,pack,20,10,50,12.25,
+Mussels,Fresh Atlantic mussels,food,kg,12,8,30,14.99,2024-10-12

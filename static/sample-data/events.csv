@@ -1,0 +1,11 @@
+name,description,event_type,event_date,start_time,end_time,guest_count,contact_name,contact_email,contact_phone,status,special_requirements,estimated_revenue
+Grand Opening Celebration,Official restaurant opening celebration,other,2024-10-15,17:00,23:00,150,Restaurant Manager,manager@parcbistro.com,555-0101,confirmed,Media coverage and champagne service,12500.00
+World Series Game 1 Party,Watch party for World Series opener,other,2024-10-25,18:00,23:00,85,Restaurant Manager,manager@parcbistro.com,555-0101,confirmed,Large screen TVs and sports menu,4200.00
+World Series Game 2 Party,Watch party for World Series game 2,other,2024-10-26,18:00,23:00,90,Restaurant Manager,manager@parcbistro.com,555-0101,confirmed,Extended bar hours,4500.00
+Wine Tasting Evening,French wine education event,other,2024-11-08,19:00,22:00,40,Sommelier Marie,marie@parcbistro.com,555-0102,confirmed,Wine expert and French cheese,2800.00
+Thanksgiving French Style,French-inspired Thanksgiving dinner,holiday_special,2024-11-28,16:00,22:00,120,Restaurant Manager,manager@parcbistro.com,555-0101,confirmed,Special French holiday menu,8500.00
+Corporate Holiday Party,End-of-year corporate celebration,corporate_event,2024-12-14,18:00,23:00,75,Sarah Mitchell,s.mitchell@techcorp.com,555-2002,confirmed,Open bar and French catering,6200.00
+New Year's Eve Gala,Elegant French New Year celebration,holiday_special,2024-12-31,20:00,02:00,100,Restaurant Manager,manager@parcbistro.com,555-0101,confirmed,Champagne toast and live music,15000.00
+Private Wine Dinner,Exclusive 6-course wine pairing,private_party,2024-11-15,18:30,22:00,20,Robert Laurent,r.laurent@email.com,555-2004,confirmed,Bordeaux wine pairings,3200.00
+World Series Finals Party,Championship game viewing,other,2024-11-01,18:00,24:00,120,Restaurant Manager,manager@parcbistro.com,555-0101,confirmed,All-night viewing with French bar snacks,7500.00
+French Cooking Class,Interactive cooking demonstration,other,2024-11-22,18:00,21:00,25,Chef Antoine,antoine@parcbistro.com,555-0103,confirmed,Hands-on cooking experience,1875.00
