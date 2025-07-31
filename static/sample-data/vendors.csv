@@ -1,0 +1,11 @@
+name,contact_person,email,phone,address,category,payment_terms,status,notes
+Bordeaux Wine Imports,Jean-Luc Montaigne,jean@bordeauxwines.com,555-1001,123 Wine District,beverage_supplier,Net 30,active,Premium French wines and champagnes
+Les Fromages de France,Marie Chevalier,marie@fromagesdefrance.com,555-1002,456 Cheese Quarter,food_supplier,Net 15,active,Authentic French cheeses and dairy
+Poissonnerie Atlantique,François Delacroix,francois@atlantique.com,555-1003,789 Harbor Dr,food_supplier,COD,active,Fresh seafood and shellfish
+Équipement Culinaire Pro,Sophie Laurent,sophie@equipementpro.com,555-1004,321 Restaurant Row,equipment,Net 45,active,Professional kitchen equipment
+Cognac & Spirits Import,Henri Dubois,henri@cognacimports.com,555-1005,654 Spirits Way,beverage_supplier,Net 21,active,Premium cognac and French spirits
+Boulangerie Supplies,Pierre Boulanger,pierre@boulangerie.com,555-1006,987 Bakery Blvd,food_supplier,Net 30,active,French bread and pastry ingredients
+Linge de Table Élégant,Céline Rousseau,celine@lingeelegant.com,555-1007,147 Textile St,linen_service,Weekly,active,Fine dining linens and uniforms
+Réparation Bistro Tech,Antoine Moreau,antoine@bistrotech.com,555-1008,258 Tech Park,maintenance,As needed,active,Restaurant equipment maintenance
+Ferme Normande,Isabelle Fermier,isabelle@fermenormande.com,555-1009,369 Farm Rd,food_supplier,Net 14,active,Normandy butter and fresh produce
+Épices et Herbes Françaises,Luc Herboriste,luc@epicesfrancaises.com,555-1010,741 Spice Lane,food_supplier,Net 30,active,French herbs and specialty seasonings

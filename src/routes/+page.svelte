@@ -29,8 +29,15 @@
 			const authData = await pb.collection('users').authWithPassword(email, password);
 			console.log('User authenticated:', authData);
 			
-			// Redirect to dashboard
-			goto('/dashboard');
+			// Redirect based on role
+			const userRole = authData.record.role?.toLowerCase();
+			if (userRole === 'manager' || userRole === 'owner') {
+				goto('/dashboard/manager');
+			} else if (['server', 'host', 'bartender', 'busser', 'chef', 'kitchen_prep', 'dishwasher'].includes(userRole)) {
+				goto('/dashboard/server');
+			} else {
+				goto('/dashboard');
+			}
 		} catch (err) {
 			console.error('Login error:', err);
 			error = 'Invalid email or password. Please try again.';

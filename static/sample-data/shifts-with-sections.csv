@@ -1,0 +1,11 @@
+staff_member,assigned_section,shift_date,start_time,end_time,break_duration,position,status,notes
+staff_john,section_001,2024-10-14,17:00,23:00,30,server,confirmed,Main dining room coverage
+staff_sarah,section_002,2024-10-14,14:00,23:00,45,chef,confirmed,Kitchen lead for dinner rush
+staff_mike,section_003,2024-10-14,17:00,23:00,30,server,confirmed,Bar area coverage
+staff_alex,section_001,2024-10-14,16:00,02:00,30,bartender,confirmed,Evening bartender
+staff_lisa,section_004,2024-10-14,16:30,22:30,30,host,confirmed,Front desk and greeting
+staff_tom,section_002,2024-10-24,15:00,23:00,45,chef,scheduled,Weekend prep cook
+staff_emma,section_003,2024-10-24,16:00,02:00,30,bartender,scheduled,Weekend bartender
+staff_david,section_001,2024-10-25,16:00,02:00,30,dishwasher,scheduled,Dishwasher shift
+staff_kelly,section_002,2024-11-07,18:00,22:00,30,kitchen_prep,scheduled,Prep work for next day
+staff_chris,section_004,2024-11-07,18:30,22:30,30,host,scheduled,Evening host coverage

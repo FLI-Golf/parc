@@ -1,0 +1,449 @@
+[
+  {
+    "id": "product_requests",
+    "name": "product_requests",
+    "type": "base",
+    "system": false,
+    "schema": [
+      {
+        "id": "requested_by",
+        "name": "requested_by",
+        "type": "relation",
+        "system": false,
+        "required": true,
+        "unique": false,
+        "options": {
+          "collectionId": "staff",
+          "cascadeDelete": false,
+          "minSelect": null,
+          "maxSelect": 1,
+          "displayFields": ["first_name", "last_name"]
+        }
+      },
+      {
+        "id": "inventory_item",
+        "name": "inventory_item",
+        "type": "relation",
+        "system": false,
+        "required": true,
+        "unique": false,
+        "options": {
+          "collectionId": "inventory_items",
+          "cascadeDelete": false,
+          "minSelect": null,
+          "maxSelect": 1,
+          "displayFields": ["name"]
+        }
+      },
+      {
+        "id": "quantity_requested",
+        "name": "quantity_requested",
+        "type": "number",
+        "system": false,
+        "required": true,
+        "unique": false,
+        "options": {
+          "min": 1,
+          "max": null
+        }
+      },
+      {
+        "id": "urgency",
+        "name": "urgency",
+        "type": "select",
+        "system": false,
+        "required": true,
+        "unique": false,
+        "options": {
+          "maxSelect": 1,
+          "values": [
+            "low",
+            "medium", 
+            "high",
+            "critical"
+          ]
+        }
+      },
+      {
+        "id": "reason",
+        "name": "reason",
+        "type": "text",
+        "system": false,
+        "required": true,
+        "unique": false,
+        "options": {
+          "min": null,
+          "max": 500,
+          "pattern": ""
+        }
+      },
+      {
+        "id": "status",
+        "name": "status",
+        "type": "select",
+        "system": false,
+        "required": true,
+        "unique": false,
+        "options": {
+          "maxSelect": 1,
+          "values": [
+            "pending",
+            "approved",
+            "ordered",
+            "received",
+            "denied"
+          ]
+        }
+      },
+      {
+        "id": "approved_by",
+        "name": "approved_by",
+        "type": "relation",
+        "system": false,
+        "required": false,
+        "unique": false,
+        "options": {
+          "collectionId": "staff",
+          "cascadeDelete": false,
+          "minSelect": null,
+          "maxSelect": 1,
+          "displayFields": ["first_name", "last_name"]
+        }
+      },
+      {
+        "id": "request_date",
+        "name": "request_date",
+        "type": "date",
+        "system": false,
+        "required": true,
+        "unique": false,
+        "options": {
+          "min": "",
+          "max": ""
+        }
+      },
+      {
+        "id": "needed_by",
+        "name": "needed_by",
+        "type": "date",
+        "system": false,
+        "required": false,
+        "unique": false,
+        "options": {
+          "min": "",
+          "max": ""
+        }
+      },
+      {
+        "id": "estimated_cost",
+        "name": "estimated_cost",
+        "type": "number",
+        "system": false,
+        "required": false,
+        "unique": false,
+        "options": {
+          "min": 0,
+          "max": null
+        }
+      },
+      {
+        "id": "notes",
+        "name": "notes",
+        "type": "text",
+        "system": false,
+        "required": false,
+        "unique": false,
+        "options": {
+          "min": null,
+          "max": 1000,
+          "pattern": ""
+        }
+      }
+    ],
+    "indexes": []
+  },
+  {
+    "id": "employee_requests",
+    "name": "employee_requests", 
+    "type": "base",
+    "system": false,
+    "schema": [
+      {
+        "id": "requested_by",
+        "name": "requested_by",
+        "type": "relation",
+        "system": false,
+        "required": true,
+        "unique": false,
+        "options": {
+          "collectionId": "staff",
+          "cascadeDelete": false,
+          "minSelect": null,
+          "maxSelect": 1,
+          "displayFields": ["first_name", "last_name"]
+        }
+      },
+      {
+        "id": "request_type",
+        "name": "request_type",
+        "type": "select",
+        "system": false,
+        "required": true,
+        "unique": false,
+        "options": {
+          "maxSelect": 1,
+          "values": [
+            "time_off",
+            "schedule_change",
+            "shift_swap",
+            "training",
+            "equipment",
+            "other"
+          ]
+        }
+      },
+      {
+        "id": "title",
+        "name": "title",
+        "type": "text",
+        "system": false,
+        "required": true,
+        "unique": false,
+        "options": {
+          "min": null,
+          "max": 200,
+          "pattern": ""
+        }
+      },
+      {
+        "id": "description",
+        "name": "description",
+        "type": "text",
+        "system": false,
+        "required": true,
+        "unique": false,
+        "options": {
+          "min": null,
+          "max": 1000,
+          "pattern": ""
+        }
+      },
+      {
+        "id": "start_date",
+        "name": "start_date",
+        "type": "date",
+        "system": false,
+        "required": false,
+        "unique": false,
+        "options": {
+          "min": "",
+          "max": ""
+        }
+      },
+      {
+        "id": "end_date",
+        "name": "end_date",
+        "type": "date",
+        "system": false,
+        "required": false,
+        "unique": false,
+        "options": {
+          "min": "",
+          "max": ""
+        }
+      },
+      {
+        "id": "status",
+        "name": "status",
+        "type": "select",
+        "system": false,
+        "required": true,
+        "unique": false,
+        "options": {
+          "maxSelect": 1,
+          "values": [
+            "pending",
+            "approved",
+            "denied",
+            "in_review"
+          ]
+        }
+      },
+      {
+        "id": "priority",
+        "name": "priority",
+        "type": "select",
+        "system": false,
+        "required": true,
+        "unique": false,
+        "options": {
+          "maxSelect": 1,
+          "values": [
+            "low",
+            "medium",
+            "high"
+          ]
+        }
+      },
+      {
+        "id": "reviewed_by",
+        "name": "reviewed_by",
+        "type": "relation",
+        "system": false,
+        "required": false,
+        "unique": false,
+        "options": {
+          "collectionId": "staff",
+          "cascadeDelete": false,
+          "minSelect": null,
+          "maxSelect": 1,
+          "displayFields": ["first_name", "last_name"]
+        }
+      },
+      {
+        "id": "review_notes",
+        "name": "review_notes",
+        "type": "text",
+        "system": false,
+        "required": false,
+        "unique": false,
+        "options": {
+          "min": null,
+          "max": 500,
+          "pattern": ""
+        }
+      }
+    ],
+    "indexes": []
+  },
+  {
+    "id": "financial_metrics",
+    "name": "financial_metrics",
+    "type": "base", 
+    "system": false,
+    "schema": [
+      {
+        "id": "date",
+        "name": "date",
+        "type": "date",
+        "system": false,
+        "required": true,
+        "unique": true,
+        "options": {
+          "min": "",
+          "max": ""
+        }
+      },
+      {
+        "id": "daily_revenue",
+        "name": "daily_revenue",
+        "type": "number",
+        "system": false,
+        "required": false,
+        "unique": false,
+        "options": {
+          "min": 0,
+          "max": null
+        }
+      },
+      {
+        "id": "daily_costs",
+        "name": "daily_costs", 
+        "type": "number",
+        "system": false,
+        "required": false,
+        "unique": false,
+        "options": {
+          "min": 0,
+          "max": null
+        }
+      },
+      {
+        "id": "labor_costs",
+        "name": "labor_costs",
+        "type": "number",
+        "system": false,
+        "required": false,
+        "unique": false,
+        "options": {
+          "min": 0,
+          "max": null
+        }
+      },
+      {
+        "id": "food_costs",
+        "name": "food_costs",
+        "type": "number",
+        "system": false,
+        "required": false,
+        "unique": false,
+        "options": {
+          "min": 0,
+          "max": null
+        }
+      },
+      {
+        "id": "overhead_costs",
+        "name": "overhead_costs",
+        "type": "number",
+        "system": false,
+        "required": false,
+        "unique": false,
+        "options": {
+          "min": 0,
+          "max": null
+        }
+      },
+      {
+        "id": "customer_count",
+        "name": "customer_count",
+        "type": "number",
+        "system": false,
+        "required": false,
+        "unique": false,
+        "options": {
+          "min": 0,
+          "max": null
+        }
+      },
+      {
+        "id": "average_ticket",
+        "name": "average_ticket",
+        "type": "number",
+        "system": false,
+        "required": false,
+        "unique": false,
+        "options": {
+          "min": 0,
+          "max": null
+        }
+      },
+      {
+        "id": "profit_margin",
+        "name": "profit_margin",
+        "type": "number",
+        "system": false,
+        "required": false,
+        "unique": false,
+        "options": {
+          "min": -100,
+          "max": 100
+        }
+      },
+      {
+        "id": "notes",
+        "name": "notes",
+        "type": "text",
+        "system": false,
+        "required": false,
+        "unique": false,
+        "options": {
+          "min": null,
+          "max": 500,
+          "pattern": ""
+        }
+      }
+    ],
+    "indexes": []
+  }
+]

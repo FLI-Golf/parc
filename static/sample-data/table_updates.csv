@@ -1,0 +1,21 @@
+table_name,action_type,performed_by,notes
+T1,seated,Maria Garcia,Party of 4 seated at window table
+T2,cleared,Carlos Rodriguez,Table cleared and ready for reset
+T3,cleaned,Lisa Thompson,Full table sanitization completed
+T4,reserved,Sarah Johnson,Reservation for 7:30 PM
+T8,seated,James Wilson,Couple seated for anniversary dinner
+T6,seated,Maria Garcia,Family with special dietary requests
+T10,seated,James Wilson,Large family group with high chair
+P2,seated,Carlos Rodriguez,Birthday party celebration
+T5,cleaned,Lisa Thompson,Post-meal cleanup completed
+T7,cleaned,Carlos Rodriguez,Quick table reset
+HT1,seated,Sarah Johnson,Business meeting over lunch
+B1,seated,Lisa Thompson,Regular customer at bar
+B3,seated,Maria Garcia,Customer watching game
+B6,seated,James Wilson,Business traveler having dinner
+T12,cleared,Carlos Rodriguez,Table ready after reservation
+P6,cleared,Lisa Thompson,Patio table cleaned after party
+PD2,reserved,Sarah Johnson,Corporate lunch reservation
+T9,cleaned,Carlos Rodriguez,Table sanitized and reset
+HT4,seated,Maria Garcia,Happy hour group of 3
+P4,reserved,Lisa Thompson,Williams party reservation

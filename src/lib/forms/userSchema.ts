@@ -7,7 +7,7 @@ export const userSchema = z.object({
 	password: z.string().min(8, 'Password must be at least 8 characters'),
 	passwordConfirm: z.string().min(8, 'Password confirmation is required'),
 	phone: z.string().optional(),
-	role: z.enum(['Manager', 'Server']).default('Server'),
+	role: z.enum(['owner', 'manager', 'server', 'host', 'bartender', 'busser', 'chef', 'kitchen_prep', 'dishwasher']).default('server'),
 	emailVisibility: z.boolean().default(true),
 	avatar: z.instanceof(File).optional()
 });

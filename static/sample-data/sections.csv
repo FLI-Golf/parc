@@ -1,0 +1,8 @@
+section_name,section_code,area_type,max_capacity
+Section A,A,dining_room,32
+Section B,B,dining_room,28
+Patio Section,P,patio,24
+Bar Area,BAR,bar,12
+High Top Section,HT,dining_room,16
+Private Dining,PD,private_dining,12
+VIP Section,VIP,dining_room,8

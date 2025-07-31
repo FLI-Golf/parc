@@ -1,0 +1,919 @@
+[
+  {
+    "id": "inventory_items",
+    "name": "inventory_items",
+    "type": "base",
+    "system": false,
+    "schema": [
+      {
+        "id": "item_name",
+        "name": "name",
+        "type": "text",
+        "system": false,
+        "required": true,
+        "unique": false,
+        "options": {
+          "min": null,
+          "max": 200,
+          "pattern": ""
+        }
+      },
+      {
+        "id": "description",
+        "name": "description",
+        "type": "text",
+        "system": false,
+        "required": false,
+        "unique": false,
+        "options": {
+          "min": null,
+          "max": 500,
+          "pattern": ""
+        }
+      },
+      {
+        "id": "category",
+        "name": "category",
+        "type": "select",
+        "system": false,
+        "required": true,
+        "unique": false,
+        "options": {
+          "maxSelect": 1,
+          "values": [
+            "food",
+            "beverages",
+            "supplies",
+            "equipment",
+            "cleaning",
+            "other"
+          ]
+        }
+      },
+      {
+        "id": "unit",
+        "name": "unit",
+        "type": "select",
+        "system": false,
+        "required": true,
+        "unique": false,
+        "options": {
+          "maxSelect": 1,
+          "values": [
+            "piece",
+            "kg",
+            "gram",
+            "liter",
+            "ml",
+            "box",
+            "pack",
+            "bottle",
+            "can"
+          ]
+        }
+      },
+      {
+        "id": "current_stock",
+        "name": "current_stock",
+        "type": "number",
+        "system": false,
+        "required": true,
+        "unique": false,
+        "options": {
+          "min": 0,
+          "max": null
+        }
+      },
+      {
+        "id": "min_stock_level",
+        "name": "min_stock_level",
+        "type": "number",
+        "system": false,
+        "required": true,
+        "unique": false,
+        "options": {
+          "min": 0,
+          "max": null
+        }
+      },
+      {
+        "id": "max_stock_level",
+        "name": "max_stock_level",
+        "type": "number",
+        "system": false,
+        "required": false,
+        "unique": false,
+        "options": {
+          "min": 0,
+          "max": null
+        }
+      },
+      {
+        "id": "cost_per_unit",
+        "name": "cost_per_unit",
+        "type": "number",
+        "system": false,
+        "required": false,
+        "unique": false,
+        "options": {
+          "min": 0,
+          "max": null
+        }
+      },
+      {
+        "id": "vendor",
+        "name": "vendor",
+        "type": "relation",
+        "system": false,
+        "required": false,
+        "unique": false,
+        "options": {
+          "collectionId": "vendors",
+          "cascadeDelete": false,
+          "minSelect": null,
+          "maxSelect": 1,
+          "displayFields": ["name"]
+        }
+      },
+      {
+        "id": "expiry_date",
+        "name": "expiry_date",
+        "type": "date",
+        "system": false,
+        "required": false,
+        "unique": false,
+        "options": {
+          "min": "",
+          "max": ""
+        }
+      }
+    ],
+    "indexes": [],
+    "listRule": "",
+    "viewRule": "",
+    "createRule": "@request.auth.role = 'admin' || @request.auth.role = 'manager'",
+    "updateRule": "@request.auth.role = 'admin' || @request.auth.role = 'manager'",
+    "deleteRule": "@request.auth.role = 'admin'"
+  },
+  {
+    "id": "staff",
+    "name": "staff",
+    "type": "base",
+    "system": false,
+    "schema": [
+      {
+        "id": "first_name",
+        "name": "first_name",
+        "type": "text",
+        "system": false,
+        "required": true,
+        "unique": false,
+        "options": {
+          "min": null,
+          "max": 100,
+          "pattern": ""
+        }
+      },
+      {
+        "id": "last_name",
+        "name": "last_name",
+        "type": "text",
+        "system": false,
+        "required": true,
+        "unique": false,
+        "options": {
+          "min": null,
+          "max": 100,
+          "pattern": ""
+        }
+      },
+      {
+        "id": "email",
+        "name": "email",
+        "type": "email",
+        "system": false,
+        "required": true,
+        "unique": true,
+        "options": {
+          "exceptDomains": null,
+          "onlyDomains": null
+        }
+      },
+      {
+        "id": "phone",
+        "name": "phone",
+        "type": "text",
+        "system": false,
+        "required": false,
+        "unique": false,
+        "options": {
+          "min": null,
+          "max": 20,
+          "pattern": ""
+        }
+      },
+      {
+        "id": "position",
+        "name": "position",
+        "type": "select",
+        "system": false,
+        "required": true,
+        "unique": false,
+        "options": {
+          "maxSelect": 1,
+          "values": [
+            "manager",
+            "server",
+            "chef",
+            "bartender",
+            "host",
+            "busser",
+            "dishwasher",
+            "kitchen_prep"
+          ]
+        }
+      },
+      {
+        "id": "hourly_rate",
+        "name": "hourly_rate",
+        "type": "number",
+        "system": false,
+        "required": false,
+        "unique": false,
+        "options": {
+          "min": 0,
+          "max": null
+        }
+      },
+      {
+        "id": "hire_date",
+        "name": "hire_date",
+        "type": "date",
+        "system": false,
+        "required": true,
+        "unique": false,
+        "options": {
+          "min": "",
+          "max": ""
+        }
+      },
+      {
+        "id": "status",
+        "name": "status",
+        "type": "select",
+        "system": false,
+        "required": true,
+        "unique": false,
+        "options": {
+          "maxSelect": 1,
+          "values": [
+            "active",
+            "inactive",
+            "terminated"
+          ]
+        }
+      },
+      {
+        "id": "user_id",
+        "name": "user_id",
+        "type": "relation",
+        "system": false,
+        "required": false,
+        "unique": false,
+        "options": {
+          "collectionId": "_pb_users_auth_",
+          "cascadeDelete": false,
+          "minSelect": null,
+          "maxSelect": 1,
+          "displayFields": ["name", "email"]
+        }
+      }
+    ],
+    "indexes": [],
+    "listRule": "",
+    "viewRule": "",
+    "createRule": "@request.auth.role = 'admin' || @request.auth.role = 'manager'",
+    "updateRule": "@request.auth.role = 'admin' || @request.auth.role = 'manager'",
+    "deleteRule": "@request.auth.role = 'admin'"
+  },
+  {
+    "id": "shifts",
+    "name": "shifts",
+    "type": "base",
+    "system": false,
+    "schema": [
+      {
+        "id": "staff_member",
+        "name": "staff_member",
+        "type": "relation",
+        "system": false,
+        "required": true,
+        "unique": false,
+        "options": {
+          "collectionId": "staff",
+          "cascadeDelete": false,
+          "minSelect": null,
+          "maxSelect": 1,
+          "displayFields": ["first_name", "last_name"]
+        }
+      },
+      {
+        "id": "shift_date",
+        "name": "shift_date",
+        "type": "date",
+        "system": false,
+        "required": true,
+        "unique": false,
+        "options": {
+          "min": "",
+          "max": ""
+        }
+      },
+      {
+        "id": "start_time",
+        "name": "start_time",
+        "type": "text",
+        "system": false,
+        "required": true,
+        "unique": false,
+        "options": {
+          "min": null,
+          "max": 5,
+          "pattern": "^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$"
+        }
+      },
+      {
+        "id": "end_time",
+        "name": "end_time",
+        "type": "text",
+        "system": false,
+        "required": true,
+        "unique": false,
+        "options": {
+          "min": null,
+          "max": 5,
+          "pattern": "^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$"
+        }
+      },
+      {
+        "id": "break_duration",
+        "name": "break_duration",
+        "type": "number",
+        "system": false,
+        "required": false,
+        "unique": false,
+        "options": {
+          "min": 0,
+          "max": 480
+        }
+      },
+      {
+        "id": "position",
+        "name": "position",
+        "type": "select",
+        "system": false,
+        "required": true,
+        "unique": false,
+        "options": {
+          "maxSelect": 1,
+          "values": [
+            "manager",
+            "server",
+            "chef",
+            "bartender",
+            "host",
+            "busser",
+            "dishwasher",
+            "kitchen_prep"
+          ]
+        }
+      },
+      {
+        "id": "status",
+        "name": "status",
+        "type": "select",
+        "system": false,
+        "required": true,
+        "unique": false,
+        "options": {
+          "maxSelect": 1,
+          "values": [
+            "scheduled",
+            "confirmed",
+            "completed",
+            "cancelled",
+            "no_show"
+          ]
+        }
+      },
+      {
+        "id": "notes",
+        "name": "notes",
+        "type": "text",
+        "system": false,
+        "required": false,
+        "unique": false,
+        "options": {
+          "min": null,
+          "max": 500,
+          "pattern": ""
+        }
+      }
+    ],
+    "indexes": [],
+    "listRule": "",
+    "viewRule": "",
+    "createRule": "@request.auth.role = 'admin' || @request.auth.role = 'manager'",
+    "updateRule": "@request.auth.role = 'admin' || @request.auth.role = 'manager'",
+    "deleteRule": "@request.auth.role = 'admin' || @request.auth.role = 'manager'"
+  },
+  {
+    "id": "menu_items",
+    "name": "menu_items",
+    "type": "base",
+    "system": false,
+    "schema": [
+      {
+        "id": "item_name",
+        "name": "name",
+        "type": "text",
+        "system": false,
+        "required": true,
+        "unique": false,
+        "options": {
+          "min": null,
+          "max": 200,
+          "pattern": ""
+        }
+      },
+      {
+        "id": "description",
+        "name": "description",
+        "type": "text",
+        "system": false,
+        "required": false,
+        "unique": false,
+        "options": {
+          "min": null,
+          "max": 500,
+          "pattern": ""
+        }
+      },
+      {
+        "id": "category",
+        "name": "category",
+        "type": "select",
+        "system": false,
+        "required": true,
+        "unique": false,
+        "options": {
+          "maxSelect": 1,
+          "values": [
+            "appetizer",
+            "main_course",
+            "dessert",
+            "beverage",
+            "special",
+            "side_dish"
+          ]
+        }
+      },
+      {
+        "id": "price",
+        "name": "price",
+        "type": "number",
+        "system": false,
+        "required": true,
+        "unique": false,
+        "options": {
+          "min": 0,
+          "max": null
+        }
+      },
+      {
+        "id": "cost",
+        "name": "cost",
+        "type": "number",
+        "system": false,
+        "required": false,
+        "unique": false,
+        "options": {
+          "min": 0,
+          "max": null
+        }
+      },
+      {
+        "id": "ingredients",
+        "name": "ingredients",
+        "type": "text",
+        "system": false,
+        "required": false,
+        "unique": false,
+        "options": {
+          "min": null,
+          "max": 1000,
+          "pattern": ""
+        }
+      },
+      {
+        "id": "allergens",
+        "name": "allergens",
+        "type": "select",
+        "system": false,
+        "required": false,
+        "unique": false,
+        "options": {
+          "maxSelect": 10,
+          "values": [
+            "gluten",
+            "dairy",
+            "nuts",
+            "shellfish",
+            "eggs",
+            "soy",
+            "fish",
+            "sesame"
+          ]
+        }
+      },
+      {
+        "id": "preparation_time",
+        "name": "preparation_time",
+        "type": "number",
+        "system": false,
+        "required": false,
+        "unique": false,
+        "options": {
+          "min": 0,
+          "max": null
+        }
+      },
+      {
+        "id": "available",
+        "name": "available",
+        "type": "bool",
+        "system": false,
+        "required": false,
+        "unique": false,
+        "options": {}
+      },
+      {
+        "id": "image",
+        "name": "image",
+        "type": "file",
+        "system": false,
+        "required": false,
+        "unique": false,
+        "options": {
+          "maxSelect": 1,
+          "maxSize": 5242880,
+          "mimeTypes": [
+            "image/jpeg",
+            "image/png",
+            "image/gif",
+            "image/webp"
+          ],
+          "thumbs": null,
+          "protected": false
+        }
+      }
+    ],
+    "indexes": [],
+    "listRule": "",
+    "viewRule": "",
+    "createRule": "@request.auth.role = 'admin' || @request.auth.role = 'manager'",
+    "updateRule": "@request.auth.role = 'admin' || @request.auth.role = 'manager'",
+    "deleteRule": "@request.auth.role = 'admin'"
+  },
+  {
+    "id": "vendors",
+    "name": "vendors",
+    "type": "base",
+    "system": false,
+    "schema": [
+      {
+        "id": "vendor_name",
+        "name": "name",
+        "type": "text",
+        "system": false,
+        "required": true,
+        "unique": false,
+        "options": {
+          "min": null,
+          "max": 200,
+          "pattern": ""
+        }
+      },
+      {
+        "id": "contact_person",
+        "name": "contact_person",
+        "type": "text",
+        "system": false,
+        "required": false,
+        "unique": false,
+        "options": {
+          "min": null,
+          "max": 100,
+          "pattern": ""
+        }
+      },
+      {
+        "id": "email",
+        "name": "email",
+        "type": "email",
+        "system": false,
+        "required": false,
+        "unique": false,
+        "options": {
+          "exceptDomains": null,
+          "onlyDomains": null
+        }
+      },
+      {
+        "id": "phone",
+        "name": "phone",
+        "type": "text",
+        "system": false,
+        "required": false,
+        "unique": false,
+        "options": {
+          "min": null,
+          "max": 20,
+          "pattern": ""
+        }
+      },
+      {
+        "id": "address",
+        "name": "address",
+        "type": "text",
+        "system": false,
+        "required": false,
+        "unique": false,
+        "options": {
+          "min": null,
+          "max": 300,
+          "pattern": ""
+        }
+      },
+      {
+        "id": "category",
+        "name": "category",
+        "type": "select",
+        "system": false,
+        "required": true,
+        "unique": false,
+        "options": {
+          "maxSelect": 1,
+          "values": [
+            "food_supplier",
+            "beverage_supplier",
+            "equipment",
+            "cleaning_supplies",
+            "linen_service",
+            "maintenance",
+            "other"
+          ]
+        }
+      },
+      {
+        "id": "payment_terms",
+        "name": "payment_terms",
+        "type": "text",
+        "system": false,
+        "required": false,
+        "unique": false,
+        "options": {
+          "min": null,
+          "max": 100,
+          "pattern": ""
+        }
+      },
+      {
+        "id": "status",
+        "name": "status",
+        "type": "select",
+        "system": false,
+        "required": true,
+        "unique": false,
+        "options": {
+          "maxSelect": 1,
+          "values": [
+            "active",
+            "inactive",
+            "pending"
+          ]
+        }
+      },
+      {
+        "id": "notes",
+        "name": "notes",
+        "type": "text",
+        "system": false,
+        "required": false,
+        "unique": false,
+        "options": {
+          "min": null,
+          "max": 500,
+          "pattern": ""
+        }
+      }
+    ],
+    "indexes": [],
+    "listRule": "",
+    "viewRule": "",
+    "createRule": "@request.auth.role = 'admin' || @request.auth.role = 'manager'",
+    "updateRule": "@request.auth.role = 'admin' || @request.auth.role = 'manager'",
+    "deleteRule": "@request.auth.role = 'admin'"
+  },
+  {
+    "id": "events",
+    "name": "events",
+    "type": "base",
+    "system": false,
+    "schema": [
+      {
+        "id": "event_name",
+        "name": "name",
+        "type": "text",
+        "system": false,
+        "required": true,
+        "unique": false,
+        "options": {
+          "min": null,
+          "max": 200,
+          "pattern": ""
+        }
+      },
+      {
+        "id": "description",
+        "name": "description",
+        "type": "text",
+        "system": false,
+        "required": false,
+        "unique": false,
+        "options": {
+          "min": null,
+          "max": 1000,
+          "pattern": ""
+        }
+      },
+      {
+        "id": "event_type",
+        "name": "event_type",
+        "type": "select",
+        "system": false,
+        "required": true,
+        "unique": false,
+        "options": {
+          "maxSelect": 1,
+          "values": [
+            "private_party",
+            "corporate_event",
+            "wedding",
+            "birthday",
+            "anniversary",
+            "holiday_special",
+            "live_music",
+            "other"
+          ]
+        }
+      },
+      {
+        "id": "event_date",
+        "name": "event_date",
+        "type": "date",
+        "system": false,
+        "required": true,
+        "unique": false,
+        "options": {
+          "min": "",
+          "max": ""
+        }
+      },
+      {
+        "id": "start_time",
+        "name": "start_time",
+        "type": "text",
+        "system": false,
+        "required": true,
+        "unique": false,
+        "options": {
+          "min": null,
+          "max": 5,
+          "pattern": "^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$"
+        }
+      },
+      {
+        "id": "end_time",
+        "name": "end_time",
+        "type": "text",
+        "system": false,
+        "required": true,
+        "unique": false,
+        "options": {
+          "min": null,
+          "max": 5,
+          "pattern": "^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$"
+        }
+      },
+      {
+        "id": "guest_count",
+        "name": "guest_count",
+        "type": "number",
+        "system": false,
+        "required": false,
+        "unique": false,
+        "options": {
+          "min": 0,
+          "max": null
+        }
+      },
+      {
+        "id": "contact_name",
+        "name": "contact_name",
+        "type": "text",
+        "system": false,
+        "required": false,
+        "unique": false,
+        "options": {
+          "min": null,
+          "max": 100,
+          "pattern": ""
+        }
+      },
+      {
+        "id": "contact_email",
+        "name": "contact_email",
+        "type": "email",
+        "system": false,
+        "required": false,
+        "unique": false,
+        "options": {
+          "exceptDomains": null,
+          "onlyDomains": null
+        }
+      },
+      {
+        "id": "contact_phone",
+        "name": "contact_phone",
+        "type": "text",
+        "system": false,
+        "required": false,
+        "unique": false,
+        "options": {
+          "min": null,
+          "max": 20,
+          "pattern": ""
+        }
+      },
+      {
+        "id": "status",
+        "name": "status",
+        "type": "select",
+        "system": false,
+        "required": true,
+        "unique": false,
+        "options": {
+          "maxSelect": 1,
+          "values": [
+            "inquiry",
+            "confirmed",
+            "cancelled",
+            "completed"
+          ]
+        }
+      },
+      {
+        "id": "special_requirements",
+        "name": "special_requirements",
+        "type": "text",
+        "system": false,
+        "required": false,
+        "unique": false,
+        "options": {
+          "min": null,
+          "max": 500,
+          "pattern": ""
+        }
+      },
+      {
+        "id": "estimated_revenue",
+        "name": "estimated_revenue",
+        "type": "number",
+        "system": false,
+        "required": false,
+        "unique": false,
+        "options": {
+          "min": 0,
+          "max": null
+        }
+      }
+    ],
+    "indexes": [],
+    "listRule": "",
+    "viewRule": "",
+    "createRule": "@request.auth.role = 'admin' || @request.auth.role = 'manager'",
+    "updateRule": "@request.auth.role = 'admin' || @request.auth.role = 'manager'",
+    "deleteRule": "@request.auth.role = 'admin'"
+  }
+]

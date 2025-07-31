@@ -38,7 +38,7 @@ export const actions = {
 					emailVisibility: json.emailVisibility !== undefined ? json.emailVisibility : true,
 					password: json.password,
 					passwordConfirm: json.passwordConfirm,
-					role: json.role || 'Manager'
+					role: json.role || 'manager'
 				};
 				
 				// Add optional fields if provided and not empty
@@ -65,7 +65,7 @@ export const actions = {
 				const password = data.get('password') as string | null;
 				const passwordConfirm = data.get('passwordConfirm') as string | null;
 				const phone = data.get('phone') as string | null;
-				const role = data.get('role') as string || 'Manager';
+				const role = data.get('role') as string || 'manager';
 				const avatar = data.get('avatar');
 				
 				// Simple validation
@@ -76,7 +76,7 @@ export const actions = {
 						email: email || '',
 						username: username || '',
 						phone: phone || '',
-						role: 'Manager'
+						role: 'manager'
 					});
 				}
 				
@@ -87,7 +87,7 @@ export const actions = {
 						email: email || '',
 						username: username || '',
 						phone: phone || '',
-						role: 'Manager'
+						role: 'manager'
 					});
 				}
 				
@@ -116,7 +116,7 @@ export const actions = {
 			
 			// Set default role to valid value if not provided
 			if (!userData.role) {
-				userData.role = 'Manager';
+				userData.role = 'manager';
 			}
 			
 			console.log('Attempting to create user with data:', userData);
@@ -171,7 +171,7 @@ export const actions = {
 						email: userData.email || '',
 						username: userData.username || '',
 						phone: userData.phone || '',
-						role: userData.role || 'Manager'
+						role: userData.role || 'manager'
 					});
 				}
 			}
@@ -198,7 +198,7 @@ export const actions = {
 						email: userData.email || '',
 						username: userData.username || '',
 						phone: userData.phone || '',
-						role: userData.role || 'Manager'
+						role: userData.role || 'manager'
 					});
 				}
 			}
@@ -210,7 +210,7 @@ export const actions = {
 				email: userData.email || '',
 				username: userData.username || '',
 				phone: userData.phone || '',
-				role: userData.role || 'Manager'
+				role: userData.role || 'manager'
 			});
 		}
 	}

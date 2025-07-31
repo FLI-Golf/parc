@@ -4,7 +4,7 @@ import type { RecordModel } from 'pocketbase';
 export interface User extends RecordModel {
   name: string;
   email: string;
-  role: 'Manager' | 'Server';
+  role: 'owner' | 'manager' | 'server' | 'host' | 'bartender' | 'busser' | 'chef' | 'kitchen_prep' | 'dishwasher';
   avatar: string;
   verified: boolean;
   emailVisibility: boolean;
@@ -22,7 +22,7 @@ export async function getAllUsers(): Promise<User[]> {
 }
 
 // Get users by role
-export async function getUsersByRole(role: 'Manager' | 'Server'): Promise<User[]> {
+export async function getUsersByRole(role: 'owner' | 'manager' | 'server' | 'host' | 'bartender' | 'busser' | 'chef' | 'kitchen_prep' | 'dishwasher'): Promise<User[]> {
   try {
     const records = await pb.collection('users').getFullList<User>({
       filter: `role = "${role}"`
@@ -36,12 +36,12 @@ export async function getUsersByRole(role: 'Manager' | 'Server'): Promise<User[]
 
 // Get managers
 export async function getManagers(): Promise<User[]> {
-  return getUsersByRole('Manager');
+  return getUsersByRole('manager');
 }
 
 // Get servers
 export async function getServers(): Promise<User[]> {
-  return getUsersByRole('Server');
+  return getUsersByRole('server');
 }
 
 // Get user by ID
@@ -124,7 +124,7 @@ export async function getUsersForCurrentUser(): Promise<User[]> {
   }
 
   // If user is a manager, they can see all users
-  if (currentUser.role === 'Manager') {
+  if (currentUser.role === 'manager' || currentUser.role === 'owner') {
     return getAllUsers();
   }
 
@@ -160,7 +160,7 @@ export async function getTeamMembers(): Promise<User[]> {
 
 // Advanced search with multiple filters
 export async function advancedUserSearch(filters: {
-  role?: 'Manager' | 'Server';
+  role?: 'owner' | 'manager' | 'server' | 'host' | 'bartender' | 'busser' | 'chef' | 'kitchen_prep' | 'dishwasher';
   name?: string;
   verified?: boolean;
   hasAvatar?: boolean;

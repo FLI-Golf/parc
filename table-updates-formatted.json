@@ -1,0 +1,79 @@
+[
+    {
+        "id": "table_updates_collection",
+        "name": "table_updates", 
+        "type": "base",
+        "system": false,
+        "schema": [
+            {
+                "system": false,
+                "id": "table_name",
+                "name": "table_name",
+                "type": "text",
+                "required": true,
+                "presentable": false,
+                "unique": false,
+                "options": {
+                    "min": null,
+                    "max": 20,
+                    "pattern": ""
+                }
+            },
+            {
+                "system": false,
+                "id": "action_type",
+                "name": "action_type",
+                "type": "select",
+                "required": false,
+                "presentable": true,
+                "unique": false,
+                "options": {
+                    "maxSelect": 1,
+                    "values": [
+                        "seated",
+                        "cleared",
+                        "reserved",
+                        "cleaned",
+                        "out_of_order",
+                        "back_in_service"
+                    ]
+                }
+            },
+            {
+                "system": false,
+                "id": "performed_by",
+                "name": "performed_by",
+                "type": "text",
+                "required": false,
+                "presentable": false,
+                "unique": false,
+                "options": {
+                    "min": null,
+                    "max": 100,
+                    "pattern": ""
+                }
+            },
+            {
+                "system": false,
+                "id": "notes",
+                "name": "notes",
+                "type": "text",
+                "required": false,
+                "presentable": false,
+                "unique": false,
+                "options": {
+                    "min": null,
+                    "max": 1000,
+                    "pattern": ""
+                }
+            }
+        ],
+        "indexes": [],
+        "listRule": "",
+        "viewRule": "",
+        "createRule": "",
+        "updateRule": "",
+        "deleteRule": "@request.auth.role = 'Manager'",
+        "options": {}
+    }
+]

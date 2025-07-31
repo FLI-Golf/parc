@@ -1,0 +1,11 @@
+task_name,description,priority,due_date,status,assigned_to,category,estimated_duration
+Clean ice machine,Deep clean and sanitize ice machine,high,2024-11-01,pending,maintenance_staff,cleaning,60
+Check HVAC filters,Replace air filters in main dining room,medium,2024-11-05,pending,maintenance_staff,equipment,30
+Deep clean fryer,Complete deep clean of all fryers,urgent,2024-10-30,pending,kitchen_staff,cleaning,120
+Inspect fire extinguishers,Monthly safety inspection,high,2024-11-01,pending,manager,safety,15
+Clean hood vents,Clean kitchen hood and exhaust vents,medium,2024-11-10,pending,cleaning_crew,cleaning,90
+Calibrate scales,Calibrate all kitchen scales,low,2024-11-15,pending,maintenance_staff,equipment,20
+Repair bar sink,Fix leak in bar area sink,urgent,2024-10-29,in_progress,plumber,repair,45
+Replace light bulbs,Replace burnt out bulbs in dining room,low,2024-11-08,pending,maintenance_staff,maintenance,15
+Clean grease traps,Monthly grease trap cleaning,high,2024-11-03,pending,cleaning_crew,cleaning,90
+Test emergency lighting,Monthly emergency system test,medium,2024-11-12,pending,electrician,safety,30

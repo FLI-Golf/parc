@@ -1,0 +1,15 @@
+staff_member,shift_date,start_time,end_time,break_duration,position,status,notes
+,2024-10-15,16:00,24:00,60,manager,confirmed,Grand opening evening supervision
+,2024-10-15,17:00,23:00,30,server,confirmed,Grand opening service
+,2024-10-15,14:00,23:00,60,chef,confirmed,Grand opening kitchen lead
+,2024-10-15,17:00,23:00,30,server,confirmed,Grand opening floor service
+,2024-10-15,16:00,02:00,30,bartender,confirmed,Grand opening bar service
+,2024-10-15,16:30,22:00,0,host,confirmed,Grand opening host duties
+,2024-10-25,17:00,24:00,30,server,scheduled,World Series Game 1 service
+,2024-10-25,15:00,23:00,60,chef,scheduled,World Series Game 1 kitchen
+,2024-10-25,16:00,02:00,30,bartender,scheduled,World Series Game 1 bar
+,2024-10-26,17:00,24:00,30,server,scheduled,World Series Game 2 service
+,2024-10-26,16:00,02:00,30,dishwasher,scheduled,World Series Game 2 cleanup
+,2024-11-08,18:00,22:00,30,kitchen_prep,scheduled,Wine tasting prep
+,2024-11-08,18:30,22:30,0,host,scheduled,Wine tasting event host
+
