@@ -10,6 +10,9 @@
 		menuItems,
 		vendors,
 		events,
+		maintenanceTasks,
+		maintenanceSchedules,
+		maintenanceRecords,
 		loading,
 	} from "$lib/stores/collections.js";
 	import ImportModal from "$lib/components/ImportModal.svelte";
@@ -19,6 +22,7 @@
 	import MenuModal from "$lib/components/MenuModal.svelte";
 	import VendorModal from "$lib/components/VendorModal.svelte";
 	import EventModal from "$lib/components/EventModal.svelte";
+	import MaintenanceModal from "$lib/components/MaintenanceModal.svelte";
 
 	let activeTab = "overview";
 	let user = null;
@@ -35,6 +39,8 @@
 	let editVendorItem = null;
 	let showEventModal = false;
 	let editEventItem = null;
+	let showMaintenanceModal = false;
+	let editMaintenanceItem = null;
 
 	// Reactive declarations
 	$: lowStockItems = $inventoryItems.filter(
@@ -46,21 +52,27 @@
 	);
 
 	// Enhanced metrics
-	$: upcomingEvents = $events.filter(event => {
+	$: upcomingEvents = $events.filter((event) => {
 		const eventDate = new Date(event.event_date);
 		const today = new Date();
 		const nextWeek = new Date();
 		nextWeek.setDate(today.getDate() + 7);
-		return eventDate >= today && eventDate <= nextWeek && event.status === 'confirmed';
+		return (
+			eventDate >= today &&
+			eventDate <= nextWeek &&
+			event.status === "confirmed"
+		);
 	});
 
 	$: totalMenuItems = $menuItems.length;
-	$: availableMenuItems = $menuItems.filter(item => item.available).length;
-	$: activeStaff = $staff.filter(member => member.status === 'active').length;
-	$: pendingEvents = $events.filter(event => event.status === 'inquiry').length;
+	$: availableMenuItems = $menuItems.filter((item) => item.available).length;
+	$: activeStaff = $staff.filter((member) => member.status === "active")
+		.length;
+	$: pendingEvents = $events.filter((event) => event.status === "inquiry")
+		.length;
 
 	// Weekly shifts calculation
-	$: weeklyShifts = $shifts.filter(shift => {
+	$: weeklyShifts = $shifts.filter((shift) => {
 		const shiftDate = new Date(shift.shift_date);
 		const today = new Date();
 		const startOfWeek = new Date(today);
@@ -72,14 +84,39 @@
 
 	// Revenue estimate from confirmed events this month
 	$: monthlyRevenue = $events
-		.filter(event => {
+		.filter((event) => {
 			const eventDate = new Date(event.event_date);
 			const today = new Date();
-			return eventDate.getMonth() === today.getMonth() && 
-				   eventDate.getFullYear() === today.getFullYear() &&
-				   event.status === 'confirmed';
+			return (
+				eventDate.getMonth() === today.getMonth() &&
+				eventDate.getFullYear() === today.getFullYear() &&
+				event.status === "confirmed"
+			);
 		})
 		.reduce((total, event) => total + (event.estimated_revenue || 0), 0);
+
+	// Mock maintenance data (until PocketBase collections are set up)
+
+
+	// Maintenance calculations using real data
+	$: displayMaintenanceTasks = $maintenanceTasks; // For compatibility with existing template
+	$: overdueTasks = $maintenanceSchedules.filter(
+		(schedule) => schedule.status === "overdue"
+	);
+	$: criticalTasks = $maintenanceTasks.filter(
+		(task) => task.priority === "critical"
+	);
+	$: todayTasks = $maintenanceSchedules.filter((schedule) => {
+		const today = new Date().toISOString().split("T")[0];
+		return schedule.scheduled_date === today;
+	});
+	$: pendingTasks = $maintenanceSchedules.filter(
+		(schedule) => schedule.status === "pending"
+	);
+	$: completedTasks = $maintenanceSchedules.filter(
+		(schedule) => schedule.status === "completed"
+	);
+	$: recentRecords = $maintenanceRecords.slice(-5); // Last 5 completed records
 
 	onMount(async () => {
 		// Check authentication and role
@@ -110,6 +147,28 @@
 						collections.getMenuItems(),
 						collections.getVendors(),
 						collections.getEvents(),
+						// Load maintenance data if collections exist
+						collections
+							.getMaintenanceTasks()
+							.catch(() =>
+								console.log(
+									"Maintenance collections not yet set up"
+								)
+							),
+						collections
+							.getMaintenanceSchedules()
+							.catch(() =>
+								console.log(
+									"Maintenance schedules not yet set up"
+								)
+							),
+						collections
+							.getMaintenanceRecords()
+							.catch(() =>
+								console.log(
+									"Maintenance records not yet set up"
+								)
+							),
 					]);
 				} catch (error) {
 					console.error("Error loading dashboard data:", error);
@@ -274,6 +333,28 @@
 		}
 	}
 
+	function openMaintenanceModal(item = null) {
+		editMaintenanceItem = item;
+		showMaintenanceModal = true;
+	}
+
+	function closeMaintenanceModal() {
+		showMaintenanceModal = false;
+		editMaintenanceItem = null;
+	}
+
+	async function handleDeleteMaintenance(item) {
+		if (confirm(`Are you sure you want to delete "${item.task_name}"?`)) {
+			try {
+				await collections.deleteMaintenanceTask(item.id);
+				await collections.getMaintenanceTasks(); // Refresh data
+			} catch (error) {
+				console.error("Error deleting maintenance task:", error);
+				alert("Failed to delete maintenance task");
+			}
+		}
+	}
+
 	// Helper functions for date and time formatting
 	function formatShortDate(dateString) {
 		const date = new Date(dateString);
@@ -352,7 +433,7 @@
 	<nav class="bg-gray-800/30 border-b border-gray-700">
 		<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
 			<div class="flex space-x-8 overflow-x-auto">
-				{#each [{ id: "overview", name: "Overview", icon: "📊" }, { id: "floor-plan", name: "Floor Plan", icon: "🏗️" }, { id: "inventory", name: "Inventory", icon: "📦" }, { id: "staff", name: "Staff", icon: "👥" }, { id: "shifts", name: "Shifts", icon: "🗓️" }, { id: "menu", name: "Menu", icon: "🍽️" }, { id: "vendors", name: "Vendors", icon: "🏢" }, { id: "events", name: "Events", icon: "🎉" }] as tab}
+				{#each [{ id: "overview", name: "Overview", icon: "📊" }, { id: "floor-plan", name: "Floor Plan", icon: "🏗️" }, { id: "maintenance", name: "Maintenance", icon: "🧹" }, { id: "inventory", name: "Inventory", icon: "📦" }, { id: "staff", name: "Staff", icon: "👥" }, { id: "shifts", name: "Shifts", icon: "🗓️" }, { id: "menu", name: "Menu", icon: "🍽️" }, { id: "vendors", name: "Vendors", icon: "🏢" }, { id: "events", name: "Events", icon: "🎉" }] as tab}
 					<button
 						class="flex items-center space-x-2 py-4 px-3 border-b-2 font-medium text-sm whitespace-nowrap {activeTab ===
 						tab.id
@@ -382,6 +463,12 @@
 				<!-- Quick Actions -->
 				<div class="flex space-x-3">
 					<button
+						on:click={() => openMaintenanceModal()}
+						class="px-4 py-2 bg-orange-600 hover:bg-orange-700 rounded-lg text-sm font-medium transition-colors"
+					>
+						+ Maintenance
+					</button>
+					<button
 						on:click={() => openStaffModal()}
 						class="px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded-lg text-sm font-medium transition-colors"
 					>
@@ -403,119 +490,224 @@
 			</div>
 
 			<!-- Enhanced Key Metrics -->
-			<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+			<div
+				class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8"
+			>
 				<!-- Active Staff -->
-				<div class="bg-gradient-to-br from-blue-900/50 to-blue-800/30 backdrop-blur-sm rounded-xl border border-blue-700/50 p-6">
+				<div
+					class="bg-gradient-to-br from-blue-900/50 to-blue-800/30 backdrop-blur-sm rounded-xl border border-blue-700/50 p-6"
+				>
 					<div class="flex items-center justify-between">
 						<div>
-							<p class="text-blue-200 text-sm font-medium">Active Staff</p>
-							<p class="text-3xl font-bold text-white">{activeStaff}</p>
-							<p class="text-blue-300 text-xs mt-1">of {$staff.length} total</p>
+							<p class="text-blue-200 text-sm font-medium">
+								Active Staff
+							</p>
+							<p class="text-3xl font-bold text-white">
+								{activeStaff}
+							</p>
+							<p class="text-blue-300 text-xs mt-1">
+								of {$staff.length} total
+							</p>
 						</div>
-						<div class="w-14 h-14 rounded-xl bg-blue-600/30 flex items-center justify-center">
+						<div
+							class="w-14 h-14 rounded-xl bg-blue-600/30 flex items-center justify-center"
+						>
 							<span class="text-2xl">👥</span>
 						</div>
 					</div>
 				</div>
 
 				<!-- This Week's Shifts -->
-				<div class="bg-gradient-to-br from-green-900/50 to-green-800/30 backdrop-blur-sm rounded-xl border border-green-700/50 p-6">
+				<div
+					class="bg-gradient-to-br from-green-900/50 to-green-800/30 backdrop-blur-sm rounded-xl border border-green-700/50 p-6"
+				>
 					<div class="flex items-center justify-between">
 						<div>
-							<p class="text-green-200 text-sm font-medium">This Week</p>
-							<p class="text-3xl font-bold text-white">{weeklyShifts.length}</p>
-							<p class="text-green-300 text-xs mt-1">{todayShifts.length} today</p>
+							<p class="text-green-200 text-sm font-medium">
+								This Week
+							</p>
+							<p class="text-3xl font-bold text-white">
+								{weeklyShifts.length}
+							</p>
+							<p class="text-green-300 text-xs mt-1">
+								{todayShifts.length} today
+							</p>
 						</div>
-						<div class="w-14 h-14 rounded-xl bg-green-600/30 flex items-center justify-center">
+						<div
+							class="w-14 h-14 rounded-xl bg-green-600/30 flex items-center justify-center"
+						>
 							<span class="text-2xl">🗓️</span>
 						</div>
 					</div>
 				</div>
 
 				<!-- Inventory Alert -->
-				<div class="bg-gradient-to-br from-orange-900/50 to-orange-800/30 backdrop-blur-sm rounded-xl border border-orange-700/50 p-6">
+				<div
+					class="bg-gradient-to-br from-orange-900/50 to-orange-800/30 backdrop-blur-sm rounded-xl border border-orange-700/50 p-6"
+				>
 					<div class="flex items-center justify-between">
 						<div>
-							<p class="text-orange-200 text-sm font-medium">Stock Alerts</p>
-							<p class="text-3xl font-bold text-white">{lowStockItems.length}</p>
-							<p class="text-orange-300 text-xs mt-1">need restocking</p>
+							<p class="text-orange-200 text-sm font-medium">
+								Stock Alerts
+							</p>
+							<p class="text-3xl font-bold text-white">
+								{lowStockItems.length}
+							</p>
+							<p class="text-orange-300 text-xs mt-1">
+								need restocking
+							</p>
 						</div>
-						<div class="w-14 h-14 rounded-xl bg-orange-600/30 flex items-center justify-center">
+						<div
+							class="w-14 h-14 rounded-xl bg-orange-600/30 flex items-center justify-center"
+						>
 							<span class="text-2xl">⚠️</span>
 						</div>
 					</div>
 				</div>
 
 				<!-- Monthly Revenue -->
-				<div class="bg-gradient-to-br from-purple-900/50 to-purple-800/30 backdrop-blur-sm rounded-xl border border-purple-700/50 p-6">
+				<div
+					class="bg-gradient-to-br from-purple-900/50 to-purple-800/30 backdrop-blur-sm rounded-xl border border-purple-700/50 p-6"
+				>
 					<div class="flex items-center justify-between">
 						<div>
-							<p class="text-purple-200 text-sm font-medium">Est. Revenue</p>
+							<p class="text-purple-200 text-sm font-medium">
+								Est. Revenue
+							</p>
 							<p class="text-3xl font-bold text-white">
 								${monthlyRevenue.toLocaleString()}
 							</p>
-							<p class="text-purple-300 text-xs mt-1">this month</p>
+							<p class="text-purple-300 text-xs mt-1">
+								this month
+							</p>
 						</div>
-						<div class="w-14 h-14 rounded-xl bg-purple-600/30 flex items-center justify-center">
+						<div
+							class="w-14 h-14 rounded-xl bg-purple-600/30 flex items-center justify-center"
+						>
 							<span class="text-2xl">💰</span>
 						</div>
 					</div>
 				</div>
 
 				<!-- Menu Status -->
-				<div class="bg-gradient-to-br from-teal-900/50 to-teal-800/30 backdrop-blur-sm rounded-xl border border-teal-700/50 p-6">
+				<div
+					class="bg-gradient-to-br from-teal-900/50 to-teal-800/30 backdrop-blur-sm rounded-xl border border-teal-700/50 p-6"
+				>
 					<div class="flex items-center justify-between">
 						<div>
-							<p class="text-teal-200 text-sm font-medium">Menu Items</p>
-							<p class="text-3xl font-bold text-white">{availableMenuItems}</p>
-							<p class="text-teal-300 text-xs mt-1">of {totalMenuItems} available</p>
+							<p class="text-teal-200 text-sm font-medium">
+								Menu Items
+							</p>
+							<p class="text-3xl font-bold text-white">
+								{availableMenuItems}
+							</p>
+							<p class="text-teal-300 text-xs mt-1">
+								of {totalMenuItems} available
+							</p>
 						</div>
-						<div class="w-14 h-14 rounded-xl bg-teal-600/30 flex items-center justify-center">
+						<div
+							class="w-14 h-14 rounded-xl bg-teal-600/30 flex items-center justify-center"
+						>
 							<span class="text-2xl">🍽️</span>
 						</div>
 					</div>
 				</div>
 
 				<!-- Upcoming Events -->
-				<div class="bg-gradient-to-br from-indigo-900/50 to-indigo-800/30 backdrop-blur-sm rounded-xl border border-indigo-700/50 p-6">
+				<div
+					class="bg-gradient-to-br from-indigo-900/50 to-indigo-800/30 backdrop-blur-sm rounded-xl border border-indigo-700/50 p-6"
+				>
 					<div class="flex items-center justify-between">
 						<div>
-							<p class="text-indigo-200 text-sm font-medium">Next Week</p>
-							<p class="text-3xl font-bold text-white">{upcomingEvents.length}</p>
-							<p class="text-indigo-300 text-xs mt-1">confirmed events</p>
+							<p class="text-indigo-200 text-sm font-medium">
+								Next Week
+							</p>
+							<p class="text-3xl font-bold text-white">
+								{upcomingEvents.length}
+							</p>
+							<p class="text-indigo-300 text-xs mt-1">
+								confirmed events
+							</p>
 						</div>
-						<div class="w-14 h-14 rounded-xl bg-indigo-600/30 flex items-center justify-center">
+						<div
+							class="w-14 h-14 rounded-xl bg-indigo-600/30 flex items-center justify-center"
+						>
 							<span class="text-2xl">📅</span>
 						</div>
 					</div>
 				</div>
 
 				<!-- Pending Inquiries -->
-				<div class="bg-gradient-to-br from-yellow-900/50 to-yellow-800/30 backdrop-blur-sm rounded-xl border border-yellow-700/50 p-6">
+				<div
+					class="bg-gradient-to-br from-yellow-900/50 to-yellow-800/30 backdrop-blur-sm rounded-xl border border-yellow-700/50 p-6"
+				>
 					<div class="flex items-center justify-between">
 						<div>
-							<p class="text-yellow-200 text-sm font-medium">Pending</p>
-							<p class="text-3xl font-bold text-white">{pendingEvents}</p>
-							<p class="text-yellow-300 text-xs mt-1">event inquiries</p>
+							<p class="text-yellow-200 text-sm font-medium">
+								Pending
+							</p>
+							<p class="text-3xl font-bold text-white">
+								{pendingEvents}
+							</p>
+							<p class="text-yellow-300 text-xs mt-1">
+								event inquiries
+							</p>
 						</div>
-						<div class="w-14 h-14 rounded-xl bg-yellow-600/30 flex items-center justify-center">
+						<div
+							class="w-14 h-14 rounded-xl bg-yellow-600/30 flex items-center justify-center"
+						>
 							<span class="text-2xl">❓</span>
 						</div>
 					</div>
 				</div>
 
 				<!-- Weekly Performance -->
-				<div class="bg-gradient-to-br from-cyan-900/50 to-cyan-800/30 backdrop-blur-sm rounded-xl border border-cyan-700/50 p-6">
+				<div
+					class="bg-gradient-to-br from-cyan-900/50 to-cyan-800/30 backdrop-blur-sm rounded-xl border border-cyan-700/50 p-6"
+				>
 					<div class="flex items-center justify-between">
 						<div>
-							<p class="text-cyan-200 text-sm font-medium">Operations</p>
-							<p class="text-3xl font-bold text-white">
-								{Math.round((activeStaff / Math.max($staff.length, 1)) * 100)}%
+							<p class="text-cyan-200 text-sm font-medium">
+								Operations
 							</p>
-							<p class="text-cyan-300 text-xs mt-1">staff efficiency</p>
+							<p class="text-3xl font-bold text-white">
+								{Math.round(
+									(activeStaff / Math.max($staff.length, 1)) *
+										100
+								)}%
+							</p>
+							<p class="text-cyan-300 text-xs mt-1">
+								staff efficiency
+							</p>
 						</div>
-						<div class="w-14 h-14 rounded-xl bg-cyan-600/30 flex items-center justify-center">
+						<div
+							class="w-14 h-14 rounded-xl bg-cyan-600/30 flex items-center justify-center"
+						>
 							<span class="text-2xl">📊</span>
+						</div>
+					</div>
+				</div>
+
+				<!-- Maintenance Alerts -->
+				<div
+					class="bg-gradient-to-br from-red-900/50 to-red-800/30 backdrop-blur-sm rounded-xl border border-red-700/50 p-6"
+				>
+					<div class="flex items-center justify-between">
+						<div>
+							<p class="text-red-200 text-sm font-medium">
+								Maintenance
+							</p>
+							<p class="text-3xl font-bold text-white">
+								{overdueTasks.length}
+							</p>
+							<p class="text-red-300 text-xs mt-1">
+								overdue tasks
+							</p>
+						</div>
+						<div
+							class="w-14 h-14 rounded-xl bg-red-600/30 flex items-center justify-center"
+						>
+							<span class="text-2xl">🔧</span>
 						</div>
 					</div>
 				</div>
@@ -545,11 +737,15 @@
 										</p>
 										<p class="text-sm text-gray-400">
 											Current: {item.current_stock}
-											{item.unit} / {item.min_stock_level} min
+											{item.unit} / {item.min_stock_level}
+											min
 										</p>
 									</div>
 									<span class="text-orange-400 font-bold">
-										{item.current_stock <= item.min_stock_level ? 'LOW' : 'WARNING'}
+										{item.current_stock <=
+										item.min_stock_level
+											? "LOW"
+											: "WARNING"}
 									</span>
 								</div>
 							{/each}
@@ -606,266 +802,583 @@
 						</div>
 					{/if}
 				</div>
+
+				<!-- Maintenance Overview -->
+				<div
+					class="bg-gray-800/50 backdrop-blur-sm rounded-xl border border-gray-700 p-6"
+				>
+					<h3 class="text-xl font-bold mb-4 flex items-center">
+						<span class="mr-2">🔧</span>
+						Maintenance Status
+					</h3>
+					<div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+						<!-- Overdue -->
+						<div class="bg-red-900/20 rounded-lg border border-red-700/30 p-4">
+							<div class="flex items-center justify-between">
+								<div>
+									<p class="text-red-200 text-sm font-medium">Overdue</p>
+									<p class="text-2xl font-bold text-red-300">{overdueTasks.length}</p>
+								</div>
+								<span class="text-red-400 text-xl">🚨</span>
+							</div>
+						</div>
+						<!-- Pending -->
+						<div class="bg-yellow-900/20 rounded-lg border border-yellow-700/30 p-4">
+							<div class="flex items-center justify-between">
+								<div>
+									<p class="text-yellow-200 text-sm font-medium">Pending</p>
+									<p class="text-2xl font-bold text-yellow-300">{pendingTasks.length}</p>
+								</div>
+								<span class="text-yellow-400 text-xl">⏳</span>
+							</div>
+						</div>
+						<!-- Completed Today -->
+						<div class="bg-green-900/20 rounded-lg border border-green-700/30 p-4">
+							<div class="flex items-center justify-between">
+								<div>
+									<p class="text-green-200 text-sm font-medium">Completed</p>
+									<p class="text-2xl font-bold text-green-300">{completedTasks.length}</p>
+								</div>
+								<span class="text-green-400 text-xl">✅</span>
+							</div>
+						</div>
+					</div>
+
+					{#if overdueTasks.length > 0}
+						<div class="mb-4">
+							<h4 class="text-lg font-semibold text-red-300 mb-3">🚨 Overdue Tasks</h4>
+							<div class="space-y-2">
+								{#each overdueTasks.slice(0, 3) as task}
+									<div class="bg-red-900/10 border border-red-700/20 rounded-lg p-3">
+										<div class="flex justify-between items-center">
+											<div>
+												<p class="font-medium text-red-200">{task.task_name}</p>
+												<p class="text-sm text-red-300">Due: {task.scheduled_date}</p>
+											</div>
+											<button 
+												on:click={() => openMaintenanceModal()}
+												class="px-3 py-1 bg-red-600 hover:bg-red-700 rounded text-sm transition-colors"
+											>
+												Reschedule
+											</button>
+										</div>
+									</div>
+								{/each}
+								{#if overdueTasks.length > 3}
+									<p class="text-sm text-gray-400 text-center">
+										and {overdueTasks.length - 3} more overdue tasks...
+									</p>
+								{/if}
+							</div>
+						</div>
+					{/if}
+
+					{#if recentRecords.length > 0}
+						<div>
+							<h4 class="text-lg font-semibold text-green-300 mb-3">✅ Recent Completions</h4>
+							<div class="space-y-2">
+								{#each recentRecords as record}
+									<div class="bg-green-900/10 border border-green-700/20 rounded-lg p-3">
+										<div class="flex justify-between items-start">
+											<div class="flex-1">
+												<p class="font-medium text-green-200">{record.task_name}</p>
+												<p class="text-sm text-green-300">
+													Completed by {record.completed_by} on {record.completed_date}
+												</p>
+												{#if record.completion_notes}
+													<p class="text-xs text-gray-400 mt-1">{record.completion_notes}</p>
+												{/if}
+											</div>
+										</div>
+									</div>
+								{/each}
+							</div>
+						</div>
+					{/if}
+				</div>
 			</div>
 		{:else if activeTab === "floor-plan"}
 			<!-- Floor Plan -->
 			<div class="mb-8">
 				<h2 class="text-3xl font-bold">Restaurant Floor Plan</h2>
-				<p class="text-gray-400 mt-2">Visual layout of dining areas, bar, patio, and waiting area</p>
+				<p class="text-gray-400 mt-2">
+					Visual layout of dining areas, bar, patio, and waiting area
+				</p>
 			</div>
 
 			<!-- Floor Plan Container -->
-			<div class="bg-gray-800/50 backdrop-blur-sm rounded-xl border border-gray-700 p-8">
-				<div class="grid grid-cols-12 grid-rows-8 gap-2 h-[600px] bg-gray-900/50 rounded-lg p-4">
-					
+			<div
+				class="bg-gray-800/50 backdrop-blur-sm rounded-xl border border-gray-700 p-8"
+			>
+				<div
+					class="grid grid-cols-12 grid-rows-8 gap-2 h-[600px] bg-gray-900/50 rounded-lg p-4"
+				>
 					<!-- Restaurant Entrance & Wait Area -->
-					<div class="col-span-12 row-span-1 bg-gradient-to-r from-blue-900/50 to-blue-800/30 rounded-lg border border-blue-700/50 flex items-center justify-center relative">
-						<span class="text-white font-semibold">🚪 Entrance & Wait Area</span>
+					<div
+						class="col-span-12 row-span-1 bg-gradient-to-r from-blue-900/50 to-blue-800/30 rounded-lg border border-blue-700/50 flex items-center justify-center relative"
+					>
+						<span class="text-white font-semibold"
+							>🚪 Entrance & Wait Area</span
+						>
 						<div class="absolute right-4 flex space-x-2">
-							<div class="w-6 h-6 bg-blue-600/40 rounded border border-blue-500"></div>
-							<div class="w-6 h-6 bg-blue-600/40 rounded border border-blue-500"></div>
-							<span class="text-blue-300 text-xs">Waiting Chairs</span>
+							<div
+								class="w-6 h-6 bg-blue-600/40 rounded border border-blue-500"
+							/>
+							<div
+								class="w-6 h-6 bg-blue-600/40 rounded border border-blue-500"
+							/>
+							<span class="text-blue-300 text-xs"
+								>Waiting Chairs</span
+							>
 						</div>
 					</div>
 
 					<!-- Main Dining Area -->
-					<div class="col-span-8 row-span-5 bg-gradient-to-br from-green-900/50 to-green-800/30 rounded-lg border border-green-700/50 p-4 relative">
+					<div
+						class="col-span-8 row-span-5 bg-gradient-to-br from-green-900/50 to-green-800/30 rounded-lg border border-green-700/50 p-4 relative"
+					>
 						<div class="absolute top-2 left-2">
-							<span class="text-green-200 font-semibold">🍽️ Main Dining Area</span>
+							<span class="text-green-200 font-semibold"
+								>🍽️ Main Dining Area</span
+							>
 						</div>
-						
+
 						<!-- Tables Grid -->
-						<div class="grid grid-cols-4 grid-rows-3 gap-3 h-full pt-8">
+						<div
+							class="grid grid-cols-4 grid-rows-3 gap-3 h-full pt-8"
+						>
 							<!-- Table 1 -->
-							<div class="bg-green-700/30 rounded-lg border border-green-600/50 flex items-center justify-center relative group hover:bg-green-600/40 transition-colors cursor-pointer">
-								<span class="text-green-100 text-xs font-medium">T1</span>
-								<div class="absolute -top-1 -right-1 w-3 h-3 bg-green-500 rounded-full animate-pulse"></div>
-								<div class="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity bg-green-600/20 rounded-lg flex items-center justify-center">
-									<span class="text-xs text-green-100">4 seats • Available</span>
+							<div
+								class="bg-green-700/30 rounded-lg border border-green-600/50 flex items-center justify-center relative group hover:bg-green-600/40 transition-colors cursor-pointer"
+							>
+								<span class="text-green-100 text-xs font-medium"
+									>T1</span
+								>
+								<div
+									class="absolute -top-1 -right-1 w-3 h-3 bg-green-500 rounded-full animate-pulse"
+								/>
+								<div
+									class="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity bg-green-600/20 rounded-lg flex items-center justify-center"
+								>
+									<span class="text-xs text-green-100"
+										>4 seats • Available</span
+									>
 								</div>
 							</div>
-							
+
 							<!-- Table 2 -->
-							<div class="bg-yellow-700/30 rounded-lg border border-yellow-600/50 flex items-center justify-center relative group hover:bg-yellow-600/40 transition-colors cursor-pointer">
-								<span class="text-yellow-100 text-xs font-medium">T2</span>
-								<div class="absolute -top-1 -right-1 w-3 h-3 bg-yellow-500 rounded-full"></div>
-								<div class="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity bg-yellow-600/20 rounded-lg flex items-center justify-center">
-									<span class="text-xs text-yellow-100">6 seats • Occupied</span>
+							<div
+								class="bg-yellow-700/30 rounded-lg border border-yellow-600/50 flex items-center justify-center relative group hover:bg-yellow-600/40 transition-colors cursor-pointer"
+							>
+								<span
+									class="text-yellow-100 text-xs font-medium"
+									>T2</span
+								>
+								<div
+									class="absolute -top-1 -right-1 w-3 h-3 bg-yellow-500 rounded-full"
+								/>
+								<div
+									class="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity bg-yellow-600/20 rounded-lg flex items-center justify-center"
+								>
+									<span class="text-xs text-yellow-100"
+										>6 seats • Occupied</span
+									>
 								</div>
 							</div>
-							
+
 							<!-- Table 3 -->
-							<div class="bg-green-700/30 rounded-lg border border-green-600/50 flex items-center justify-center relative group hover:bg-green-600/40 transition-colors cursor-pointer">
-								<span class="text-green-100 text-xs font-medium">T3</span>
-								<div class="absolute -top-1 -right-1 w-3 h-3 bg-green-500 rounded-full animate-pulse"></div>
-								<div class="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity bg-green-600/20 rounded-lg flex items-center justify-center">
-									<span class="text-xs text-green-100">4 seats • Available</span>
+							<div
+								class="bg-green-700/30 rounded-lg border border-green-600/50 flex items-center justify-center relative group hover:bg-green-600/40 transition-colors cursor-pointer"
+							>
+								<span class="text-green-100 text-xs font-medium"
+									>T3</span
+								>
+								<div
+									class="absolute -top-1 -right-1 w-3 h-3 bg-green-500 rounded-full animate-pulse"
+								/>
+								<div
+									class="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity bg-green-600/20 rounded-lg flex items-center justify-center"
+								>
+									<span class="text-xs text-green-100"
+										>4 seats • Available</span
+									>
 								</div>
 							</div>
-							
+
 							<!-- Table 4 -->
-							<div class="bg-red-700/30 rounded-lg border border-red-600/50 flex items-center justify-center relative group hover:bg-red-600/40 transition-colors cursor-pointer">
-								<span class="text-red-100 text-xs font-medium">T4</span>
-								<div class="absolute -top-1 -right-1 w-3 h-3 bg-red-500 rounded-full"></div>
-								<div class="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity bg-red-600/20 rounded-lg flex items-center justify-center">
-									<span class="text-xs text-red-100">2 seats • Reserved</span>
+							<div
+								class="bg-red-700/30 rounded-lg border border-red-600/50 flex items-center justify-center relative group hover:bg-red-600/40 transition-colors cursor-pointer"
+							>
+								<span class="text-red-100 text-xs font-medium"
+									>T4</span
+								>
+								<div
+									class="absolute -top-1 -right-1 w-3 h-3 bg-red-500 rounded-full"
+								/>
+								<div
+									class="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity bg-red-600/20 rounded-lg flex items-center justify-center"
+								>
+									<span class="text-xs text-red-100"
+										>2 seats • Reserved</span
+									>
 								</div>
 							</div>
-							
+
 							<!-- Table 5 -->
-							<div class="bg-green-700/30 rounded-lg border border-green-600/50 flex items-center justify-center relative group hover:bg-green-600/40 transition-colors cursor-pointer">
-								<span class="text-green-100 text-xs font-medium">T5</span>
-								<div class="absolute -top-1 -right-1 w-3 h-3 bg-green-500 rounded-full animate-pulse"></div>
-								<div class="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity bg-green-600/20 rounded-lg flex items-center justify-center">
-									<span class="text-xs text-green-100">6 seats • Available</span>
+							<div
+								class="bg-green-700/30 rounded-lg border border-green-600/50 flex items-center justify-center relative group hover:bg-green-600/40 transition-colors cursor-pointer"
+							>
+								<span class="text-green-100 text-xs font-medium"
+									>T5</span
+								>
+								<div
+									class="absolute -top-1 -right-1 w-3 h-3 bg-green-500 rounded-full animate-pulse"
+								/>
+								<div
+									class="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity bg-green-600/20 rounded-lg flex items-center justify-center"
+								>
+									<span class="text-xs text-green-100"
+										>6 seats • Available</span
+									>
 								</div>
 							</div>
-							
+
 							<!-- Table 6 -->
-							<div class="bg-yellow-700/30 rounded-lg border border-yellow-600/50 flex items-center justify-center relative group hover:bg-yellow-600/40 transition-colors cursor-pointer">
-								<span class="text-yellow-100 text-xs font-medium">T6</span>
-								<div class="absolute -top-1 -right-1 w-3 h-3 bg-yellow-500 rounded-full"></div>
-								<div class="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity bg-yellow-600/20 rounded-lg flex items-center justify-center">
-									<span class="text-xs text-yellow-100">4 seats • Occupied</span>
+							<div
+								class="bg-yellow-700/30 rounded-lg border border-yellow-600/50 flex items-center justify-center relative group hover:bg-yellow-600/40 transition-colors cursor-pointer"
+							>
+								<span
+									class="text-yellow-100 text-xs font-medium"
+									>T6</span
+								>
+								<div
+									class="absolute -top-1 -right-1 w-3 h-3 bg-yellow-500 rounded-full"
+								/>
+								<div
+									class="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity bg-yellow-600/20 rounded-lg flex items-center justify-center"
+								>
+									<span class="text-xs text-yellow-100"
+										>4 seats • Occupied</span
+									>
 								</div>
 							</div>
-							
+
 							<!-- Table 7 -->
-							<div class="bg-green-700/30 rounded-lg border border-green-600/50 flex items-center justify-center relative group hover:bg-green-600/40 transition-colors cursor-pointer">
-								<span class="text-green-100 text-xs font-medium">T7</span>
-								<div class="absolute -top-1 -right-1 w-3 h-3 bg-green-500 rounded-full animate-pulse"></div>
-								<div class="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity bg-green-600/20 rounded-lg flex items-center justify-center">
-									<span class="text-xs text-green-100">8 seats • Available</span>
+							<div
+								class="bg-green-700/30 rounded-lg border border-green-600/50 flex items-center justify-center relative group hover:bg-green-600/40 transition-colors cursor-pointer"
+							>
+								<span class="text-green-100 text-xs font-medium"
+									>T7</span
+								>
+								<div
+									class="absolute -top-1 -right-1 w-3 h-3 bg-green-500 rounded-full animate-pulse"
+								/>
+								<div
+									class="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity bg-green-600/20 rounded-lg flex items-center justify-center"
+								>
+									<span class="text-xs text-green-100"
+										>8 seats • Available</span
+									>
 								</div>
 							</div>
-							
+
 							<!-- Table 8 -->
-							<div class="bg-gray-700/30 rounded-lg border border-gray-600/50 flex items-center justify-center relative group hover:bg-gray-600/40 transition-colors cursor-pointer">
-								<span class="text-gray-100 text-xs font-medium">T8</span>
-								<div class="absolute -top-1 -right-1 w-3 h-3 bg-gray-500 rounded-full"></div>
-								<div class="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity bg-gray-600/20 rounded-lg flex items-center justify-center">
-									<span class="text-xs text-gray-100">4 seats • Cleaning</span>
+							<div
+								class="bg-gray-700/30 rounded-lg border border-gray-600/50 flex items-center justify-center relative group hover:bg-gray-600/40 transition-colors cursor-pointer"
+							>
+								<span class="text-gray-100 text-xs font-medium"
+									>T8</span
+								>
+								<div
+									class="absolute -top-1 -right-1 w-3 h-3 bg-gray-500 rounded-full"
+								/>
+								<div
+									class="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity bg-gray-600/20 rounded-lg flex items-center justify-center"
+								>
+									<span class="text-xs text-gray-100"
+										>4 seats • Cleaning</span
+									>
 								</div>
 							</div>
-							
+
 							<!-- Table 9 -->
-							<div class="bg-green-700/30 rounded-lg border border-green-600/50 flex items-center justify-center relative group hover:bg-green-600/40 transition-colors cursor-pointer">
-								<span class="text-green-100 text-xs font-medium">T9</span>
-								<div class="absolute -top-1 -right-1 w-3 h-3 bg-green-500 rounded-full animate-pulse"></div>
-								<div class="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity bg-green-600/20 rounded-lg flex items-center justify-center">
-									<span class="text-xs text-green-100">6 seats • Available</span>
+							<div
+								class="bg-green-700/30 rounded-lg border border-green-600/50 flex items-center justify-center relative group hover:bg-green-600/40 transition-colors cursor-pointer"
+							>
+								<span class="text-green-100 text-xs font-medium"
+									>T9</span
+								>
+								<div
+									class="absolute -top-1 -right-1 w-3 h-3 bg-green-500 rounded-full animate-pulse"
+								/>
+								<div
+									class="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity bg-green-600/20 rounded-lg flex items-center justify-center"
+								>
+									<span class="text-xs text-green-100"
+										>6 seats • Available</span
+									>
 								</div>
 							</div>
-							
+
 							<!-- Table 10 -->
-							<div class="bg-red-700/30 rounded-lg border border-red-600/50 flex items-center justify-center relative group hover:bg-red-600/40 transition-colors cursor-pointer">
-								<span class="text-red-100 text-xs font-medium">T10</span>
-								<div class="absolute -top-1 -right-1 w-3 h-3 bg-red-500 rounded-full"></div>
-								<div class="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity bg-red-600/20 rounded-lg flex items-center justify-center">
-									<span class="text-xs text-red-100">4 seats • Reserved</span>
+							<div
+								class="bg-red-700/30 rounded-lg border border-red-600/50 flex items-center justify-center relative group hover:bg-red-600/40 transition-colors cursor-pointer"
+							>
+								<span class="text-red-100 text-xs font-medium"
+									>T10</span
+								>
+								<div
+									class="absolute -top-1 -right-1 w-3 h-3 bg-red-500 rounded-full"
+								/>
+								<div
+									class="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity bg-red-600/20 rounded-lg flex items-center justify-center"
+								>
+									<span class="text-xs text-red-100"
+										>4 seats • Reserved</span
+									>
 								</div>
 							</div>
-							
+
 							<!-- Table 11 -->
-							<div class="bg-yellow-700/30 rounded-lg border border-yellow-600/50 flex items-center justify-center relative group hover:bg-yellow-600/40 transition-colors cursor-pointer">
-								<span class="text-yellow-100 text-xs font-medium">T11</span>
-								<div class="absolute -top-1 -right-1 w-3 h-3 bg-yellow-500 rounded-full"></div>
-								<div class="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity bg-yellow-600/20 rounded-lg flex items-center justify-center">
-									<span class="text-xs text-yellow-100">8 seats • Occupied</span>
+							<div
+								class="bg-yellow-700/30 rounded-lg border border-yellow-600/50 flex items-center justify-center relative group hover:bg-yellow-600/40 transition-colors cursor-pointer"
+							>
+								<span
+									class="text-yellow-100 text-xs font-medium"
+									>T11</span
+								>
+								<div
+									class="absolute -top-1 -right-1 w-3 h-3 bg-yellow-500 rounded-full"
+								/>
+								<div
+									class="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity bg-yellow-600/20 rounded-lg flex items-center justify-center"
+								>
+									<span class="text-xs text-yellow-100"
+										>8 seats • Occupied</span
+									>
 								</div>
 							</div>
-							
+
 							<!-- Table 12 -->
-							<div class="bg-green-700/30 rounded-lg border border-green-600/50 flex items-center justify-center relative group hover:bg-green-600/40 transition-colors cursor-pointer">
-								<span class="text-green-100 text-xs font-medium">T12</span>
-								<div class="absolute -top-1 -right-1 w-3 h-3 bg-green-500 rounded-full animate-pulse"></div>
-								<div class="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity bg-green-600/20 rounded-lg flex items-center justify-center">
-									<span class="text-xs text-green-100">6 seats • Available</span>
+							<div
+								class="bg-green-700/30 rounded-lg border border-green-600/50 flex items-center justify-center relative group hover:bg-green-600/40 transition-colors cursor-pointer"
+							>
+								<span class="text-green-100 text-xs font-medium"
+									>T12</span
+								>
+								<div
+									class="absolute -top-1 -right-1 w-3 h-3 bg-green-500 rounded-full animate-pulse"
+								/>
+								<div
+									class="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity bg-green-600/20 rounded-lg flex items-center justify-center"
+								>
+									<span class="text-xs text-green-100"
+										>6 seats • Available</span
+									>
 								</div>
 							</div>
 						</div>
 					</div>
 
 					<!-- Bar Area -->
-					<div class="col-span-4 row-span-3 bg-gradient-to-br from-purple-900/50 to-purple-800/30 rounded-lg border border-purple-700/50 p-3 relative">
+					<div
+						class="col-span-4 row-span-3 bg-gradient-to-br from-purple-900/50 to-purple-800/30 rounded-lg border border-purple-700/50 p-3 relative"
+					>
 						<div class="absolute top-2 left-2">
-							<span class="text-purple-200 font-semibold">🍺 Bar Area</span>
+							<span class="text-purple-200 font-semibold"
+								>🍺 Bar Area</span
+							>
 						</div>
-						
+
 						<!-- Bar Counter -->
 						<div class="mt-8 space-y-2">
-							<div class="bg-purple-700/40 rounded-lg h-8 flex items-center justify-center border border-purple-600/50">
-								<span class="text-purple-100 text-xs">Bar Counter</span>
+							<div
+								class="bg-purple-700/40 rounded-lg h-8 flex items-center justify-center border border-purple-600/50"
+							>
+								<span class="text-purple-100 text-xs"
+									>Bar Counter</span
+								>
 							</div>
-							
+
 							<!-- Bar Stools -->
 							<div class="flex justify-between">
-								<div class="w-6 h-6 bg-purple-600/40 rounded-full border border-purple-500"></div>
-								<div class="w-6 h-6 bg-purple-600/40 rounded-full border border-purple-500"></div>
-								<div class="w-6 h-6 bg-yellow-600/40 rounded-full border border-yellow-500"></div>
-								<div class="w-6 h-6 bg-yellow-600/40 rounded-full border border-yellow-500"></div>
-								<div class="w-6 h-6 bg-purple-600/40 rounded-full border border-purple-500"></div>
-								<div class="w-6 h-6 bg-purple-600/40 rounded-full border border-purple-500"></div>
+								<div
+									class="w-6 h-6 bg-purple-600/40 rounded-full border border-purple-500"
+								/>
+								<div
+									class="w-6 h-6 bg-purple-600/40 rounded-full border border-purple-500"
+								/>
+								<div
+									class="w-6 h-6 bg-yellow-600/40 rounded-full border border-yellow-500"
+								/>
+								<div
+									class="w-6 h-6 bg-yellow-600/40 rounded-full border border-yellow-500"
+								/>
+								<div
+									class="w-6 h-6 bg-purple-600/40 rounded-full border border-purple-500"
+								/>
+								<div
+									class="w-6 h-6 bg-purple-600/40 rounded-full border border-purple-500"
+								/>
 							</div>
 							<div class="text-center">
-								<span class="text-purple-300 text-xs">6 Bar Stools (2 occupied)</span>
+								<span class="text-purple-300 text-xs"
+									>6 Bar Stools (2 occupied)</span
+								>
 							</div>
-							
+
 							<!-- High Tables -->
 							<div class="mt-4 grid grid-cols-2 gap-2">
-								<div class="bg-purple-700/30 rounded border border-purple-600/50 h-12 flex items-center justify-center group hover:bg-purple-600/40 transition-colors cursor-pointer">
-									<span class="text-purple-100 text-xs">HT1</span>
-									<div class="absolute opacity-0 group-hover:opacity-100 transition-opacity bg-purple-600/20 rounded flex items-center justify-center">
-										<span class="text-xs text-purple-100">4 seats</span>
+								<div
+									class="bg-purple-700/30 rounded border border-purple-600/50 h-12 flex items-center justify-center group hover:bg-purple-600/40 transition-colors cursor-pointer"
+								>
+									<span class="text-purple-100 text-xs"
+										>HT1</span
+									>
+									<div
+										class="absolute opacity-0 group-hover:opacity-100 transition-opacity bg-purple-600/20 rounded flex items-center justify-center"
+									>
+										<span class="text-xs text-purple-100"
+											>4 seats</span
+										>
 									</div>
 								</div>
-								<div class="bg-purple-700/30 rounded border border-purple-600/50 h-12 flex items-center justify-center group hover:bg-purple-600/40 transition-colors cursor-pointer">
-									<span class="text-purple-100 text-xs">HT2</span>
+								<div
+									class="bg-purple-700/30 rounded border border-purple-600/50 h-12 flex items-center justify-center group hover:bg-purple-600/40 transition-colors cursor-pointer"
+								>
+									<span class="text-purple-100 text-xs"
+										>HT2</span
+									>
 								</div>
 							</div>
 						</div>
 					</div>
 
 					<!-- Kitchen/Service Area -->
-					<div class="col-span-4 row-span-2 bg-gradient-to-br from-red-900/50 to-red-800/30 rounded-lg border border-red-700/50 flex items-center justify-center relative">
-						<span class="text-red-200 font-semibold">👨‍🍳 Kitchen & Service</span>
+					<div
+						class="col-span-4 row-span-2 bg-gradient-to-br from-red-900/50 to-red-800/30 rounded-lg border border-red-700/50 flex items-center justify-center relative"
+					>
+						<span class="text-red-200 font-semibold"
+							>👨‍🍳 Kitchen & Service</span
+						>
 						<div class="absolute bottom-2 right-2 flex space-x-1">
-							<div class="w-2 h-2 bg-red-500 rounded-full animate-pulse"></div>
-							<div class="w-2 h-2 bg-orange-500 rounded-full animate-pulse"></div>
-							<div class="w-2 h-2 bg-green-500 rounded-full"></div>
-							<span class="text-red-300 text-xs ml-1">Active</span>
+							<div
+								class="w-2 h-2 bg-red-500 rounded-full animate-pulse"
+							/>
+							<div
+								class="w-2 h-2 bg-orange-500 rounded-full animate-pulse"
+							/>
+							<div class="w-2 h-2 bg-green-500 rounded-full" />
+							<span class="text-red-300 text-xs ml-1">Active</span
+							>
 						</div>
 					</div>
 
 					<!-- Patio Area -->
-					<div class="col-span-8 row-span-2 bg-gradient-to-br from-teal-900/50 to-teal-800/30 rounded-lg border border-teal-700/50 p-3 relative">
+					<div
+						class="col-span-8 row-span-2 bg-gradient-to-br from-teal-900/50 to-teal-800/30 rounded-lg border border-teal-700/50 p-3 relative"
+					>
 						<div class="absolute top-2 left-2">
-							<span class="text-teal-200 font-semibold">🌿 Outdoor Patio</span>
+							<span class="text-teal-200 font-semibold"
+								>🌿 Outdoor Patio</span
+							>
 						</div>
-						
+
 						<!-- Patio Tables -->
-						<div class="grid grid-cols-6 grid-rows-1 gap-2 h-full pt-8">
-							<div class="bg-teal-700/30 rounded border border-teal-600/50 flex items-center justify-center group hover:bg-teal-600/40 transition-colors cursor-pointer">
+						<div
+							class="grid grid-cols-6 grid-rows-1 gap-2 h-full pt-8"
+						>
+							<div
+								class="bg-teal-700/30 rounded border border-teal-600/50 flex items-center justify-center group hover:bg-teal-600/40 transition-colors cursor-pointer"
+							>
 								<span class="text-teal-100 text-xs">P1</span>
-								<div class="absolute opacity-0 group-hover:opacity-100 transition-opacity bg-teal-600/20 rounded flex items-center justify-center">
-									<span class="text-xs text-teal-100">4 seats</span>
+								<div
+									class="absolute opacity-0 group-hover:opacity-100 transition-opacity bg-teal-600/20 rounded flex items-center justify-center"
+								>
+									<span class="text-xs text-teal-100"
+										>4 seats</span
+									>
 								</div>
 							</div>
-							<div class="bg-teal-700/30 rounded border border-teal-600/50 flex items-center justify-center group hover:bg-teal-600/40 transition-colors cursor-pointer">
+							<div
+								class="bg-teal-700/30 rounded border border-teal-600/50 flex items-center justify-center group hover:bg-teal-600/40 transition-colors cursor-pointer"
+							>
 								<span class="text-teal-100 text-xs">P2</span>
 							</div>
-							<div class="bg-yellow-700/30 rounded border border-yellow-600/50 flex items-center justify-center group hover:bg-yellow-600/40 transition-colors cursor-pointer">
+							<div
+								class="bg-yellow-700/30 rounded border border-yellow-600/50 flex items-center justify-center group hover:bg-yellow-600/40 transition-colors cursor-pointer"
+							>
 								<span class="text-yellow-100 text-xs">P3</span>
-								<div class="absolute opacity-0 group-hover:opacity-100 transition-opacity bg-yellow-600/20 rounded flex items-center justify-center">
-									<span class="text-xs text-yellow-100">Occupied</span>
+								<div
+									class="absolute opacity-0 group-hover:opacity-100 transition-opacity bg-yellow-600/20 rounded flex items-center justify-center"
+								>
+									<span class="text-xs text-yellow-100"
+										>Occupied</span
+									>
 								</div>
 							</div>
-							<div class="bg-teal-700/30 rounded border border-teal-600/50 flex items-center justify-center group hover:bg-teal-600/40 transition-colors cursor-pointer">
+							<div
+								class="bg-teal-700/30 rounded border border-teal-600/50 flex items-center justify-center group hover:bg-teal-600/40 transition-colors cursor-pointer"
+							>
 								<span class="text-teal-100 text-xs">P4</span>
 							</div>
-							<div class="bg-teal-700/30 rounded border border-teal-600/50 flex items-center justify-center group hover:bg-teal-600/40 transition-colors cursor-pointer">
+							<div
+								class="bg-teal-700/30 rounded border border-teal-600/50 flex items-center justify-center group hover:bg-teal-600/40 transition-colors cursor-pointer"
+							>
 								<span class="text-teal-100 text-xs">P5</span>
 							</div>
-							<div class="bg-red-700/30 rounded border border-red-600/50 flex items-center justify-center group hover:bg-red-600/40 transition-colors cursor-pointer">
+							<div
+								class="bg-red-700/30 rounded border border-red-600/50 flex items-center justify-center group hover:bg-red-600/40 transition-colors cursor-pointer"
+							>
 								<span class="text-red-100 text-xs">P6</span>
-								<div class="absolute opacity-0 group-hover:opacity-100 transition-opacity bg-red-600/20 rounded flex items-center justify-center">
-									<span class="text-xs text-red-100">Reserved</span>
+								<div
+									class="absolute opacity-0 group-hover:opacity-100 transition-opacity bg-red-600/20 rounded flex items-center justify-center"
+								>
+									<span class="text-xs text-red-100"
+										>Reserved</span
+									>
 								</div>
 							</div>
 						</div>
-						
+
 						<!-- Weather indicator -->
 						<div class="absolute bottom-2 right-2">
-							<span class="text-teal-300 text-xs">☀️ 72°F • Open</span>
+							<span class="text-teal-300 text-xs"
+								>☀️ 72°F • Open</span
+							>
 						</div>
 					</div>
 				</div>
-				
+
 				<!-- Legend -->
 				<div class="mt-6 flex flex-wrap justify-center gap-4 text-sm">
 					<div class="flex items-center space-x-2">
-						<div class="w-4 h-4 bg-green-500 rounded-full animate-pulse"></div>
+						<div
+							class="w-4 h-4 bg-green-500 rounded-full animate-pulse"
+						/>
 						<span class="text-green-300">Available</span>
 					</div>
 					<div class="flex items-center space-x-2">
-						<div class="w-4 h-4 bg-yellow-500 rounded-full"></div>
+						<div class="w-4 h-4 bg-yellow-500 rounded-full" />
 						<span class="text-yellow-300">Occupied</span>
 					</div>
 					<div class="flex items-center space-x-2">
-						<div class="w-4 h-4 bg-red-500 rounded-full"></div>
+						<div class="w-4 h-4 bg-red-500 rounded-full" />
 						<span class="text-red-300">Reserved</span>
 					</div>
 					<div class="flex items-center space-x-2">
-						<div class="w-4 h-4 bg-gray-500 rounded-full"></div>
+						<div class="w-4 h-4 bg-gray-500 rounded-full" />
 						<span class="text-gray-300">Cleaning</span>
 					</div>
 				</div>
-				
+
 				<!-- Quick Stats -->
 				<div class="mt-6 grid grid-cols-4 gap-4">
 					<div class="bg-gray-700/30 rounded-lg p-3 text-center">
 						<div class="text-2xl font-bold text-green-400">7</div>
-						<div class="text-xs text-gray-400">Available Tables</div>
+						<div class="text-xs text-gray-400">
+							Available Tables
+						</div>
 					</div>
 					<div class="bg-gray-700/30 rounded-lg p-3 text-center">
 						<div class="text-2xl font-bold text-yellow-400">4</div>
@@ -881,7 +1394,391 @@
 					</div>
 				</div>
 			</div>
+		{:else if activeTab === "maintenance"}
+			<!-- Maintenance & Cleaning -->
+			<div class="mb-8 flex justify-between items-center">
+				<div>
+					<h2 class="text-3xl font-bold">Maintenance & Cleaning</h2>
+					<p class="text-gray-400 mt-2">
+						Manage cleaning schedules, equipment maintenance, and
+						recurring services
+					</p>
+				</div>
+				<div class="flex space-x-3">
+					<button
+						on:click={() => openMaintenanceModal()}
+						class="px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded-lg text-sm font-medium transition-colors"
+					>
+						+ Schedule Task
+					</button>
+					<button
+						class="px-4 py-2 bg-green-600 hover:bg-green-700 rounded-lg text-sm font-medium transition-colors"
+					>
+						Mark Complete
+					</button>
+				</div>
+			</div>
 
+			<!-- Maintenance Overview Cards -->
+			<div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+				<div
+					class="bg-gradient-to-br from-red-900/50 to-red-800/30 backdrop-blur-sm rounded-xl border border-red-700/50 p-6"
+				>
+					<div class="flex items-center justify-between">
+						<div>
+							<p class="text-red-200 text-sm font-medium">
+								Overdue
+							</p>
+							<p class="text-3xl font-bold text-white">
+								{overdueTasks.length}
+							</p>
+							<p class="text-red-300 text-xs mt-1">
+								critical attention
+							</p>
+						</div>
+						<div
+							class="w-14 h-14 rounded-xl bg-red-600/30 flex items-center justify-center"
+						>
+							<span class="text-2xl">⚠️</span>
+						</div>
+					</div>
+				</div>
+
+				<div
+					class="bg-gradient-to-br from-yellow-900/50 to-yellow-800/30 backdrop-blur-sm rounded-xl border border-yellow-700/50 p-6"
+				>
+					<div class="flex items-center justify-between">
+						<div>
+							<p class="text-yellow-200 text-sm font-medium">
+								Today
+							</p>
+							<p class="text-3xl font-bold text-white">
+								{todayTasks.length}
+							</p>
+							<p class="text-yellow-300 text-xs mt-1">
+								due today
+							</p>
+						</div>
+						<div
+							class="w-14 h-14 rounded-xl bg-yellow-600/30 flex items-center justify-center"
+						>
+							<span class="text-2xl">📅</span>
+						</div>
+					</div>
+				</div>
+
+				<div
+					class="bg-gradient-to-br from-green-900/50 to-green-800/30 backdrop-blur-sm rounded-xl border border-green-700/50 p-6"
+				>
+					<div class="flex items-center justify-between">
+						<div>
+							<p class="text-green-200 text-sm font-medium">
+								Completed
+							</p>
+							<p class="text-3xl font-bold text-white">
+								{displayMaintenanceTasks.filter(
+									(t) => t.status === "completed"
+								).length}
+							</p>
+							<p class="text-green-300 text-xs mt-1">this week</p>
+						</div>
+						<div
+							class="w-14 h-14 rounded-xl bg-green-600/30 flex items-center justify-center"
+						>
+							<span class="text-2xl">✅</span>
+						</div>
+					</div>
+				</div>
+
+				<div
+					class="bg-gradient-to-br from-blue-900/50 to-blue-800/30 backdrop-blur-sm rounded-xl border border-blue-700/50 p-6"
+				>
+					<div class="flex items-center justify-between">
+						<div>
+							<p class="text-blue-200 text-sm font-medium">
+								Scheduled
+							</p>
+							<p class="text-3xl font-bold text-white">
+								{displayMaintenanceTasks.filter(
+									(t) => t.status === "scheduled"
+								).length}
+							</p>
+							<p class="text-blue-300 text-xs mt-1">upcoming</p>
+						</div>
+						<div
+							class="w-14 h-14 rounded-xl bg-blue-600/30 flex items-center justify-center"
+						>
+							<span class="text-2xl">🗓️</span>
+						</div>
+					</div>
+				</div>
+			</div>
+
+			<!-- Maintenance Tasks Grid -->
+			<div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+				<!-- Critical & Overdue Tasks -->
+				<div
+					class="bg-gray-800/50 backdrop-blur-sm rounded-xl border border-gray-700 p-6"
+				>
+					<h3 class="text-xl font-bold mb-4 flex items-center">
+						<span class="mr-2">🚨</span>
+						Critical & Overdue Tasks
+					</h3>
+					{#if criticalTasks.length === 0}
+						<p class="text-gray-400">
+							All critical tasks are up to date!
+						</p>
+					{:else}
+						<div class="space-y-3">
+							{#each criticalTasks.slice(0, 6) as task}
+								<div
+									class="flex justify-between items-center p-4 {task.status ===
+									'overdue'
+										? 'bg-red-900/20 border border-red-700/30'
+										: 'bg-orange-900/20 border border-orange-700/30'} rounded-lg"
+								>
+									<div class="flex-1">
+										<p class="font-medium text-white">
+											{task.task_name || task.task}
+										</p>
+										<p class="text-sm text-gray-400">
+											Last: {task.lastDone} • Due: {task.nextDue}
+										</p>
+										<div
+											class="flex items-center mt-2 space-x-2"
+										>
+											<span
+												class="text-xs px-2 py-1 rounded-full {task.priority ===
+												'critical'
+													? 'bg-red-900/50 text-red-300'
+													: task.priority === 'high'
+													? 'bg-orange-900/50 text-orange-300'
+													: 'bg-yellow-900/50 text-yellow-300'}"
+											>
+												{task.priority}
+											</span>
+											<span
+												class="text-xs px-2 py-1 rounded-full bg-gray-700 text-gray-300 capitalize"
+											>
+												{task.frequency || task.type}
+											</span>
+										</div>
+									</div>
+									<div class="flex flex-col space-y-2">
+										<button
+											class="text-green-400 hover:text-green-300 text-sm font-medium"
+										>
+											Complete
+										</button>
+										<button
+											class="text-blue-400 hover:text-blue-300 text-sm font-medium"
+										>
+											Reschedule
+										</button>
+									</div>
+								</div>
+							{/each}
+						</div>
+					{/if}
+				</div>
+
+				<!-- All Maintenance Tasks -->
+				<div
+					class="bg-gray-800/50 backdrop-blur-sm rounded-xl border border-gray-700 p-6"
+				>
+					<h3 class="text-xl font-bold mb-4 flex items-center">
+						<span class="mr-2">🧹</span>
+						All Maintenance Tasks
+					</h3>
+
+					<!-- Filter Tabs -->
+					<div
+						class="flex space-x-1 mb-4 p-1 bg-gray-700/30 rounded-lg"
+					>
+						<button
+							class="flex-1 py-2 text-sm font-medium rounded-md bg-blue-600 text-white"
+						>
+							All
+						</button>
+						<button
+							class="flex-1 py-2 text-sm font-medium rounded-md text-gray-300 hover:bg-gray-600/30"
+						>
+							Daily
+						</button>
+						<button
+							class="flex-1 py-2 text-sm font-medium rounded-md text-gray-300 hover:bg-gray-600/30"
+						>
+							Weekly
+						</button>
+						<button
+							class="flex-1 py-2 text-sm font-medium rounded-md text-gray-300 hover:bg-gray-600/30"
+						>
+							Monthly
+						</button>
+					</div>
+
+					<div class="space-y-3 max-h-96 overflow-y-auto">
+						{#each displayMaintenanceTasks as task}
+							<div
+								class="flex justify-between items-center p-3 bg-gray-700/30 rounded-lg hover:bg-gray-600/30 transition-colors"
+							>
+								<div class="flex-1">
+									<p class="font-medium text-white text-sm">
+										{task.task_name || task.task}
+									</p>
+									<p class="text-xs text-gray-400">
+										Due: {task.nextDue}
+									</p>
+									<div
+										class="flex items-center mt-1 space-x-2"
+									>
+										<span
+											class="text-xs px-2 py-1 rounded-full {task.status ===
+											'completed'
+												? 'bg-green-900/50 text-green-300'
+												: task.status === 'overdue'
+												? 'bg-red-900/50 text-red-300'
+												: task.status === 'scheduled'
+												? 'bg-blue-900/50 text-blue-300'
+												: 'bg-yellow-900/50 text-yellow-300'}"
+										>
+											{task.status}
+										</span>
+										<span
+											class="text-xs text-gray-400 capitalize"
+											>{task.frequency || task.type}</span
+										>
+									</div>
+								</div>
+								<div class="flex space-x-2">
+									{#if task.status !== "completed"}
+										<button
+											class="text-green-400 hover:text-green-300 text-xs"
+											>✓</button
+										>
+									{/if}
+									<button
+										class="text-blue-400 hover:text-blue-300 text-xs"
+										>📝</button
+									>
+								</div>
+							</div>
+						{/each}
+					</div>
+				</div>
+			</div>
+
+			<!-- Recurring Services Schedule -->
+			<div
+				class="mt-8 bg-gray-800/50 backdrop-blur-sm rounded-xl border border-gray-700 p-6"
+			>
+				<h3 class="text-xl font-bold mb-4 flex items-center">
+					<span class="mr-2">🔄</span>
+					Recurring Services Schedule
+				</h3>
+
+				<div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+					<!-- Daily Services -->
+					<div
+						class="bg-green-900/20 rounded-lg p-4 border border-green-700/30"
+					>
+						<h4 class="font-semibold text-green-300 mb-3">
+							Daily Services
+						</h4>
+						<ul class="space-y-2 text-sm">
+							<li class="flex justify-between">
+								<span class="text-gray-300"
+									>Kitchen Deep Clean</span
+								>
+								<span class="text-green-400">✓</span>
+							</li>
+							<li class="flex justify-between">
+								<span class="text-gray-300"
+									>Dining Area Sanitize</span
+								>
+								<span class="text-green-400">✓</span>
+							</li>
+							<li class="flex justify-between">
+								<span class="text-gray-300">Restroom Check</span
+								>
+								<span class="text-yellow-400">⏳</span>
+							</li>
+							<li class="flex justify-between">
+								<span class="text-gray-300">Trash Removal</span>
+								<span class="text-green-400">✓</span>
+							</li>
+						</ul>
+					</div>
+
+					<!-- Weekly Services -->
+					<div
+						class="bg-blue-900/20 rounded-lg p-4 border border-blue-700/30"
+					>
+						<h4 class="font-semibold text-blue-300 mb-3">
+							Weekly Services
+						</h4>
+						<ul class="space-y-2 text-sm">
+							<li class="flex justify-between">
+								<span class="text-gray-300"
+									>Floor Deep Clean</span
+								>
+								<span class="text-green-400">✓</span>
+							</li>
+							<li class="flex justify-between">
+								<span class="text-gray-300"
+									>Grease Trap Clean</span
+								>
+								<span class="text-red-400">!</span>
+							</li>
+							<li class="flex justify-between">
+								<span class="text-gray-300"
+									>Equipment Sanitize</span
+								>
+								<span class="text-blue-400">📅</span>
+							</li>
+							<li class="flex justify-between">
+								<span class="text-gray-300"
+									>Window Cleaning</span
+								>
+								<span class="text-blue-400">📅</span>
+							</li>
+						</ul>
+					</div>
+
+					<!-- Monthly Services -->
+					<div
+						class="bg-purple-900/20 rounded-lg p-4 border border-purple-700/30"
+					>
+						<h4 class="font-semibold text-purple-300 mb-3">
+							Monthly Services
+						</h4>
+						<ul class="space-y-2 text-sm">
+							<li class="flex justify-between">
+								<span class="text-gray-300"
+									>HVAC Maintenance</span
+								>
+								<span class="text-red-400">!</span>
+							</li>
+							<li class="flex justify-between">
+								<span class="text-gray-300"
+									>Fire System Check</span
+								>
+								<span class="text-yellow-400">⏳</span>
+							</li>
+							<li class="flex justify-between">
+								<span class="text-gray-300">Pest Control</span>
+								<span class="text-blue-400">📅</span>
+							</li>
+							<li class="flex justify-between">
+								<span class="text-gray-300"
+									>Deep Carpet Clean</span
+								>
+								<span class="text-blue-400">📅</span>
+							</li>
+						</ul>
+					</div>
+				</div>
+			</div>
 		{:else if activeTab === "inventory"}
 			<!-- Inventory Management -->
 			<div class="mb-8 flex justify-between items-center">
@@ -1575,4 +2472,11 @@
 	bind:editItem={editEventItem}
 	on:close={closeEventModal}
 	on:success={closeEventModal}
+/>
+
+<!-- Maintenance Modal -->
+<MaintenanceModal
+	bind:show={showMaintenanceModal}
+	bind:editItem={editMaintenanceItem}
+	on:close={closeMaintenanceModal}
 />

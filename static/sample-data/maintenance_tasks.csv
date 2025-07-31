@@ -1,0 +1,16 @@
+task_name,description,category,frequency,priority,estimated_duration,status
+Daily Kitchen Deep Clean,Complete sanitization of all kitchen surfaces and equipment,kitchen,daily,high,120,active
+HVAC Filter Replacement,Replace air filters in HVAC system,hvac,monthly,high,30,active
+Fire System Inspection,Monthly fire suppression system check,fire_safety,monthly,critical,45,active
+Pest Control Service,Professional pest inspection and treatment,pest_control,monthly,medium,60,active
+Grease Trap Cleaning,Clean and maintain grease trap system,plumbing,weekly,high,90,active
+Equipment Calibration,Calibrate kitchen scales and thermometers,equipment,monthly,medium,60,active
+Floor Deep Cleaning,Deep clean and sanitize all floor surfaces,cleaning,weekly,medium,180,active
+Refrigeration Service,Service and maintenance of refrigeration units,equipment,quarterly,high,120,active
+Restroom Maintenance,Deep clean and restock restrooms,cleaning,daily,medium,45,active
+Window Cleaning,Clean interior and exterior windows,cleaning,weekly,low,90,active
+Ice Machine Cleaning,Deep clean and sanitize ice machines,equipment,bi_weekly,high,75,active
+Exhaust Hood Cleaning,Clean kitchen exhaust hood and filters,kitchen,monthly,high,150,active
+Walk-in Cooler Sanitization,Complete sanitization of walk-in cooler,equipment,weekly,medium,90,active
+Oven Deep Clean,Deep clean convection ovens and ranges,kitchen,weekly,medium,120,active
+Bar Equipment Maintenance,Clean and maintain bar equipment,equipment,weekly,medium,60,active

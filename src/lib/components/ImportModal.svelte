@@ -21,7 +21,10 @@
 		{ id: 'menu_collection', name: 'Menu Items', sampleFile: '/sample-data/menu_items.csv' },
 		{ id: 'vendors_collection', name: 'Vendors', sampleFile: '/sample-data/vendors.csv' },
 		{ id: 'events_collection', name: 'Events', sampleFile: '/sample-data/events.csv' },
-		{ id: 'shifts_collection', name: 'Shifts', sampleFile: '/sample-data/shifts.csv' }
+		{ id: 'shifts_collection', name: 'Shifts', sampleFile: '/sample-data/shifts.csv' },
+		{ id: 'maintenance_tasks', name: 'Maintenance Tasks', sampleFile: '/sample-data/maintenance_tasks.csv' },
+		{ id: 'maintenance_schedules', name: 'Maintenance Schedules', sampleFile: '/sample-data/maintenance_schedules.csv' },
+		{ id: 'maintenance_records', name: 'Maintenance Records', sampleFile: '/sample-data/maintenance_records.csv' }
 	];
 
 	function close() {
@@ -267,6 +270,75 @@
 		return results;
 	}
 
+	async function processMaintenanceTasksData(data) {
+		const results = { success: 0, errors: [] };
+		
+		for (const task of data) {
+			try {
+				const taskData = {
+					task_name: task.task_name,
+					description: task.description || '',
+					category: task.category,
+					frequency: task.frequency,
+					priority: task.priority,
+					estimated_duration: task.estimated_duration ? parseInt(task.estimated_duration) : null,
+					status: task.status || 'active'
+				};
+				
+				await collections.createMaintenanceTask(taskData);
+				results.success++;
+			} catch (error) {
+				results.errors.push(`Task "${task.task_name}": ${error.message}`);
+			}
+		}
+		
+		return results;
+	}
+
+	async function processMaintenanceSchedulesData(data) {
+		const results = { success: 0, errors: [] };
+		
+		for (const schedule of data) {
+			try {
+				const scheduleData = {
+					task_name: schedule.task_name,
+					scheduled_date: schedule.scheduled_date,
+					status: schedule.status || 'pending',
+					notes: schedule.notes || ''
+				};
+				
+				await collections.createMaintenanceSchedule(scheduleData);
+				results.success++;
+			} catch (error) {
+				results.errors.push(`Schedule for "${schedule.task_name}": ${error.message}`);
+			}
+		}
+		
+		return results;
+	}
+
+	async function processMaintenanceRecordsData(data) {
+		const results = { success: 0, errors: [] };
+		
+		for (const record of data) {
+			try {
+				const recordData = {
+					task_name: record.task_name,
+					completed_date: record.completed_date,
+					completed_by: record.completed_by || '',
+					completion_notes: record.completion_notes || ''
+				};
+				
+				await collections.createMaintenanceRecord(recordData);
+				results.success++;
+			} catch (error) {
+				results.errors.push(`Record for "${record.task_name}": ${error.message}`);
+			}
+		}
+		
+		return results;
+	}
+
 	async function handleImport() {
 		if (!selectedCollection || (!csvFile && !csvData.trim())) {
 			importStatus = 'Please select a collection and provide CSV data';
@@ -301,6 +373,15 @@
 					break;
 				case 'shifts_collection':
 					results = await processShiftsData(data);
+					break;
+				case 'maintenance_tasks':
+					results = await processMaintenanceTasksData(data);
+					break;
+				case 'maintenance_schedules':
+					results = await processMaintenanceSchedulesData(data);
+					break;
+				case 'maintenance_records':
+					results = await processMaintenanceRecordsData(data);
 					break;
 				default:
 					throw new Error('Invalid collection selected');

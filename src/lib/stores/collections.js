@@ -8,6 +8,9 @@ export const shifts = writable([]);
 export const menuItems = writable([]);
 export const vendors = writable([]);
 export const events = writable([]);
+export const maintenanceTasks = writable([]);
+export const maintenanceSchedules = writable([]);
+export const maintenanceRecords = writable([]);
 
 // Loading states
 export const loading = writable({
@@ -16,7 +19,10 @@ export const loading = writable({
 	shifts: false,
 	menu: false,
 	vendors: false,
-	events: false
+	events: false,
+	maintenance: false,
+	schedules: false,
+	records: false
 });
 
 // Collection service functions
@@ -317,6 +323,181 @@ export const collections = {
 			events.update(items => items.filter(item => item.id !== id));
 		} catch (error) {
 			console.error('Error deleting event:', error);
+			throw error;
+		}
+	},
+
+	// Maintenance Tasks
+	async getMaintenanceTasks() {
+		try {
+			loading.update(state => ({ ...state, maintenance: true }));
+			// Try different collection names/IDs
+			let collectionName = 'maintenance_tasks';
+			try {
+				const records = await pb.collection(collectionName).getFullList();
+				maintenanceTasks.set(records);
+				return records;
+			} catch (e) {
+				// Try with collection suffix
+				try {
+					collectionName = 'maintenance_tasks_collection';
+					const records = await pb.collection(collectionName).getFullList();
+					maintenanceTasks.set(records);
+					return records;
+				} catch (e2) {
+					console.log('Maintenance tasks collection not found, using empty array');
+					maintenanceTasks.set([]);
+					return [];
+				}
+			}
+		} catch (error) {
+			console.error('Error fetching maintenance tasks:', error);
+			maintenanceTasks.set([]);
+			return [];
+		} finally {
+			loading.update(state => ({ ...state, maintenance: false }));
+		}
+	},
+
+	async createMaintenanceTask(data) {
+		try {
+			const record = await pb.collection('maintenance_tasks').create(data);
+			maintenanceTasks.update(items => [...items, record]);
+			return record;
+		} catch (error) {
+			console.error('Error creating maintenance task:', error);
+			throw error;
+		}
+	},
+
+	async updateMaintenanceTask(id, data) {
+		try {
+			const record = await pb.collection('maintenance_tasks').update(id, data);
+			maintenanceTasks.update(items => 
+				items.map(item => item.id === id ? record : item)
+			);
+			return record;
+		} catch (error) {
+			console.error('Error updating maintenance task:', error);
+			throw error;
+		}
+	},
+
+	async deleteMaintenanceTask(id) {
+		try {
+			await pb.collection('maintenance_tasks').delete(id);
+			maintenanceTasks.update(items => items.filter(item => item.id !== id));
+		} catch (error) {
+			console.error('Error deleting maintenance task:', error);
+			throw error;
+		}
+	},
+
+	// Maintenance Schedules
+	async getMaintenanceSchedules() {
+		try {
+			loading.update(state => ({ ...state, schedules: true }));
+			// Try different collection names/IDs
+			let collectionName = 'maintenance_schedules';
+			try {
+				const records = await pb.collection(collectionName).getFullList();
+				maintenanceSchedules.set(records);
+				return records;
+			} catch (e) {
+				// Try with collection suffix
+				try {
+					collectionName = 'maintenance_schedules_collection';
+					const records = await pb.collection(collectionName).getFullList();
+					maintenanceSchedules.set(records);
+					return records;
+				} catch (e2) {
+					console.log('Maintenance schedules collection not found, using empty array');
+					maintenanceSchedules.set([]);
+					return [];
+				}
+			}
+		} catch (error) {
+			console.error('Error fetching maintenance schedules:', error);
+			maintenanceSchedules.set([]);
+			return [];
+		} finally {
+			loading.update(state => ({ ...state, schedules: false }));
+		}
+	},
+
+	async createMaintenanceSchedule(data) {
+		try {
+			const record = await pb.collection('maintenance_schedules').create(data);
+			maintenanceSchedules.update(items => [...items, record]);
+			return record;
+		} catch (error) {
+			console.error('Error creating maintenance schedule:', error);
+			throw error;
+		}
+	},
+
+	async updateMaintenanceSchedule(id, data) {
+		try {
+			const record = await pb.collection('maintenance_schedules').update(id, data);
+			maintenanceSchedules.update(items => 
+				items.map(item => item.id === id ? record : item)
+			);
+			return record;
+		} catch (error) {
+			console.error('Error updating maintenance schedule:', error);
+			throw error;
+		}
+	},
+
+	async deleteMaintenanceSchedule(id) {
+		try {
+			await pb.collection('maintenance_schedules').delete(id);
+			maintenanceSchedules.update(items => items.filter(item => item.id !== id));
+		} catch (error) {
+			console.error('Error deleting maintenance schedule:', error);
+			throw error;
+		}
+	},
+
+	// Maintenance Records
+	async getMaintenanceRecords() {
+		try {
+			loading.update(state => ({ ...state, records: true }));
+			// Try different collection names/IDs
+			let collectionName = 'maintenance_records';
+			try {
+				const records = await pb.collection(collectionName).getFullList();
+				maintenanceRecords.set(records);
+				return records;
+			} catch (e) {
+				// Try with collection suffix
+				try {
+					collectionName = 'maintenance_records_collection';
+					const records = await pb.collection(collectionName).getFullList();
+					maintenanceRecords.set(records);
+					return records;
+				} catch (e2) {
+					console.log('Maintenance records collection not found, using empty array');
+					maintenanceRecords.set([]);
+					return [];
+				}
+			}
+		} catch (error) {
+			console.error('Error fetching maintenance records:', error);
+			maintenanceRecords.set([]);
+			return [];
+		} finally {
+			loading.update(state => ({ ...state, records: false }));
+		}
+	},
+
+	async createMaintenanceRecord(data) {
+		try {
+			const record = await pb.collection('maintenance_records').create(data);
+			maintenanceRecords.update(items => [...items, record]);
+			return record;
+		} catch (error) {
+			console.error('Error creating maintenance record:', error);
 			throw error;
 		}
 	}
