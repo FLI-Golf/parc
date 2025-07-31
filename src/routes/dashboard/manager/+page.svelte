@@ -352,7 +352,7 @@
 	<nav class="bg-gray-800/30 border-b border-gray-700">
 		<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
 			<div class="flex space-x-8 overflow-x-auto">
-				{#each [{ id: "overview", name: "Overview", icon: "📊" }, { id: "inventory", name: "Inventory", icon: "📦" }, { id: "staff", name: "Staff", icon: "👥" }, { id: "shifts", name: "Shifts", icon: "🗓️" }, { id: "menu", name: "Menu", icon: "🍽️" }, { id: "vendors", name: "Vendors", icon: "🏢" }, { id: "events", name: "Events", icon: "🎉" }] as tab}
+				{#each [{ id: "overview", name: "Overview", icon: "📊" }, { id: "floor-plan", name: "Floor Plan", icon: "🏗️" }, { id: "inventory", name: "Inventory", icon: "📦" }, { id: "staff", name: "Staff", icon: "👥" }, { id: "shifts", name: "Shifts", icon: "🗓️" }, { id: "menu", name: "Menu", icon: "🍽️" }, { id: "vendors", name: "Vendors", icon: "🏢" }, { id: "events", name: "Events", icon: "🎉" }] as tab}
 					<button
 						class="flex items-center space-x-2 py-4 px-3 border-b-2 font-medium text-sm whitespace-nowrap {activeTab ===
 						tab.id
@@ -607,6 +607,281 @@
 					{/if}
 				</div>
 			</div>
+		{:else if activeTab === "floor-plan"}
+			<!-- Floor Plan -->
+			<div class="mb-8">
+				<h2 class="text-3xl font-bold">Restaurant Floor Plan</h2>
+				<p class="text-gray-400 mt-2">Visual layout of dining areas, bar, patio, and waiting area</p>
+			</div>
+
+			<!-- Floor Plan Container -->
+			<div class="bg-gray-800/50 backdrop-blur-sm rounded-xl border border-gray-700 p-8">
+				<div class="grid grid-cols-12 grid-rows-8 gap-2 h-[600px] bg-gray-900/50 rounded-lg p-4">
+					
+					<!-- Restaurant Entrance & Wait Area -->
+					<div class="col-span-12 row-span-1 bg-gradient-to-r from-blue-900/50 to-blue-800/30 rounded-lg border border-blue-700/50 flex items-center justify-center relative">
+						<span class="text-white font-semibold">🚪 Entrance & Wait Area</span>
+						<div class="absolute right-4 flex space-x-2">
+							<div class="w-6 h-6 bg-blue-600/40 rounded border border-blue-500"></div>
+							<div class="w-6 h-6 bg-blue-600/40 rounded border border-blue-500"></div>
+							<span class="text-blue-300 text-xs">Waiting Chairs</span>
+						</div>
+					</div>
+
+					<!-- Main Dining Area -->
+					<div class="col-span-8 row-span-5 bg-gradient-to-br from-green-900/50 to-green-800/30 rounded-lg border border-green-700/50 p-4 relative">
+						<div class="absolute top-2 left-2">
+							<span class="text-green-200 font-semibold">🍽️ Main Dining Area</span>
+						</div>
+						
+						<!-- Tables Grid -->
+						<div class="grid grid-cols-4 grid-rows-3 gap-3 h-full pt-8">
+							<!-- Table 1 -->
+							<div class="bg-green-700/30 rounded-lg border border-green-600/50 flex items-center justify-center relative group hover:bg-green-600/40 transition-colors cursor-pointer">
+								<span class="text-green-100 text-xs font-medium">T1</span>
+								<div class="absolute -top-1 -right-1 w-3 h-3 bg-green-500 rounded-full animate-pulse"></div>
+								<div class="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity bg-green-600/20 rounded-lg flex items-center justify-center">
+									<span class="text-xs text-green-100">4 seats • Available</span>
+								</div>
+							</div>
+							
+							<!-- Table 2 -->
+							<div class="bg-yellow-700/30 rounded-lg border border-yellow-600/50 flex items-center justify-center relative group hover:bg-yellow-600/40 transition-colors cursor-pointer">
+								<span class="text-yellow-100 text-xs font-medium">T2</span>
+								<div class="absolute -top-1 -right-1 w-3 h-3 bg-yellow-500 rounded-full"></div>
+								<div class="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity bg-yellow-600/20 rounded-lg flex items-center justify-center">
+									<span class="text-xs text-yellow-100">6 seats • Occupied</span>
+								</div>
+							</div>
+							
+							<!-- Table 3 -->
+							<div class="bg-green-700/30 rounded-lg border border-green-600/50 flex items-center justify-center relative group hover:bg-green-600/40 transition-colors cursor-pointer">
+								<span class="text-green-100 text-xs font-medium">T3</span>
+								<div class="absolute -top-1 -right-1 w-3 h-3 bg-green-500 rounded-full animate-pulse"></div>
+								<div class="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity bg-green-600/20 rounded-lg flex items-center justify-center">
+									<span class="text-xs text-green-100">4 seats • Available</span>
+								</div>
+							</div>
+							
+							<!-- Table 4 -->
+							<div class="bg-red-700/30 rounded-lg border border-red-600/50 flex items-center justify-center relative group hover:bg-red-600/40 transition-colors cursor-pointer">
+								<span class="text-red-100 text-xs font-medium">T4</span>
+								<div class="absolute -top-1 -right-1 w-3 h-3 bg-red-500 rounded-full"></div>
+								<div class="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity bg-red-600/20 rounded-lg flex items-center justify-center">
+									<span class="text-xs text-red-100">2 seats • Reserved</span>
+								</div>
+							</div>
+							
+							<!-- Table 5 -->
+							<div class="bg-green-700/30 rounded-lg border border-green-600/50 flex items-center justify-center relative group hover:bg-green-600/40 transition-colors cursor-pointer">
+								<span class="text-green-100 text-xs font-medium">T5</span>
+								<div class="absolute -top-1 -right-1 w-3 h-3 bg-green-500 rounded-full animate-pulse"></div>
+								<div class="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity bg-green-600/20 rounded-lg flex items-center justify-center">
+									<span class="text-xs text-green-100">6 seats • Available</span>
+								</div>
+							</div>
+							
+							<!-- Table 6 -->
+							<div class="bg-yellow-700/30 rounded-lg border border-yellow-600/50 flex items-center justify-center relative group hover:bg-yellow-600/40 transition-colors cursor-pointer">
+								<span class="text-yellow-100 text-xs font-medium">T6</span>
+								<div class="absolute -top-1 -right-1 w-3 h-3 bg-yellow-500 rounded-full"></div>
+								<div class="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity bg-yellow-600/20 rounded-lg flex items-center justify-center">
+									<span class="text-xs text-yellow-100">4 seats • Occupied</span>
+								</div>
+							</div>
+							
+							<!-- Table 7 -->
+							<div class="bg-green-700/30 rounded-lg border border-green-600/50 flex items-center justify-center relative group hover:bg-green-600/40 transition-colors cursor-pointer">
+								<span class="text-green-100 text-xs font-medium">T7</span>
+								<div class="absolute -top-1 -right-1 w-3 h-3 bg-green-500 rounded-full animate-pulse"></div>
+								<div class="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity bg-green-600/20 rounded-lg flex items-center justify-center">
+									<span class="text-xs text-green-100">8 seats • Available</span>
+								</div>
+							</div>
+							
+							<!-- Table 8 -->
+							<div class="bg-gray-700/30 rounded-lg border border-gray-600/50 flex items-center justify-center relative group hover:bg-gray-600/40 transition-colors cursor-pointer">
+								<span class="text-gray-100 text-xs font-medium">T8</span>
+								<div class="absolute -top-1 -right-1 w-3 h-3 bg-gray-500 rounded-full"></div>
+								<div class="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity bg-gray-600/20 rounded-lg flex items-center justify-center">
+									<span class="text-xs text-gray-100">4 seats • Cleaning</span>
+								</div>
+							</div>
+							
+							<!-- Table 9 -->
+							<div class="bg-green-700/30 rounded-lg border border-green-600/50 flex items-center justify-center relative group hover:bg-green-600/40 transition-colors cursor-pointer">
+								<span class="text-green-100 text-xs font-medium">T9</span>
+								<div class="absolute -top-1 -right-1 w-3 h-3 bg-green-500 rounded-full animate-pulse"></div>
+								<div class="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity bg-green-600/20 rounded-lg flex items-center justify-center">
+									<span class="text-xs text-green-100">6 seats • Available</span>
+								</div>
+							</div>
+							
+							<!-- Table 10 -->
+							<div class="bg-red-700/30 rounded-lg border border-red-600/50 flex items-center justify-center relative group hover:bg-red-600/40 transition-colors cursor-pointer">
+								<span class="text-red-100 text-xs font-medium">T10</span>
+								<div class="absolute -top-1 -right-1 w-3 h-3 bg-red-500 rounded-full"></div>
+								<div class="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity bg-red-600/20 rounded-lg flex items-center justify-center">
+									<span class="text-xs text-red-100">4 seats • Reserved</span>
+								</div>
+							</div>
+							
+							<!-- Table 11 -->
+							<div class="bg-yellow-700/30 rounded-lg border border-yellow-600/50 flex items-center justify-center relative group hover:bg-yellow-600/40 transition-colors cursor-pointer">
+								<span class="text-yellow-100 text-xs font-medium">T11</span>
+								<div class="absolute -top-1 -right-1 w-3 h-3 bg-yellow-500 rounded-full"></div>
+								<div class="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity bg-yellow-600/20 rounded-lg flex items-center justify-center">
+									<span class="text-xs text-yellow-100">8 seats • Occupied</span>
+								</div>
+							</div>
+							
+							<!-- Table 12 -->
+							<div class="bg-green-700/30 rounded-lg border border-green-600/50 flex items-center justify-center relative group hover:bg-green-600/40 transition-colors cursor-pointer">
+								<span class="text-green-100 text-xs font-medium">T12</span>
+								<div class="absolute -top-1 -right-1 w-3 h-3 bg-green-500 rounded-full animate-pulse"></div>
+								<div class="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity bg-green-600/20 rounded-lg flex items-center justify-center">
+									<span class="text-xs text-green-100">6 seats • Available</span>
+								</div>
+							</div>
+						</div>
+					</div>
+
+					<!-- Bar Area -->
+					<div class="col-span-4 row-span-3 bg-gradient-to-br from-purple-900/50 to-purple-800/30 rounded-lg border border-purple-700/50 p-3 relative">
+						<div class="absolute top-2 left-2">
+							<span class="text-purple-200 font-semibold">🍺 Bar Area</span>
+						</div>
+						
+						<!-- Bar Counter -->
+						<div class="mt-8 space-y-2">
+							<div class="bg-purple-700/40 rounded-lg h-8 flex items-center justify-center border border-purple-600/50">
+								<span class="text-purple-100 text-xs">Bar Counter</span>
+							</div>
+							
+							<!-- Bar Stools -->
+							<div class="flex justify-between">
+								<div class="w-6 h-6 bg-purple-600/40 rounded-full border border-purple-500"></div>
+								<div class="w-6 h-6 bg-purple-600/40 rounded-full border border-purple-500"></div>
+								<div class="w-6 h-6 bg-yellow-600/40 rounded-full border border-yellow-500"></div>
+								<div class="w-6 h-6 bg-yellow-600/40 rounded-full border border-yellow-500"></div>
+								<div class="w-6 h-6 bg-purple-600/40 rounded-full border border-purple-500"></div>
+								<div class="w-6 h-6 bg-purple-600/40 rounded-full border border-purple-500"></div>
+							</div>
+							<div class="text-center">
+								<span class="text-purple-300 text-xs">6 Bar Stools (2 occupied)</span>
+							</div>
+							
+							<!-- High Tables -->
+							<div class="mt-4 grid grid-cols-2 gap-2">
+								<div class="bg-purple-700/30 rounded border border-purple-600/50 h-12 flex items-center justify-center group hover:bg-purple-600/40 transition-colors cursor-pointer">
+									<span class="text-purple-100 text-xs">HT1</span>
+									<div class="absolute opacity-0 group-hover:opacity-100 transition-opacity bg-purple-600/20 rounded flex items-center justify-center">
+										<span class="text-xs text-purple-100">4 seats</span>
+									</div>
+								</div>
+								<div class="bg-purple-700/30 rounded border border-purple-600/50 h-12 flex items-center justify-center group hover:bg-purple-600/40 transition-colors cursor-pointer">
+									<span class="text-purple-100 text-xs">HT2</span>
+								</div>
+							</div>
+						</div>
+					</div>
+
+					<!-- Kitchen/Service Area -->
+					<div class="col-span-4 row-span-2 bg-gradient-to-br from-red-900/50 to-red-800/30 rounded-lg border border-red-700/50 flex items-center justify-center relative">
+						<span class="text-red-200 font-semibold">👨‍🍳 Kitchen & Service</span>
+						<div class="absolute bottom-2 right-2 flex space-x-1">
+							<div class="w-2 h-2 bg-red-500 rounded-full animate-pulse"></div>
+							<div class="w-2 h-2 bg-orange-500 rounded-full animate-pulse"></div>
+							<div class="w-2 h-2 bg-green-500 rounded-full"></div>
+							<span class="text-red-300 text-xs ml-1">Active</span>
+						</div>
+					</div>
+
+					<!-- Patio Area -->
+					<div class="col-span-8 row-span-2 bg-gradient-to-br from-teal-900/50 to-teal-800/30 rounded-lg border border-teal-700/50 p-3 relative">
+						<div class="absolute top-2 left-2">
+							<span class="text-teal-200 font-semibold">🌿 Outdoor Patio</span>
+						</div>
+						
+						<!-- Patio Tables -->
+						<div class="grid grid-cols-6 grid-rows-1 gap-2 h-full pt-8">
+							<div class="bg-teal-700/30 rounded border border-teal-600/50 flex items-center justify-center group hover:bg-teal-600/40 transition-colors cursor-pointer">
+								<span class="text-teal-100 text-xs">P1</span>
+								<div class="absolute opacity-0 group-hover:opacity-100 transition-opacity bg-teal-600/20 rounded flex items-center justify-center">
+									<span class="text-xs text-teal-100">4 seats</span>
+								</div>
+							</div>
+							<div class="bg-teal-700/30 rounded border border-teal-600/50 flex items-center justify-center group hover:bg-teal-600/40 transition-colors cursor-pointer">
+								<span class="text-teal-100 text-xs">P2</span>
+							</div>
+							<div class="bg-yellow-700/30 rounded border border-yellow-600/50 flex items-center justify-center group hover:bg-yellow-600/40 transition-colors cursor-pointer">
+								<span class="text-yellow-100 text-xs">P3</span>
+								<div class="absolute opacity-0 group-hover:opacity-100 transition-opacity bg-yellow-600/20 rounded flex items-center justify-center">
+									<span class="text-xs text-yellow-100">Occupied</span>
+								</div>
+							</div>
+							<div class="bg-teal-700/30 rounded border border-teal-600/50 flex items-center justify-center group hover:bg-teal-600/40 transition-colors cursor-pointer">
+								<span class="text-teal-100 text-xs">P4</span>
+							</div>
+							<div class="bg-teal-700/30 rounded border border-teal-600/50 flex items-center justify-center group hover:bg-teal-600/40 transition-colors cursor-pointer">
+								<span class="text-teal-100 text-xs">P5</span>
+							</div>
+							<div class="bg-red-700/30 rounded border border-red-600/50 flex items-center justify-center group hover:bg-red-600/40 transition-colors cursor-pointer">
+								<span class="text-red-100 text-xs">P6</span>
+								<div class="absolute opacity-0 group-hover:opacity-100 transition-opacity bg-red-600/20 rounded flex items-center justify-center">
+									<span class="text-xs text-red-100">Reserved</span>
+								</div>
+							</div>
+						</div>
+						
+						<!-- Weather indicator -->
+						<div class="absolute bottom-2 right-2">
+							<span class="text-teal-300 text-xs">☀️ 72°F • Open</span>
+						</div>
+					</div>
+				</div>
+				
+				<!-- Legend -->
+				<div class="mt-6 flex flex-wrap justify-center gap-4 text-sm">
+					<div class="flex items-center space-x-2">
+						<div class="w-4 h-4 bg-green-500 rounded-full animate-pulse"></div>
+						<span class="text-green-300">Available</span>
+					</div>
+					<div class="flex items-center space-x-2">
+						<div class="w-4 h-4 bg-yellow-500 rounded-full"></div>
+						<span class="text-yellow-300">Occupied</span>
+					</div>
+					<div class="flex items-center space-x-2">
+						<div class="w-4 h-4 bg-red-500 rounded-full"></div>
+						<span class="text-red-300">Reserved</span>
+					</div>
+					<div class="flex items-center space-x-2">
+						<div class="w-4 h-4 bg-gray-500 rounded-full"></div>
+						<span class="text-gray-300">Cleaning</span>
+					</div>
+				</div>
+				
+				<!-- Quick Stats -->
+				<div class="mt-6 grid grid-cols-4 gap-4">
+					<div class="bg-gray-700/30 rounded-lg p-3 text-center">
+						<div class="text-2xl font-bold text-green-400">7</div>
+						<div class="text-xs text-gray-400">Available Tables</div>
+					</div>
+					<div class="bg-gray-700/30 rounded-lg p-3 text-center">
+						<div class="text-2xl font-bold text-yellow-400">4</div>
+						<div class="text-xs text-gray-400">Occupied Tables</div>
+					</div>
+					<div class="bg-gray-700/30 rounded-lg p-3 text-center">
+						<div class="text-2xl font-bold text-blue-400">84%</div>
+						<div class="text-xs text-gray-400">Occupancy Rate</div>
+					</div>
+					<div class="bg-gray-700/30 rounded-lg p-3 text-center">
+						<div class="text-2xl font-bold text-purple-400">78</div>
+						<div class="text-xs text-gray-400">Total Capacity</div>
+					</div>
+				</div>
+			</div>
+
 		{:else if activeTab === "inventory"}
 			<!-- Inventory Management -->
 			<div class="mb-8 flex justify-between items-center">
