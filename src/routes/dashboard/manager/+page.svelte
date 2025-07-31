@@ -45,7 +45,7 @@
 	let showMaintenanceModal = false;
 	let editMaintenanceItem = null;
 	let maintenanceFilter = "all"; // For maintenance task filtering
-	let floorPlanFilter = "overview"; // For floor plan filtering
+	let floorPlanFilter = "all"; // For floor plan filtering
 
 	// Reactive declarations
 	$: lowStockItems = $inventoryItems.filter(
@@ -227,6 +227,31 @@
 	function isTableArea(areaType) {
 		return ['dining', 'dining_room', 'bar', 'outdoor', 'patio', 'private', 'private_dining'].includes(areaType);
 	}
+
+	// Filter sections based on floor plan filter
+	function getFilteredSections() {
+		switch (floorPlanFilter) {
+			case 'front':
+				return $sections.filter(section => 
+					['dining', 'dining_room', 'bar', 'outdoor', 'patio', 'private', 'private_dining', 'front'].includes(section.area_type)
+				);
+			case 'back':
+				return $sections.filter(section => 
+					['kitchen', 'admin', 'storage'].includes(section.area_type)
+				);
+			case 'tables':
+				return $sections.filter(section => isTableArea(section.area_type));
+			case 'staff':
+				// Show all sections but highlight those with staff assignments
+				return $sections;
+			case 'all':
+			default:
+				return $sections;
+		}
+	}
+
+	// Reactive filtered sections
+	$: filteredSections = getFilteredSections();
 
 	// Table status color helper
 	function getTableStatusClasses(status) {
@@ -1125,46 +1150,39 @@
 			<div class="mb-6">
 				<div class="flex space-x-1 p-1 bg-gray-700/30 rounded-lg max-w-4xl">
 					<button
-						on:click={() => floorPlanFilter = "overview"}
-						class="flex-1 py-3 px-4 text-sm font-medium rounded-md {floorPlanFilter === 'overview' ? 'bg-blue-600 text-white' : 'text-gray-300 hover:bg-gray-600/30'} transition-colors"
+						on:click={() => floorPlanFilter = "all"}
+						class="flex-1 py-3 px-4 text-sm font-medium rounded-md {floorPlanFilter === 'all' ? 'bg-blue-600 text-white' : 'text-gray-300 hover:bg-gray-600/30'} transition-colors"
 					>
-						<span class="mr-2">🏠</span>
-						Overview
+						<span class="mr-2">🏢</span>
+						All Areas
 					</button>
 					<button
-						on:click={() => floorPlanFilter = "server-sections"}
-						class="flex-1 py-3 px-4 text-sm font-medium rounded-md {floorPlanFilter === 'server-sections' ? 'bg-blue-600 text-white' : 'text-gray-300 hover:bg-gray-600/30'} transition-colors"
+						on:click={() => floorPlanFilter = "front"}
+						class="flex-1 py-3 px-4 text-sm font-medium rounded-md {floorPlanFilter === 'front' ? 'bg-blue-600 text-white' : 'text-gray-300 hover:bg-gray-600/30'} transition-colors"
+					>
+						<span class="mr-2">🍽️</span>
+						Front of House
+					</button>
+					<button
+						on:click={() => floorPlanFilter = "back"}
+						class="flex-1 py-3 px-4 text-sm font-medium rounded-md {floorPlanFilter === 'back' ? 'bg-blue-600 text-white' : 'text-gray-300 hover:bg-gray-600/30'} transition-colors"
+					>
+						<span class="mr-2">👨‍🍳</span>
+						Back of House
+					</button>
+					<button
+						on:click={() => floorPlanFilter = "tables"}
+						class="flex-1 py-3 px-4 text-sm font-medium rounded-md {floorPlanFilter === 'tables' ? 'bg-blue-600 text-white' : 'text-gray-300 hover:bg-gray-600/30'} transition-colors"
+					>
+						<span class="mr-2">🪑</span>
+						Tables Only
+					</button>
+					<button
+						on:click={() => floorPlanFilter = "staff"}
+						class="flex-1 py-3 px-4 text-sm font-medium rounded-md {floorPlanFilter === 'staff' ? 'bg-blue-600 text-white' : 'text-gray-300 hover:bg-gray-600/30'} transition-colors"
 					>
 						<span class="mr-2">👥</span>
-						Server Sections
-					</button>
-					<button
-						on:click={() => floorPlanFilter = "busser-sections"}
-						class="flex-1 py-3 px-4 text-sm font-medium rounded-md {floorPlanFilter === 'busser-sections' ? 'bg-blue-600 text-white' : 'text-gray-300 hover:bg-gray-600/30'} transition-colors"
-					>
-						<span class="mr-2">🧹</span>
-						Busser Sections
-					</button>
-					<button
-						on:click={() => floorPlanFilter = "maintenance"}
-						class="flex-1 py-3 px-4 text-sm font-medium rounded-md {floorPlanFilter === 'maintenance' ? 'bg-blue-600 text-white' : 'text-gray-300 hover:bg-gray-600/30'} transition-colors"
-					>
-						<span class="mr-2">🔧</span>
-						Maintenance
-					</button>
-					<button
-						on:click={() => floorPlanFilter = "cleanliness"}
-						class="flex-1 py-3 px-4 text-sm font-medium rounded-md {floorPlanFilter === 'cleanliness' ? 'bg-blue-600 text-white' : 'text-gray-300 hover:bg-gray-600/30'} transition-colors"
-					>
-						<span class="mr-2">✨</span>
-						Cleanliness
-					</button>
-					<button
-						on:click={() => floorPlanFilter = "capacity"}
-						class="flex-1 py-3 px-4 text-sm font-medium rounded-md {floorPlanFilter === 'capacity' ? 'bg-blue-600 text-white' : 'text-gray-300 hover:bg-gray-600/30'} transition-colors"
-					>
-						<span class="mr-2">📊</span>
-						Capacity
+						Staff View
 					</button>
 				</div>
 			</div>
@@ -1184,7 +1202,7 @@
 				{:else}
 					<!-- Dynamic Sections Grid -->
 					<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 min-h-[600px]">
-						{#each $sections as section}
+						{#each filteredSections as section}
 							{@const sectionTables = tablesBySection[section.section_code] || []}
 							{@const sectionIcon = getSectionIcon(section.area_type)}
 							{@const sectionColors = getSectionColors(section.area_type)}
@@ -1284,18 +1302,23 @@
 						{/each}
 
 						<!-- Empty state if no sections -->
-						{#if $sections.length === 0}
+						{#if filteredSections.length === 0}
 							<div class="col-span-full flex items-center justify-center h-[400px] bg-gray-800/30 rounded-lg border-2 border-dashed border-gray-600">
 								<div class="text-center">
 									<span class="text-4xl mb-4 block">🏢</span>
-									<h3 class="text-xl font-medium text-gray-300 mb-2">No sections found</h3>
-									<p class="text-gray-400 mb-4">Import sections data to see the floor plan</p>
-									<button
-										on:click={openImportModal}
-										class="px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded-lg text-sm font-medium"
-									>
-										Import Sections
-									</button>
+									{#if $sections.length === 0}
+										<h3 class="text-xl font-medium text-gray-300 mb-2">No sections found</h3>
+										<p class="text-gray-400 mb-4">Import sections data to see the floor plan</p>
+										<button
+											on:click={openImportModal}
+											class="px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded-lg text-sm font-medium"
+										>
+											Import Sections
+										</button>
+									{:else}
+										<h3 class="text-xl font-medium text-gray-300 mb-2">No {floorPlanFilter === 'front' ? 'front of house' : floorPlanFilter === 'back' ? 'back of house' : floorPlanFilter === 'tables' ? 'table' : floorPlanFilter} sections</h3>
+										<p class="text-gray-400 mb-4">Try selecting a different filter above</p>
+									{/if}
 								</div>
 							</div>
 						{/if}
