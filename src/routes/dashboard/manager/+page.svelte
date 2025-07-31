@@ -38,7 +38,7 @@
 
 	// Reactive declarations
 	$: lowStockItems = $inventoryItems.filter(
-		(item) => item.current_stock_field <= item.min_stock_level_field
+		(item) => item.current_stock <= item.min_stock_level * 1.5
 	);
 
 	$: todayShifts = $shifts.filter(
@@ -529,7 +529,7 @@
 				>
 					<h3 class="text-xl font-bold mb-4 flex items-center">
 						<span class="mr-2">⚠️</span>
-						Low Stock Alerts
+						Stock Alerts
 					</h3>
 					{#if lowStockItems.length === 0}
 						<p class="text-gray-400">All items are well stocked!</p>
@@ -541,16 +541,16 @@
 								>
 									<div>
 										<p class="font-medium">
-											{item.item_name_field}
+											{item.name}
 										</p>
 										<p class="text-sm text-gray-400">
-											Current: {item.current_stock_field}
-											{item.unit_field}
+											Current: {item.current_stock}
+											{item.unit} / {item.min_stock_level} min
 										</p>
 									</div>
-									<span class="text-orange-400 font-bold"
-										>LOW</span
-									>
+									<span class="text-orange-400 font-bold">
+										{item.current_stock <= item.min_stock_level ? 'LOW' : 'WARNING'}
+									</span>
 								</div>
 							{/each}
 						</div>
