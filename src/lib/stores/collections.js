@@ -140,7 +140,7 @@ export const collections = {
 		try {
 			loading.update(state => ({ ...state, shifts: true }));
 			const records = await pb.collection('shifts_collection').getFullList({
-				expand: 'staff_member'
+				expand: 'staff_member,assigned_section'
 			});
 			shifts.set(records);
 			return records;
@@ -155,8 +155,12 @@ export const collections = {
 	async createShift(data) {
 		try {
 			const record = await pb.collection('shifts_collection').create(data);
-			shifts.update(items => [...items, record]);
-			return record;
+			// Fetch the record with expanded relations
+			const expandedRecord = await pb.collection('shifts_collection').getOne(record.id, {
+				expand: 'staff_member,assigned_section'
+			});
+			shifts.update(items => [...items, expandedRecord]);
+			return expandedRecord;
 		} catch (error) {
 			console.error('Error creating shift:', error);
 			throw error;
@@ -165,11 +169,18 @@ export const collections = {
 
 	async updateShift(id, data) {
 		try {
+			console.log('updateShift called with:', { id, data });
 			const record = await pb.collection('shifts_collection').update(id, data);
+			console.log('Update response:', record);
+			// Fetch the record with expanded relations
+			const expandedRecord = await pb.collection('shifts_collection').getOne(id, {
+				expand: 'staff_member,assigned_section'
+			});
+			console.log('Expanded record:', expandedRecord);
 			shifts.update(items => 
-				items.map(item => item.id === id ? record : item)
+				items.map(item => item.id === id ? expandedRecord : item)
 			);
-			return record;
+			return expandedRecord;
 		} catch (error) {
 			console.error('Error updating shift:', error);
 			throw error;

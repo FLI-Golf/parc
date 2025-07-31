@@ -62,6 +62,7 @@
 		// Reset form for new shift
 		formData = {
 			staff_member: '',
+			assigned_section: '',
 			shift_date: '',
 			start_time: '',
 			end_time: '',
@@ -98,8 +99,16 @@
 				data.staff_member = formData.staff_member;
 			}
 			
+			// Add section assignment if selected
+			if (formData.assigned_section) {
+				data.assigned_section = formData.assigned_section;
+			}
+			
+			console.log('Saving shift with data:', data);
+			
 			if (editItem) {
 				// Update existing shift
+				console.log('Updating shift:', editItem.id);
 				await collections.updateShift(editItem.id, data);
 			} else {
 				// Create new shift
@@ -125,6 +134,18 @@
 		isOpen = false;
 		error = '';
 		editItem = null;
+		// Reset form
+		formData = {
+			staff_member: '',
+			assigned_section: '',
+			shift_date: '',
+			start_time: '',
+			end_time: '',
+			break_duration: 30,
+			position: 'server',
+			status: 'scheduled',
+			notes: ''
+		};
 		dispatch('close');
 	}
 	
