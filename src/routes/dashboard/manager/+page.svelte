@@ -46,6 +46,7 @@
 	let editMaintenanceItem = null;
 	let maintenanceFilter = "all"; // For maintenance task filtering
 	let floorPlanFilter = "all"; // For floor plan filtering
+	let filteredSections = []; // Filtered sections based on floor plan filter
 
 	// Reactive declarations
 	$: lowStockItems = $inventoryItems.filter(
@@ -230,28 +231,42 @@
 
 	// Filter sections based on floor plan filter
 	function getFilteredSections() {
+		console.log('Filtering sections with filter:', floorPlanFilter);
+		console.log('Available sections:', $sections.map(s => ({ code: s.section_code, area_type: s.area_type })));
+		
+		let filtered;
 		switch (floorPlanFilter) {
 			case 'front':
-				return $sections.filter(section => 
+				filtered = $sections.filter(section => 
 					['dining', 'dining_room', 'bar', 'outdoor', 'patio', 'private', 'private_dining', 'front'].includes(section.area_type)
 				);
+				break;
 			case 'back':
-				return $sections.filter(section => 
+				filtered = $sections.filter(section => 
 					['kitchen', 'admin', 'storage'].includes(section.area_type)
 				);
+				break;
 			case 'tables':
-				return $sections.filter(section => isTableArea(section.area_type));
+				filtered = $sections.filter(section => isTableArea(section.area_type));
+				break;
 			case 'staff':
 				// Show all sections but highlight those with staff assignments
-				return $sections;
+				filtered = $sections;
+				break;
 			case 'all':
 			default:
-				return $sections;
+				filtered = $sections;
+				break;
 		}
+		
+		console.log('Filtered sections:', filtered.map(s => ({ code: s.section_code, area_type: s.area_type })));
+		return filtered;
 	}
 
-	// Reactive filtered sections
-	$: filteredSections = getFilteredSections();
+	// Reactive filtered sections - explicitly depend on both sections and filter
+	$: {
+		filteredSections = getFilteredSections();
+	}
 
 	// Table status color helper
 	function getTableStatusClasses(status) {
@@ -1157,7 +1172,10 @@
 						All Areas
 					</button>
 					<button
-						on:click={() => floorPlanFilter = "front"}
+						on:click={() => {
+							console.log('Setting filter to front');
+							floorPlanFilter = "front";
+						}}
 						class="flex-1 py-3 px-4 text-sm font-medium rounded-md {floorPlanFilter === 'front' ? 'bg-blue-600 text-white' : 'text-gray-300 hover:bg-gray-600/30'} transition-colors"
 					>
 						<span class="mr-2">🍽️</span>
@@ -1185,6 +1203,14 @@
 						Staff View
 					</button>
 				</div>
+			</div>
+
+			<!-- Debug Info -->
+			<div class="mb-4 p-2 bg-gray-800/30 rounded text-xs text-gray-400">
+				Current filter: {floorPlanFilter} | 
+				Total sections: {$sections.length} | 
+				Filtered sections: {filteredSections.length} |
+				Available area types: {[...$sections.map(s => s.area_type)].join(', ')}
 			</div>
 
 			<!-- Floor Plan Container -->
