@@ -22,6 +22,9 @@
 		{ id: 'vendors_collection', name: 'Vendors', sampleFile: '/sample-data/vendors.csv' },
 		{ id: 'events_collection', name: 'Events', sampleFile: '/sample-data/events.csv' },
 		{ id: 'shifts_collection', name: 'Shifts', sampleFile: '/sample-data/shifts.csv' },
+		{ id: 'sections_collection', name: 'Sections', sampleFile: '/sample-data/sections.csv' },
+		{ id: 'tables_collection', name: 'Tables', sampleFile: '/sample-data/tables.csv' },
+		{ id: 'table_updates_collection', name: 'Table Updates', sampleFile: '/sample-data/table_updates.csv' },
 		{ id: 'maintenance_tasks', name: 'Maintenance Tasks', sampleFile: '/sample-data/maintenance_tasks.csv' },
 		{ id: 'maintenance_schedules', name: 'Maintenance Schedules', sampleFile: '/sample-data/maintenance_schedules.csv' },
 		{ id: 'maintenance_records', name: 'Maintenance Records', sampleFile: '/sample-data/maintenance_records.csv' }
@@ -339,6 +342,76 @@
 		return results;
 	}
 
+	async function processSectionsData(data) {
+		const results = { success: 0, errors: [] };
+		
+		for (const section of data) {
+			try {
+				const sectionData = {
+					section_name: section.section_name,
+					section_code: section.section_code,
+					area_type: section.area_type || null,
+					max_capacity: section.max_capacity ? parseInt(section.max_capacity) : null
+				};
+				
+				await pb.collection('sections_collection').create(sectionData);
+				results.success++;
+			} catch (error) {
+				results.errors.push(`Section "${section.section_name}": ${error.message}`);
+			}
+		}
+		
+		return results;
+	}
+
+	async function processTablesData(data) {
+		const results = { success: 0, errors: [] };
+		
+		for (const table of data) {
+			try {
+				const tableData = {
+					table_name: table.table_name,
+					section_code: table.section_code || null,
+					capacity: table.capacity ? parseInt(table.capacity) : null,
+					table_type: table.table_type || null,
+					status: table.status || 'available',
+					current_party_size: table.current_party_size ? parseInt(table.current_party_size) : 0,
+					location_x: table.location_x ? parseFloat(table.location_x) : null,
+					location_y: table.location_y ? parseFloat(table.location_y) : null
+				};
+				
+				await pb.collection('tables_collection').create(tableData);
+				results.success++;
+			} catch (error) {
+				results.errors.push(`Table "${table.table_name}": ${error.message}`);
+			}
+		}
+		
+		return results;
+	}
+
+	async function processTableUpdatesData(data) {
+		const results = { success: 0, errors: [] };
+		
+		for (const update of data) {
+			try {
+				const updateData = {
+					table_name: update.table_name,
+					action_type: update.action_type || null,
+					performed_by: update.performed_by || '',
+					notes: update.notes || ''
+				};
+				
+				await pb.collection('table_updates_collection').create(updateData);
+				results.success++;
+			} catch (error) {
+				results.errors.push(`Update for "${update.table_name}": ${error.message}`);
+			}
+		}
+		
+		return results;
+	}
+
 	async function handleImport() {
 		if (!selectedCollection || (!csvFile && !csvData.trim())) {
 			importStatus = 'Please select a collection and provide CSV data';
@@ -373,6 +446,15 @@
 					break;
 				case 'shifts_collection':
 					results = await processShiftsData(data);
+					break;
+				case 'sections_collection':
+					results = await processSectionsData(data);
+					break;
+				case 'tables_collection':
+					results = await processTablesData(data);
+					break;
+				case 'table_updates_collection':
+					results = await processTableUpdatesData(data);
 					break;
 				case 'maintenance_tasks':
 					results = await processMaintenanceTasksData(data);

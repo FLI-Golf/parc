@@ -1,0 +1,136 @@
+[
+    {
+        "id": "tables_collection",
+        "name": "tables",
+        "type": "base",
+        "system": false,
+        "schema": [
+            {
+                "system": false,
+                "id": "table_name",
+                "name": "table_name",
+                "type": "text",
+                "required": true,
+                "presentable": true,
+                "unique": true,
+                "options": {
+                    "min": null,
+                    "max": 20,
+                    "pattern": ""
+                }
+            },
+            {
+                "system": false,
+                "id": "section_code",
+                "name": "section_code",
+                "type": "text",
+                "required": false,
+                "presentable": false,
+                "unique": false,
+                "options": {
+                    "min": null,
+                    "max": 10,
+                    "pattern": ""
+                }
+            },
+            {
+                "system": false,
+                "id": "capacity",
+                "name": "capacity",
+                "type": "number",
+                "required": false,
+                "presentable": false,
+                "unique": false,
+                "options": {
+                    "min": null,
+                    "max": null
+                }
+            },
+            {
+                "system": false,
+                "id": "table_type",
+                "name": "table_type",
+                "type": "select",
+                "required": false,
+                "presentable": false,
+                "unique": false,
+                "options": {
+                    "maxSelect": 1,
+                    "values": [
+                        "booth",
+                        "high_top",
+                        "standard",
+                        "round",
+                        "bar_seating",
+                        "outdoor"
+                    ]
+                }
+            },
+            {
+                "system": false,
+                "id": "status",
+                "name": "status",
+                "type": "select",
+                "required": false,
+                "presentable": false,
+                "unique": false,
+                "options": {
+                    "maxSelect": 1,
+                    "values": [
+                        "available",
+                        "occupied",
+                        "reserved",
+                        "cleaning",
+                        "out_of_order"
+                    ]
+                }
+            },
+            {
+                "system": false,
+                "id": "current_party_size",
+                "name": "current_party_size",
+                "type": "number",
+                "required": false,
+                "presentable": false,
+                "unique": false,
+                "options": {
+                    "min": null,
+                    "max": null
+                }
+            },
+            {
+                "system": false,
+                "id": "location_x",
+                "name": "location_x",
+                "type": "number",
+                "required": false,
+                "presentable": false,
+                "unique": false,
+                "options": {
+                    "min": null,
+                    "max": null
+                }
+            },
+            {
+                "system": false,
+                "id": "location_y",
+                "name": "location_y",
+                "type": "number",
+                "required": false,
+                "presentable": false,
+                "unique": false,
+                "options": {
+                    "min": null,
+                    "max": null
+                }
+            }
+        ],
+        "indexes": [],
+        "listRule": "",
+        "viewRule": "",
+        "createRule": "",
+        "updateRule": "",
+        "deleteRule": "@request.auth.role = 'Manager'",
+        "options": {}
+    }
+]

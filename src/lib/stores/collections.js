@@ -11,6 +11,9 @@ export const events = writable([]);
 export const maintenanceTasks = writable([]);
 export const maintenanceSchedules = writable([]);
 export const maintenanceRecords = writable([]);
+export const sections = writable([]);
+export const tables = writable([]);
+export const tableUpdates = writable([]);
 
 // Loading states
 export const loading = writable({
@@ -22,7 +25,10 @@ export const loading = writable({
 	events: false,
 	maintenance: false,
 	schedules: false,
-	records: false
+	records: false,
+	sections: false,
+	tables: false,
+	tableUpdates: false
 });
 
 // Collection service functions
@@ -498,6 +504,97 @@ export const collections = {
 			return record;
 		} catch (error) {
 			console.error('Error creating maintenance record:', error);
+			throw error;
+		}
+	},
+
+	// Sections
+	async getSections() {
+		try {
+			loading.update(state => ({ ...state, sections: true }));
+			const records = await pb.collection('sections_collection').getFullList();
+			sections.set(records);
+			return records;
+		} catch (error) {
+			console.error('Error fetching sections:', error);
+			throw error;
+		} finally {
+			loading.update(state => ({ ...state, sections: false }));
+		}
+	},
+
+	async createSection(data) {
+		try {
+			const record = await pb.collection('sections_collection').create(data);
+			sections.update(items => [...items, record]);
+			return record;
+		} catch (error) {
+			console.error('Error creating section:', error);
+			throw error;
+		}
+	},
+
+	// Tables
+	async getTables() {
+		try {
+			loading.update(state => ({ ...state, tables: true }));
+			const records = await pb.collection('tables_collection').getFullList();
+			tables.set(records);
+			return records;
+		} catch (error) {
+			console.error('Error fetching tables:', error);
+			throw error;
+		} finally {
+			loading.update(state => ({ ...state, tables: false }));
+		}
+	},
+
+	async createTable(data) {
+		try {
+			const record = await pb.collection('tables_collection').create(data);
+			tables.update(items => [...items, record]);
+			return record;
+		} catch (error) {
+			console.error('Error creating table:', error);
+			throw error;
+		}
+	},
+
+	async updateTable(id, data) {
+		try {
+			const record = await pb.collection('tables_collection').update(id, data);
+			tables.update(items => items.map(item => item.id === id ? record : item));
+			return record;
+		} catch (error) {
+			console.error('Error updating table:', error);
+			throw error;
+		}
+	},
+
+	// Table Updates
+	async getTableUpdates() {
+		try {
+			loading.update(state => ({ ...state, tableUpdates: true }));
+			const records = await pb.collection('table_updates_collection').getFullList({
+				sort: '-created'
+			});
+			tableUpdates.set(records);
+			return records;
+		} catch (error) {
+			console.error('Error fetching table updates:', error);
+			throw error;
+		} finally {
+			loading.update(state => ({ ...state, tableUpdates: false }));
+		}
+	},
+
+	async createTableUpdate(data) {
+		try {
+			const record = await pb.collection('table_updates_collection').create(data);
+			tableUpdates.update(items => [record, ...items]);
+			return record;
+		} catch (error) {
+			console.error('Error creating table update:', error);
 			throw error;
 		}
 	}
