@@ -232,7 +232,13 @@
 	// Filter sections based on floor plan filter
 	function getFilteredSections() {
 		console.log('Filtering sections with filter:', floorPlanFilter);
+		console.log('$sections exists:', !!$sections, 'length:', $sections?.length);
 		console.log('Available sections:', $sections.map(s => ({ code: s.section_code, area_type: s.area_type })));
+		
+		if (!$sections || $sections.length === 0) {
+			console.log('No sections available, returning empty array');
+			return [];
+		}
 		
 		let filtered;
 		switch (floorPlanFilter) {
@@ -263,8 +269,9 @@
 		return filtered;
 	}
 
-	// Reactive filtered sections - explicitly depend on both sections and filter
+	// Reactive filtered sections - recalculate when sections or filter changes
 	$: {
+		console.log('Reactive statement triggered. Sections:', $sections?.length || 0, 'Filter:', floorPlanFilter);
 		filteredSections = getFilteredSections();
 	}
 
