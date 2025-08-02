@@ -2,16 +2,19 @@ import pb from './pocketbase.js';
 import { writable, derived } from 'svelte/store';
 import { browser } from '$app/environment';
 
-// Create auth store
+// Create auth store with server-safe initial state
 export const authStore = writable({
 	isLoggedIn: false,
 	user: null,
 	role: null,
-	isLoading: true
+	isLoading: false // Set to false to prevent hydration mismatch
 });
 
 // Initialize auth store from PocketBase
 if (browser) {
+	// Set loading state only on client
+	authStore.update((state) => ({ ...state, isLoading: true }));
+
 	pb.authStore.onChange((auth) => {
 		authStore.update(() => ({
 			isLoggedIn: !!auth,
