@@ -2,7 +2,7 @@
 	import { onMount } from 'svelte';
 	import { goto } from '$app/navigation';
 	import { authStore } from '$lib/auth.js';
-	import { collections, shifts, menuItems, loading } from '$lib/stores/collections.js';
+	import { collections, shifts, menuItems, sections, tables, loading } from '$lib/stores/collections.js';
 
 	let activeTab = 'today';
 	let user = null;
@@ -66,7 +66,9 @@
 				try {
 					await Promise.all([
 						collections.getShifts(),
-						collections.getMenuItems()
+						collections.getMenuItems(),
+						collections.getSections(),
+						collections.getTables()
 					]);
 					console.log('Loaded shifts:', $shifts);
 					console.log('Current user:', user);
@@ -108,6 +110,22 @@
 			month: 'long',
 			day: 'numeric'
 		});
+	}
+
+	// Helper to get section name by ID
+	function getSectionName(sectionId) {
+		if (!sectionId || !$sections) return null;
+		const section = $sections.find(s => s.id === sectionId);
+		return section ? section.section_name : null;
+	}
+
+	// Helper to get tables for a given section
+	function getTablesForSection(sectionId) {
+		if (!sectionId || !$tables) return [];
+		const section = $sections.find(s => s.id === sectionId);
+		if (!section) return [];
+		
+		return $tables.filter(table => table.section_code === section.section_code);
 	}
 </script>
 
@@ -222,6 +240,37 @@
 							{#if shift.notes}
 								<div class="mb-4 p-3 bg-gray-700/30 rounded-lg">
 									<p class="text-sm text-gray-300">{shift.notes}</p>
+								</div>
+							{/if}
+
+							<!-- Show assigned section and tables for confirmed shifts -->
+							{#if shift.status === 'confirmed' && shift.assigned_section && getSectionName(shift.assigned_section)}
+								<div class="mb-4 p-4 bg-green-900/20 border border-green-700 rounded-lg">
+									<h4 class="text-green-300 font-medium mb-3 flex items-center">
+										<svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+											<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"></path>
+											<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"></path>
+										</svg>
+										Assigned Section: {getSectionName(shift.assigned_section)}
+									</h4>
+									
+									{#if getTablesForSection(shift.assigned_section).length > 0}
+										<div class="space-y-2">
+											<p class="text-sm text-green-400 font-medium">Your Tables:</p>
+											<div class="flex flex-wrap gap-2">
+												{#each getTablesForSection(shift.assigned_section) as table}
+													<span class="px-3 py-1 bg-gray-800/50 border border-green-600 rounded-lg text-sm font-medium text-green-300">
+														Table {table.table_number}
+														{#if table.capacity}
+															<span class="text-xs text-gray-400 ml-1">({table.capacity} seats)</span>
+														{/if}
+													</span>
+												{/each}
+											</div>
+										</div>
+									{:else}
+										<p class="text-sm text-green-400">Section assigned (tables loading...)</p>
+									{/if}
 								</div>
 							{/if}
 
