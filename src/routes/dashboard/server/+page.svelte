@@ -70,6 +70,14 @@
 						collections.getSections(),
 						collections.getTables()
 					]);
+					
+					// Try to load table updates (optional - collection may not exist yet)
+					try {
+						await collections.getTableUpdates();
+					} catch (tableUpdateError) {
+						console.warn('Table updates collection not available:', tableUpdateError.message);
+					}
+					
 					console.log('Loaded shifts:', $shifts);
 					console.log('Current user:', user);
 				} catch (error) {
@@ -121,12 +129,95 @@
 
 	// Helper to get tables for a given section
 	function getTablesForSection(sectionId) {
-		if (!sectionId || !$tables) return [];
+		if (!sectionId || !$tables || !$sections) return [];
 		const section = $sections.find(s => s.id === sectionId);
-		if (!section) return [];
+		if (!section || !section.section_code) return [];
 		
 		return $tables.filter(table => table.section_code === section.section_code);
 	}
+
+	// Helper to get all tables the server is responsible for (assigned + helping sections)
+	function getAllMyTables(assignedSectionId) {
+		let allTables = [];
+		
+		// Add tables from assigned section
+		if (assignedSectionId) {
+			allTables = [...getTablesForSection(assignedSectionId)];
+		}
+		
+		// Add tables from sections they're helping with
+		for (const sectionId of selectedAdditionalSections) {
+			const helpingTables = getTablesForSection(sectionId);
+			allTables = [...allTables, ...helpingTables];
+		}
+		
+		return allTables;
+	}
+
+	// Helper to get all sections with their tables for expansion view
+	function getAllSections() {
+		if (!$sections || !$tables) return [];
+		return $sections.map(section => ({
+			...section,
+			tables: $tables.filter(table => table.section_code === section.section_code)
+		}));
+	}
+
+	// Toggle additional section selection
+	function toggleAdditionalSection(sectionId) {
+		if (selectedAdditionalSections.has(sectionId)) {
+			selectedAdditionalSections.delete(sectionId);
+		} else {
+			selectedAdditionalSections.add(sectionId);
+		}
+		selectedAdditionalSections = new Set(selectedAdditionalSections);
+	}
+
+	// Update table status
+	async function updateTableStatus(tableId, status, notes = '') {
+		try {
+			// Try to create table update record (optional - collection may not exist yet)
+			try {
+				const updateData = {
+					table_id: tableId,
+					status_field: status,
+					updated_by: user?.id,
+					notes_field: notes
+				};
+				await collections.createTableUpdate(updateData);
+			} catch (tableUpdateError) {
+				console.warn('Could not create table update record:', tableUpdateError.message);
+			}
+			
+			// Update the table status in the tables collection
+			await collections.updateTable(tableId, { status_field: status });
+			
+			// Show success feedback
+			const statusMessages = {
+				'available': 'Table marked as available',
+				'occupied': 'Table marked as occupied', 
+				'cleaning': 'Table marked for cleaning',
+				'reserved': 'Table marked as reserved',
+				'out_of_service': 'Table marked out of service'
+			};
+			
+			// Simple visual feedback (could be replaced with toast notification)
+			console.log(statusMessages[status] || 'Table status updated');
+			
+		} catch (error) {
+			console.error('Error updating table status:', error);
+			alert('Failed to update table status');
+		}
+	}
+
+	// State for expanded sections view
+	let showAllSections = false;
+	let selectedAdditionalSections = new Set(); // Track additional sections server is helping with
+	
+	// Reactive statement for current shift's tables
+	$: currentShiftTables = (todayShifts.length > 0 && todayShifts[0] && selectedAdditionalSections) 
+		? getAllMyTables(todayShifts[0].assigned_section) 
+		: [];
 </script>
 
 <div class="min-h-screen bg-gradient-to-br from-gray-900 to-gray-800 text-gray-100">
@@ -246,30 +337,154 @@
 							<!-- Show assigned section and tables for confirmed shifts -->
 							{#if shift.status === 'confirmed' && shift.assigned_section && getSectionName(shift.assigned_section)}
 								<div class="mb-4 p-4 bg-green-900/20 border border-green-700 rounded-lg">
-									<h4 class="text-green-300 font-medium mb-3 flex items-center">
-										<svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-											<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"></path>
-											<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"></path>
-										</svg>
-										Assigned Section: {getSectionName(shift.assigned_section)}
-									</h4>
+									<div class="flex justify-between items-center mb-3">
+										<h4 class="text-green-300 font-medium flex items-center">
+											<svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+												<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"></path>
+												<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"></path>
+											</svg>
+											Assigned Section: {getSectionName(shift.assigned_section)}
+										</h4>
+										<button
+											on:click={() => showAllSections = !showAllSections}
+											class="px-3 py-1 text-xs bg-gray-700 hover:bg-gray-600 rounded-lg text-gray-300 hover:text-white transition-colors"
+										>
+											{showAllSections ? 'Hide' : 'Expand'} Sections
+										</button>
+									</div>
 									
-									{#if getTablesForSection(shift.assigned_section).length > 0}
+									{#if $loading.tables}
+										<p class="text-sm text-green-400">Section assigned (tables loading...)</p>
+									{:else if currentShiftTables.length > 0}
 										<div class="space-y-2">
 											<p class="text-sm text-green-400 font-medium">Your Tables:</p>
 											<div class="flex flex-wrap gap-2">
-												{#each getTablesForSection(shift.assigned_section) as table}
-													<span class="px-3 py-1 bg-gray-800/50 border border-green-600 rounded-lg text-sm font-medium text-green-300">
-														Table {table.table_number}
-														{#if table.capacity}
-															<span class="text-xs text-gray-400 ml-1">({table.capacity} seats)</span>
+												{#each currentShiftTables as table}
+													<div class="px-3 py-1 bg-gray-800/50 border rounded-lg text-sm font-medium flex items-center gap-2 {
+														$sections.find(s => s.section_code === table.section_code)?.id === shift.assigned_section
+															? 'border-green-600 text-green-300' 
+															: 'border-blue-600 text-blue-300'
+													}">
+														<span>{table.table_name || table.table_number_field}</span>
+														{#if table.capacity || table.seats_field}
+															<span class="text-xs text-gray-400">({table.capacity || table.seats_field} seats)</span>
 														{/if}
-													</span>
+														<span class="text-xs px-1 py-0.5 rounded {
+															$sections.find(s => s.section_code === table.section_code)?.id === shift.assigned_section
+																? 'bg-green-900/50 text-green-400' 
+																: 'bg-blue-900/50 text-blue-400'
+														}">{$sections.find(s => s.section_code === table.section_code)?.section_name || table.section_code}</span>
+														<div class="flex gap-1">
+															<button
+																on:click={() => updateTableStatus(table.id, 'occupied')}
+																class="w-2 h-2 rounded-full bg-red-500 hover:bg-red-400"
+																title="Mark as Occupied"
+															></button>
+															<button
+																on:click={() => updateTableStatus(table.id, 'available')}
+																class="w-2 h-2 rounded-full bg-green-500 hover:bg-green-400"
+																title="Mark as Available"
+															></button>
+															<button
+																on:click={() => updateTableStatus(table.id, 'cleaning')}
+																class="w-2 h-2 rounded-full bg-yellow-500 hover:bg-yellow-400"
+																title="Mark as Cleaning"
+															></button>
+														</div>
+													</div>
 												{/each}
 											</div>
 										</div>
 									{:else}
-										<p class="text-sm text-green-400">Section assigned (tables loading...)</p>
+										<p class="text-sm text-green-400">No tables assigned to this section</p>
+									{/if}
+
+									<!-- Expanded sections view -->
+									{#if showAllSections}
+										<div class="mt-4 pt-4 border-t border-green-700/50">
+											<div class="mb-3">
+												<p class="text-sm text-green-400 font-medium">All Restaurant Sections:</p>
+											</div>
+											<div class="space-y-3">
+												{#each getAllSections() as section}
+													<div class="bg-gray-800/30 rounded-lg p-3 {selectedAdditionalSections.has(section.id) ? 'ring-2 ring-blue-500' : ''}">
+														<div class="flex justify-between items-center mb-2">
+															<h5 class="text-sm font-medium text-gray-300 flex items-center">
+																<span class="w-2 h-2 rounded-full mr-2 {
+																	section.id === shift.assigned_section ? 'bg-green-500' : 
+																	selectedAdditionalSections.has(section.id) ? 'bg-blue-500' : 'bg-gray-500'
+																}"></span>
+																{section.section_name}
+																{#if section.id === shift.assigned_section}
+																	<span class="ml-2 text-xs text-green-400">(Your Section)</span>
+																{:else if selectedAdditionalSections.has(section.id)}
+																	<span class="ml-2 text-xs text-blue-400">(Helping)</span>
+																{/if}
+															</h5>
+															{#if section.id !== shift.assigned_section}
+																<button
+																	on:click={() => toggleAdditionalSection(section.id)}
+																	class="px-2 py-1 text-xs rounded {
+																		selectedAdditionalSections.has(section.id) 
+																			? 'bg-blue-600 text-white' 
+																			: 'bg-gray-600 hover:bg-gray-500 text-gray-300'
+																	}"
+																>
+																	{selectedAdditionalSections.has(section.id) ? 'Stop Helping' : 'Help Here'}
+																</button>
+															{/if}
+														</div>
+														{#if section.tables && section.tables.length > 0}
+															<div class="flex flex-wrap gap-1">
+																{#each section.tables as table}
+																	<div class="px-2 py-1 text-xs rounded flex items-center gap-1 {
+																		section.id === shift.assigned_section ? 'bg-green-900/50 text-green-300' : 
+																		selectedAdditionalSections.has(section.id) ? 'bg-blue-900/50 text-blue-300' : 'bg-gray-700/50 text-gray-400'
+																	}">
+																		<span>{table.table_name || table.table_number_field}</span>
+																		{#if table.capacity || table.seats_field}
+																		<span>({table.capacity || table.seats_field})</span>
+																		{/if}
+																		{#if section.id === shift.assigned_section || selectedAdditionalSections.has(section.id)}
+																		<div class="flex gap-0.5 ml-1">
+																		<button
+																		on:click={() => updateTableStatus(table.id, 'occupied')}
+																		class="w-1.5 h-1.5 rounded-full bg-red-500 hover:bg-red-400"
+																		title="Mark as Occupied"
+																		></button>
+																		<button
+																		on:click={() => updateTableStatus(table.id, 'available')}
+																		class="w-1.5 h-1.5 rounded-full bg-green-500 hover:bg-green-400"
+																		title="Mark as Available"
+																		></button>
+																		<button
+																		on:click={() => updateTableStatus(table.id, 'cleaning')}
+																		class="w-1.5 h-1.5 rounded-full bg-yellow-500 hover:bg-yellow-400"
+																		title="Mark as Cleaning"
+																		></button>
+																		</div>
+																		{/if}
+																	</div>
+																{/each}
+															</div>
+														{:else}
+															<p class="text-xs text-gray-500">No tables assigned</p>
+														{/if}
+													</div>
+												{/each}
+											</div>
+											
+											{#if selectedAdditionalSections.size > 0}
+												<div class="mt-3 p-3 bg-blue-900/20 border border-blue-700 rounded-lg">
+													<p class="text-sm text-blue-300 font-medium">
+														You're helping in {selectedAdditionalSections.size} additional section{selectedAdditionalSections.size > 1 ? 's' : ''}
+													</p>
+													<p class="text-xs text-blue-400 mt-1">
+														You can manage tables in these sections using the management tools above
+													</p>
+												</div>
+											{/if}
+										</div>
 									{/if}
 								</div>
 							{/if}
