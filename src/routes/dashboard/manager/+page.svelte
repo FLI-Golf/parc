@@ -48,13 +48,34 @@
 	let floorPlanFilter = "all"; // For floor plan filtering
 	let filteredSections = []; // Filtered sections based on floor plan filter
 
+	// Get today's date in local timezone
+	function getTodayString() {
+		const today = new Date();
+		const year = today.getFullYear();
+		const month = String(today.getMonth() + 1).padStart(2, '0');
+		const day = String(today.getDate()).padStart(2, '0');
+		return `${year}-${month}-${day}`;
+	}
+
+	function formatDate(dateStr) {
+		// Parse as local date to avoid timezone issues
+		const [year, month, day] = dateStr.split('-');
+		const date = new Date(year, month - 1, day);
+		return date.toLocaleDateString('en-US', {
+			weekday: 'long',
+			year: 'numeric',
+			month: 'long',
+			day: 'numeric'
+		});
+	}
+
 	// Reactive declarations
 	$: lowStockItems = $inventoryItems.filter(
 		(item) => item.current_stock <= item.min_stock_level * 1.5
 	);
 
 	$: todayShifts = $shifts.filter(
-		(shift) => shift.shift_date === new Date().toISOString().split("T")[0]
+		(shift) => shift.shift_date === getTodayString()
 	);
 
 	// Enhanced metrics
@@ -116,8 +137,7 @@
 		(task) => task.priority === "critical"
 	);
 	$: todayTasks = $maintenanceSchedules.filter((schedule) => {
-		const today = new Date().toISOString().split("T")[0];
-		return schedule.scheduled_date === today;
+		return schedule.scheduled_date === getTodayString();
 	});
 	$: pendingTasks = $maintenanceSchedules.filter(
 		(schedule) => schedule.status === "pending"
@@ -364,12 +384,12 @@
 				// Load all data for managers
 				try {
 					await Promise.all([
-						collections.getInventoryItems(),
-						collections.getStaff(),
-						collections.getShifts(),
-						collections.getMenuItems(),
-						collections.getVendors(),
-						collections.getEvents(),
+						collections.getInventoryItems().catch(() => console.log("Inventory collection not yet set up")),
+						collections.getStaff().catch(() => console.log("Staff collection not yet set up")),
+						collections.getShifts().catch(() => console.log("Shifts collection not yet set up")),
+						collections.getMenuItems().catch(() => console.log("Menu collection not yet set up")),
+						collections.getVendors().catch(() => console.log("Vendors collection not yet set up")),
+						collections.getEvents().catch(() => console.log("Events collection not yet set up")),
 						// Load table management data if collections exist
 						collections
 							.getSections()
@@ -601,7 +621,10 @@
 
 	// Helper functions for date and time formatting
 	function formatShortDate(dateString) {
-		const date = new Date(dateString);
+		// Handle both "YYYY-MM-DD" and "YYYY-MM-DD HH:MM:SS" formats
+		const dateOnly = dateString.split(' ')[0]; // Remove time if present
+		const [year, month, day] = dateOnly.split('-');
+		const date = new Date(year, month - 1, day);
 		return date.toLocaleDateString("en-US", {
 			month: "short",
 			day: "numeric",
@@ -715,6 +738,7 @@
 			<div class="mb-8 flex justify-between items-center">
 				<div>
 					<h2 class="text-3xl font-bold">Manager Overview</h2>
+				<p class="text-gray-400 mt-2">{formatDate(getTodayString())}</p>
 					<p class="text-gray-400 mt-2">
 						Monitor your restaurant operations at a glance
 					</p>

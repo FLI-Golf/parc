@@ -6,7 +6,16 @@ export default defineConfig({
 	plugins: [tailwindcss(), sveltekit()],
 	server: {
 		allowedHosts: [
-			'5173-fligolf-parc-yzgx6z7qjym.ws-us120.gitpod.io'
+			'5173-fligolf-parc-lygafhjmw8u.ws-us120.gitpod.io'
 		]
+	},
+	build: {
+		rollupOptions: {
+			output: {
+				entryFileNames: 'assets/[name].[hash].js',
+				chunkFileNames: 'assets/[name].[hash].js',
+				assetFileNames: 'assets/[name].[hash].[ext]'
+			}
+		}
 	}
 });

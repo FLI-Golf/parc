@@ -8,18 +8,43 @@
 	let user = null;
 
 	// Reactive declarations
-	$: myShifts = $shifts.filter(shift => 
-		shift.expand?.staff_member?.user_id === user?.id
-	);
+	$: myShifts = $shifts.filter(shift => {
+		console.log('Checking shift:', shift);
+		console.log('Staff member fields:', Object.keys(shift.expand?.staff_member || {}));
+		console.log('shift.expand.staff_member:', shift.expand?.staff_member);
+		console.log('user?.id:', user?.id);
+		console.log('user?.email:', user?.email);
+		
+		// Try matching by email as fallback
+		const emailMatch = shift.expand?.staff_member?.email === user?.email;
+		const userIdMatch = shift.expand?.staff_member?.user_id === user?.id;
+		console.log('Email match:', emailMatch, 'User ID match:', userIdMatch);
+		
+		return userIdMatch || emailMatch;
+	});
 	
-	$: todayShifts = myShifts.filter(shift => 
-		shift.shift_date === new Date().toISOString().split('T')[0]
-	);
+	// Get today's date in local timezone
+	function getTodayString() {
+		const today = new Date();
+		const year = today.getFullYear();
+		const month = String(today.getMonth() + 1).padStart(2, '0');
+		const day = String(today.getDate()).padStart(2, '0');
+		return `${year}-${month}-${day}`;
+	}
 
-	$: upcomingShifts = myShifts.filter(shift => 
-		new Date(shift.shift_date) > new Date() && 
-		shift.shift_date !== new Date().toISOString().split('T')[0]
-	).sort((a, b) => new Date(a.shift_date) - new Date(b.shift_date));
+	$: todayShifts = myShifts.filter(shift => {
+		// Handle both "YYYY-MM-DD" and "YYYY-MM-DD HH:MM:SS" formats
+		const shiftDateOnly = shift.shift_date.split(' ')[0];
+		const today = getTodayString();
+		console.log('Today filter - shiftDateOnly:', shiftDateOnly, 'today:', today, 'match:', shiftDateOnly === today);
+		return shiftDateOnly === today;
+	});
+
+	$: upcomingShifts = myShifts.filter(shift => {
+		const shiftDateOnly = shift.shift_date.split(' ')[0];
+		return new Date(shiftDateOnly) > new Date() && 
+			shiftDateOnly !== getTodayString();
+	}).sort((a, b) => new Date(a.shift_date.split(' ')[0]) - new Date(b.shift_date.split(' ')[0]));
 
 	onMount(async () => {
 		// Check authentication and role
@@ -43,6 +68,8 @@
 						collections.getShifts(),
 						collections.getMenuItems()
 					]);
+					console.log('Loaded shifts:', $shifts);
+					console.log('Current user:', user);
 				} catch (error) {
 					console.error('Error loading dashboard data:', error);
 				}
@@ -72,7 +99,10 @@
 	}
 
 	function formatDate(dateStr) {
-		return new Date(dateStr).toLocaleDateString('en-US', {
+		// Parse as local date to avoid timezone issues
+		const [year, month, day] = dateStr.split('-');
+		const date = new Date(year, month - 1, day);
+		return date.toLocaleDateString('en-US', {
 			weekday: 'long',
 			year: 'numeric',
 			month: 'long',
@@ -150,7 +180,7 @@
 			<!-- Today's Shifts -->
 			<div class="mb-8">
 				<h2 class="text-3xl font-bold">Today's Shifts</h2>
-				<p class="text-gray-400 mt-2">{formatDate(new Date().toISOString().split('T')[0])}</p>
+				<p class="text-gray-400 mt-2">{formatDate(getTodayString())}</p>
 			</div>
 
 			{#if $loading.shifts}
