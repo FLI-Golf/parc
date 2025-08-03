@@ -1,0 +1,28 @@
+{
+  "id": "maintenance_schedules",
+  "name": "maintenance_schedules",
+  "type": "base",
+  "schema": [
+    {
+      "name": "equipment_field",
+      "type": "text",
+      "required": true
+    },
+    {
+      "name": "frequency_field",
+      "type": "text"
+    },
+    {
+      "name": "next_due_field",
+      "type": "date"
+    },
+    {
+      "name": "description_field",
+      "type": "text"
+    },
+    {
+      "name": "priority_field",
+      "type": "text"
+    }
+  ]
+}

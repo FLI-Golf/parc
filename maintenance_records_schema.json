@@ -1,0 +1,32 @@
+{
+  "id": "maintenance_records",
+  "name": "maintenance_records",
+  "type": "base",
+  "schema": [
+    {
+      "name": "equipment_field",
+      "type": "text",
+      "required": true
+    },
+    {
+      "name": "maintenance_date_field",
+      "type": "date"
+    },
+    {
+      "name": "description_field",
+      "type": "text"
+    },
+    {
+      "name": "cost_field",
+      "type": "number"
+    },
+    {
+      "name": "performed_by_field",
+      "type": "text"
+    },
+    {
+      "name": "status_field",
+      "type": "text"
+    }
+  ]
+}

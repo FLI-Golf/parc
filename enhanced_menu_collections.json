@@ -1,0 +1,212 @@
+[
+    {
+        "id": "menu_categories_collection",
+        "listRule": "",
+        "viewRule": "",
+        "createRule": "@request.auth.role = 'Manager'",
+        "updateRule": "@request.auth.role = 'Manager'",
+        "deleteRule": "@request.auth.role = 'Manager'",
+        "name": "menu_categories",
+        "type": "base",
+        "fields": [
+            {
+                "autogeneratePattern": "[a-z0-9]{15}",
+                "hidden": false,
+                "id": "text3208210256",
+                "max": 15,
+                "min": 15,
+                "name": "id",
+                "pattern": "^[a-z0-9]+$",
+                "presentable": false,
+                "primaryKey": true,
+                "required": true,
+                "system": true,
+                "type": "text"
+            },
+            {
+                "autogeneratePattern": "",
+                "hidden": false,
+                "id": "text1579384326",
+                "max": 0,
+                "min": 0,
+                "name": "name",
+                "pattern": "",
+                "presentable": true,
+                "primaryKey": false,
+                "required": true,
+                "system": false,
+                "type": "text"
+            },
+            {
+                "autogeneratePattern": "",
+                "hidden": false,
+                "id": "text1843675174",
+                "max": 0,
+                "min": 0,
+                "name": "icon",
+                "pattern": "",
+                "presentable": false,
+                "primaryKey": false,
+                "required": false,
+                "system": false,
+                "type": "text"
+            },
+            {
+                "autogeneratePattern": "",
+                "hidden": false,
+                "id": "text2145728903",
+                "max": 0,
+                "min": 0,
+                "name": "color",
+                "pattern": "",
+                "presentable": false,
+                "primaryKey": false,
+                "required": false,
+                "system": false,
+                "type": "text"
+            },
+            {
+                "hidden": false,
+                "id": "number3402113753",
+                "max": null,
+                "min": 0,
+                "name": "sort_order",
+                "onlyInt": true,
+                "presentable": false,
+                "required": true,
+                "system": false,
+                "type": "number"
+            },
+            {
+                "hidden": false,
+                "id": "bool2777654405",
+                "name": "active",
+                "presentable": false,
+                "required": false,
+                "system": false,
+                "type": "bool"
+            },
+            {
+                "autogeneratePattern": "",
+                "hidden": false,
+                "id": "text1264587087",
+                "max": 0,
+                "min": 0,
+                "name": "description",
+                "pattern": "",
+                "presentable": false,
+                "primaryKey": false,
+                "required": false,
+                "system": false,
+                "type": "text"
+            }
+        ],
+        "indexes": [],
+        "system": false
+    },
+    {
+        "id": "menu_modifiers_collection",
+        "listRule": "",
+        "viewRule": "",
+        "createRule": "@request.auth.role = 'Manager'",
+        "updateRule": "@request.auth.role = 'Manager'",
+        "deleteRule": "@request.auth.role = 'Manager'",
+        "name": "menu_modifiers",
+        "type": "base",
+        "fields": [
+            {
+                "autogeneratePattern": "[a-z0-9]{15}",
+                "hidden": false,
+                "id": "text3208210256",
+                "max": 15,
+                "min": 15,
+                "name": "id",
+                "pattern": "^[a-z0-9]+$",
+                "presentable": false,
+                "primaryKey": true,
+                "required": true,
+                "system": true,
+                "type": "text"
+            },
+            {
+                "autogeneratePattern": "",
+                "hidden": false,
+                "id": "text1579384326",
+                "max": 0,
+                "min": 0,
+                "name": "name",
+                "pattern": "",
+                "presentable": true,
+                "primaryKey": false,
+                "required": true,
+                "system": false,
+                "type": "text"
+            },
+            {
+                "hidden": false,
+                "id": "select105650625",
+                "maxSelect": 1,
+                "name": "type",
+                "presentable": false,
+                "required": true,
+                "system": false,
+                "type": "select",
+                "values": [
+                    "add_on",
+                    "cooking_style",
+                    "size",
+                    "sauce",
+                    "temperature",
+                    "side_dish"
+                ]
+            },
+            {
+                "hidden": false,
+                "id": "number3402113753",
+                "max": null,
+                "min": 0,
+                "name": "price_change",
+                "onlyInt": false,
+                "presentable": false,
+                "required": false,
+                "system": false,
+                "type": "number"
+            },
+            {
+                "hidden": false,
+                "id": "relation2145728903",
+                "maxSelect": 999,
+                "minSelect": 0,
+                "name": "applicable_items",
+                "presentable": false,
+                "required": false,
+                "system": false,
+                "type": "relation",
+                "collectionId": "menu_collection"
+            },
+            {
+                "hidden": false,
+                "id": "bool2777654405",
+                "name": "required",
+                "presentable": false,
+                "required": false,
+                "system": false,
+                "type": "bool"
+            },
+            {
+                "hidden": false,
+                "id": "number405181692",
+                "max": null,
+                "min": 0,
+                "name": "sort_order",
+                "onlyInt": true,
+                "presentable": false,
+                "required": false,
+                "system": false,
+                "type": "number"
+            }
+        ],
+        "indexes": [],
+        "system": false
+    }
+]

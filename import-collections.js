@@ -2,7 +2,7 @@ import PocketBase from 'pocketbase';
 import fs from 'fs';
 
 // Initialize PocketBase client with your Fly.io instance URL
-const pb = new PocketBase('https://pocketbase-app-1753896437.fly.dev');
+const pb = new PocketBase('https://pocketbase-production-7050.up.railway.app');
 
 async function importCollections() {
   try {
@@ -32,7 +32,7 @@ async function importCollections() {
     // Check if it's a collection not found error
     if (error.status === 404) {
       console.log('Collection not found. You may need to import the collections first.');
-      console.log('Please visit the admin panel at https://pocketbase-app-1753896437.fly.dev/_/ to import collections.');
+      console.log('Please visit the admin panel at https://pocketbase-production-7050.up.railway.app/_/ to import collections.');
     }
   }
 }

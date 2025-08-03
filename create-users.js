@@ -3,7 +3,7 @@ import fs from 'fs';
 import csv from 'csv-parser';
 import { createObjectCsvWriter } from 'csv-writer';
 
-const pb = new PocketBase('https://pocketbase-app-1753896437.fly.dev');
+const pb = new PocketBase('https://pocketbase-production-7050.up.railway.app');
 
 // Admin login
 await pb.admins.authWithPassword('admin@parcbistro.com', 'parcmanager123');

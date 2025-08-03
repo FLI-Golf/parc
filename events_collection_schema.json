@@ -1,0 +1,36 @@
+{
+  "id": "events_collection",
+  "name": "events",
+  "type": "base",
+  "schema": [
+    {
+      "name": "event_name_field",
+      "type": "text",
+      "required": true
+    },
+    {
+      "name": "event_date_field",
+      "type": "date"
+    },
+    {
+      "name": "start_time_field",
+      "type": "text"
+    },
+    {
+      "name": "end_time_field",
+      "type": "text"
+    },
+    {
+      "name": "description_field",
+      "type": "text"
+    },
+    {
+      "name": "capacity_field",
+      "type": "number"
+    },
+    {
+      "name": "status_field",
+      "type": "text"
+    }
+  ]
+}

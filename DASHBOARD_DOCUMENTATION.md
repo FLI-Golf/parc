@@ -245,8 +245,8 @@ await collections.updateInventoryItem('item_id', {
 ## Deployment
 
 ### PocketBase Instance
-- **URL**: `https://pocketbase-app-1753896437.fly.dev`
-- **Admin Panel**: `https://pocketbase-app-1753896437.fly.dev/_/`
+- **URL**: `https://pocketbase-production-7050.up.railway.app`
+- **Admin Panel**: `https://pocketbase-production-7050.up.railway.app/_/`
 - **Hosted on**: Fly.io
 - **Database**: Persistent SQLite with volume storage
 
@@ -279,7 +279,7 @@ pnpm preview
 ### Environment Configuration
 Create `.env` file:
 ```
-VITE_POCKETBASE_URL=https://pocketbase-app-1753896437.fly.dev/
+VITE_POCKETBASE_URL=https://pocketbase-production-7050.up.railway.app/
 ```
 
 ## Future Enhancements

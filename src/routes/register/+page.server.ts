@@ -138,6 +138,11 @@ export const actions = {
 			// Redirect to dashboard like login does
 			throw redirect(302, '/dashboard');
 		} catch (error: any) {
+			// Check if this is a redirect (which is expected behavior, not an error)
+			if (error?.status === 302) {
+				throw error; // Re-throw the redirect to let SvelteKit handle it
+			}
+			
 			console.error('Error creating user in PocketBase:', error);
 			console.error('Error response data:', JSON.stringify(error.response?.data, null, 2));
 			

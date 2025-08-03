@@ -1,0 +1,7 @@
+name,icon,color,sort_order,active,description
+"Entrées",🥗,#10B981,1,true,"Elegant appetizers and starters"
+"Plats Principaux",🍽️,#F59E0B,2,true,"Main courses featuring classic French cuisine"
+"Vins & Cocktails",🍷,#8B5CF6,3,true,"Fine French wines and signature cocktails"
+"Fromages",🧀,#F97316,4,true,"Artisanal cheese selection"
+"Desserts",🍰,#EC4899,5,true,"Decadent French pastries and desserts"
+"Spécialités",⭐,#EF4444,6,true,"Chef's seasonal specialties"

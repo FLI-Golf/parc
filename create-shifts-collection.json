@@ -1,0 +1,147 @@
+{
+  "id": "shifts_collection",
+  "name": "shifts",
+  "type": "base",
+  "system": false,
+  "schema": [
+    {
+      "id": "staff_member",
+      "name": "staff_member",
+      "type": "relation",
+      "system": false,
+      "required": true,
+      "unique": false,
+      "options": {
+        "collectionId": "staff_collection",
+        "cascadeDelete": false,
+        "minSelect": null,
+        "maxSelect": 1,
+        "displayFields": ["first_name", "last_name"]
+      }
+    },
+    {
+      "id": "shift_date",
+      "name": "shift_date",
+      "type": "date",
+      "system": false,
+      "required": true,
+      "unique": false,
+      "options": {
+        "min": "",
+        "max": ""
+      }
+    },
+    {
+      "id": "start_time",
+      "name": "start_time",
+      "type": "text",
+      "system": false,
+      "required": true,
+      "unique": false,
+      "options": {
+        "min": null,
+        "max": null,
+        "pattern": "^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$"
+      }
+    },
+    {
+      "id": "end_time",
+      "name": "end_time",
+      "type": "text",
+      "system": false,
+      "required": true,
+      "unique": false,
+      "options": {
+        "min": null,
+        "max": null,
+        "pattern": "^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$"
+      }
+    },
+    {
+      "id": "break_duration",
+      "name": "break_duration",
+      "type": "number",
+      "system": false,
+      "required": false,
+      "unique": false,
+      "options": {
+        "min": 0,
+        "max": null
+      }
+    },
+    {
+      "id": "position",
+      "name": "position",
+      "type": "select",
+      "system": false,
+      "required": true,
+      "unique": false,
+      "options": {
+        "maxSelect": 1,
+        "values": [
+          "Server",
+          "Bartender", 
+          "Host",
+          "Busser",
+          "Chef",
+          "Prep Cook",
+          "Dishwasher",
+          "Manager"
+        ]
+      }
+    },
+    {
+      "id": "status",
+      "name": "status",
+      "type": "select",
+      "system": false,
+      "required": true,
+      "unique": false,
+      "options": {
+        "maxSelect": 1,
+        "values": [
+          "Scheduled",
+          "In Progress",
+          "Completed",
+          "Cancelled",
+          "No Show"
+        ]
+      }
+    },
+    {
+      "id": "notes",
+      "name": "notes",
+      "type": "text",
+      "system": false,
+      "required": false,
+      "unique": false,
+      "options": {
+        "min": null,
+        "max": 500,
+        "pattern": ""
+      }
+    },
+    {
+      "id": "assigned_section",
+      "name": "assigned_section",
+      "type": "relation",
+      "system": false,
+      "required": false,
+      "unique": false,
+      "options": {
+        "collectionId": "sections_collection",
+        "cascadeDelete": false,
+        "minSelect": null,
+        "maxSelect": 1,
+        "displayFields": ["section_name", "section_code"]
+      }
+    }
+  ],
+  "indexes": [],
+  "listRule": "@request.auth.id != \"\" && (@request.auth.role = \"Manager\" || @request.auth.role = \"Server\" || staff_member.user_id = @request.auth.id)",
+  "viewRule": "@request.auth.id != \"\" && (@request.auth.role = \"Manager\" || @request.auth.role = \"Server\" || staff_member.user_id = @request.auth.id)",
+  "createRule": "@request.auth.role = \"Manager\"",
+  "updateRule": "@request.auth.role = \"Manager\"",
+  "deleteRule": "@request.auth.role = \"Manager\"",
+  "options": {}
+}

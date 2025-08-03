@@ -86,7 +86,7 @@ Example: `item_name_field`, `category_field`, etc.
 
 ```bash
 # Required
-VITE_POCKETBASE_URL=https://pocketbase-app-1753896437.fly.dev/
+VITE_POCKETBASE_URL=https://pocketbase-production-7050.up.railway.app/
 
 # Optional (for development)
 VITE_DEBUG=true
@@ -208,7 +208,7 @@ try {
 ## Deployment
 
 ### PocketBase (Fly.io)
-- Current instance: `https://pocketbase-app-1753896437.fly.dev`
+- Current instance: `https://pocketbase-production-7050.up.railway.app`
 - Admin panel: Add `/_/` to URL
 - Persistent storage via Fly.io volumes
 

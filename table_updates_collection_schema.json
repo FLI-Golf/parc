@@ -1,0 +1,76 @@
+{
+  "id": "table_updates_collection",
+  "name": "table_updates",
+  "type": "base",
+  "system": false,
+  "schema": [
+    {
+      "id": "table_id",
+      "name": "table_id",
+      "type": "relation",
+      "system": false,
+      "required": true,
+      "unique": false,
+      "options": {
+        "collectionId": "tables_collection",
+        "cascadeDelete": false,
+        "minSelect": null,
+        "maxSelect": 1,
+        "displayFields": ["table_number_field"]
+      }
+    },
+    {
+      "id": "status_field",
+      "name": "status_field",
+      "type": "select",
+      "system": false,
+      "required": true,
+      "unique": false,
+      "options": {
+        "maxSelect": 1,
+        "values": [
+          "Available",
+          "Occupied",
+          "Reserved",
+          "Cleaning",
+          "Out of Service"
+        ]
+      }
+    },
+    {
+      "id": "updated_by",
+      "name": "updated_by",
+      "type": "relation",
+      "system": false,
+      "required": false,
+      "unique": false,
+      "options": {
+        "collectionId": "_pb_users_auth_",
+        "cascadeDelete": false,
+        "minSelect": null,
+        "maxSelect": 1,
+        "displayFields": ["name", "email"]
+      }
+    },
+    {
+      "id": "notes_field",
+      "name": "notes_field",
+      "type": "text",
+      "system": false,
+      "required": false,
+      "unique": false,
+      "options": {
+        "min": null,
+        "max": 500,
+        "pattern": ""
+      }
+    }
+  ],
+  "indexes": [],
+  "listRule": "@request.auth.id != \"\"",
+  "viewRule": "@request.auth.id != \"\"",
+  "createRule": "@request.auth.id != \"\"",
+  "updateRule": "@request.auth.id != \"\"",
+  "deleteRule": "@request.auth.role = \"Manager\"",
+  "options": {}
+}

@@ -11,6 +11,9 @@ importers:
       '@libsql/client':
         specifier: ^0.14.0
         version: 0.14.0
+      csv-parse:
+        specifier: ^6.1.0
+        version: 6.1.0
       csv-parser:
         specifier: ^3.2.0
         version: 3.2.0
@@ -685,6 +688,9 @@ packages:
   cookie@0.6.0:
     resolution: {integrity: sha512-U71cyTamuh1CRNCfpGY6to28lxvNwPG4Guz/EVjgf3Jmzv0vlDp1atT9eS5dDjMYHucpHbWns6Lwf3BKz6svdw==}
     engines: {node: '>= 0.6'}
+
+  csv-parse@6.1.0:
+    resolution: {integrity: sha512-CEE+jwpgLn+MmtCpVcPtiCZpVtB6Z2OKPTr34pycYYoL7sxdOkXDdQ4lRiw6ioC0q6BLqhc6cKweCVvral8yhw==}
 
   csv-parser@3.2.0:
     resolution: {integrity: sha512-fgKbp+AJbn1h2dcAHKIdKNSSjfp43BZZykXsCjzALjKy80VXQNHPFJ6T9Afwdzoj24aMkq8GwDS7KGcDPpejrA==}
@@ -1747,6 +1753,8 @@ snapshots:
       delayed-stream: 1.0.0
 
   cookie@0.6.0: {}
+
+  csv-parse@6.1.0: {}
 
   csv-parser@3.2.0: {}
 

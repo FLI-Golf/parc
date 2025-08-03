@@ -1,0 +1,32 @@
+{
+  "id": "maintenance_tasks_collection",
+  "name": "maintenance_tasks_collection",
+  "type": "base",
+  "schema": [
+    {
+      "name": "task_name_field",
+      "type": "text",
+      "required": true
+    },
+    {
+      "name": "equipment_field",
+      "type": "text"
+    },
+    {
+      "name": "due_date_field",
+      "type": "date"
+    },
+    {
+      "name": "assigned_to_field",
+      "type": "text"
+    },
+    {
+      "name": "status_field",
+      "type": "text"
+    },
+    {
+      "name": "instructions_field",
+      "type": "text"
+    }
+  ]
+}

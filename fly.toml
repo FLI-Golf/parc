@@ -1,0 +1,22 @@
+# fly.toml
+app = "pocketbase-app-1753896437"
+
+[build]
+  image = "pocketbase/pocketbase:latest"
+
+[[vm]]
+  size = "performance-1x"
+  memory = "2gb"
+
+[http_service]
+  internal_port = 8080
+  force_https = true
+  auto_stop_machines = false
+  auto_start_machines = true
+
+[[http_service.checks]]
+  interval = "10s"
+  timeout = "5s"
+  grace_period = "5s"
+  method = "GET"
+  path = "/api/health"

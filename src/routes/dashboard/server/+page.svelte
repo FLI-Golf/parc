@@ -100,6 +100,9 @@
 			}
 		});
 
+		// Initialize speech recognition
+		initSpeechRecognition();
+
 		return unsubscribe;
 	});
 
@@ -501,6 +504,12 @@
 	
 	// Dynamic seat management  
 	let maxSeats = 10; // Default max seats (expandable) - generous for walk-ins
+	
+	// Voice recognition state
+	let isRecording = false;
+	let recognition = null;
+	let speechSupported = false;
+	let isRecordingEdit = false;
 	
 	// Calculate totals from current ticket items (reactive)
 	$: calculatedSubtotal = currentTicketItems.reduce((sum, item) => sum + (item.total_price || 0), 0);
@@ -934,6 +943,73 @@
 			'side_dish': '🥘'
 		};
 		return icons[category] || '🍴';
+	}
+
+	// Speech Recognition Functions
+	function initSpeechRecognition() {
+		if (typeof window !== 'undefined') {
+			const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+			if (SpeechRecognition) {
+				speechSupported = true;
+				recognition = new SpeechRecognition();
+				recognition.continuous = false;
+				recognition.interimResults = false;
+				recognition.lang = 'en-US';
+				
+				recognition.onresult = (event) => {
+					const transcript = event.results[0][0].transcript;
+					if (isRecording) {
+						specialInstructions = (specialInstructions + ' ' + transcript).trim();
+						isRecording = false;
+					} else if (isRecordingEdit) {
+						editSpecialInstructions = (editSpecialInstructions + ' ' + transcript).trim();
+						isRecordingEdit = false;
+					}
+				};
+				
+				recognition.onerror = (event) => {
+					console.error('Speech recognition error:', event.error);
+					isRecording = false;
+					isRecordingEdit = false;
+				};
+				
+				recognition.onend = () => {
+					isRecording = false;
+					isRecordingEdit = false;
+				};
+			} else {
+				speechSupported = false;
+				console.log('Speech recognition not supported');
+			}
+		}
+	}
+
+	function startVoiceRecording(isEdit = false) {
+		if (!recognition || !speechSupported) return;
+		
+		if (isEdit) {
+			isRecordingEdit = true;
+			isRecording = false;
+		} else {
+			isRecording = true;
+			isRecordingEdit = false;
+		}
+		
+		try {
+			recognition.start();
+		} catch (error) {
+			console.error('Error starting speech recognition:', error);
+			isRecording = false;
+			isRecordingEdit = false;
+		}
+	}
+
+	function stopVoiceRecording() {
+		if (recognition) {
+			recognition.stop();
+		}
+		isRecording = false;
+		isRecordingEdit = false;
 	}
 </script>
 
@@ -2061,12 +2137,28 @@
 				<!-- Special Instructions -->
 				<div>
 					<h3 class="text-lg font-semibold text-white mb-3">Special Instructions</h3>
-					<textarea
-						bind:value={specialInstructions}
-						placeholder="Any special requests or notes..."
-						class="w-full p-3 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400 resize-none"
-						rows="3"
-					></textarea>
+					<div class="relative">
+						<textarea
+							bind:value={specialInstructions}
+							placeholder="Any special requests or notes..."
+							class="w-full p-3 pr-12 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400 resize-none"
+							rows="3"
+						></textarea>
+						{#if speechSupported}
+							<button
+								on:click={() => isRecording ? stopVoiceRecording() : startVoiceRecording(false)}
+								class="absolute right-2 top-2 p-2 rounded-lg transition-colors {isRecording ? 'bg-red-600 hover:bg-red-700 text-white' : 'bg-gray-600 hover:bg-gray-500 text-gray-300'}"
+								title={isRecording ? 'Stop recording' : 'Start voice recording'}
+								type="button"
+							>
+								{#if isRecording}
+									🔴
+								{:else}
+									🎤
+								{/if}
+							</button>
+						{/if}
+					</div>
 				</div>
 			</div>
 
@@ -2238,12 +2330,28 @@
 				<!-- Special Instructions -->
 				<div>
 					<h3 class="text-lg font-semibold text-white mb-3">Special Instructions</h3>
-					<textarea
-						bind:value={editSpecialInstructions}
-						placeholder="Any special requests or notes..."
-						class="w-full p-3 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400 resize-none"
-						rows="3"
-					></textarea>
+					<div class="relative">
+						<textarea
+							bind:value={editSpecialInstructions}
+							placeholder="Any special requests or notes..."
+							class="w-full p-3 pr-12 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400 resize-none"
+							rows="3"
+						></textarea>
+						{#if speechSupported}
+							<button
+								on:click={() => isRecordingEdit ? stopVoiceRecording() : startVoiceRecording(true)}
+								class="absolute right-2 top-2 p-2 rounded-lg transition-colors {isRecordingEdit ? 'bg-red-600 hover:bg-red-700 text-white' : 'bg-gray-600 hover:bg-gray-500 text-gray-300'}"
+								title={isRecordingEdit ? 'Stop recording' : 'Start voice recording'}
+								type="button"
+							>
+								{#if isRecordingEdit}
+									🔴
+								{:else}
+									🎤
+								{/if}
+							</button>
+						{/if}
+					</div>
 					<p class="text-xs text-gray-400 mt-1">
 						💡 Examples: "Add a candle it is a birthday", "Extra crispy", "On the side"
 					</p>
@@ -2255,7 +2363,7 @@
 				<div class="flex justify-between items-center mb-4">
 					<span class="text-gray-300">Updated Total:</span>
 					<span class="text-2xl font-bold text-green-400">
-						${(((editingItem.unit_price || 0) - (editingItem.modifier_total || 0)) + editModifiers.reduce((sum, mod) => sum + (mod.price_change || 0), 0)) * editQuantity}
+						${((((editingItem.unit_price || 0) - (editingItem.modifier_total || 0)) + editModifiers.reduce((sum, mod) => sum + (mod.price_change || 0), 0)) * editQuantity).toFixed(2)}
 					</span>
 				</div>
 				<div class="flex space-x-3">

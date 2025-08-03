@@ -1,0 +1,33 @@
+{
+  "id": "menu_collection",
+  "name": "menu",
+  "type": "base",
+  "schema": [
+    {
+      "name": "item_name_field",
+      "type": "text",
+      "required": true
+    },
+    {
+      "name": "description_field",
+      "type": "text"
+    },
+    {
+      "name": "price_field",
+      "type": "number"
+    },
+    {
+      "name": "category_field",
+      "type": "text"
+    },
+    {
+      "name": "available_field",
+      "type": "bool",
+      "default": true
+    },
+    {
+      "name": "ingredients_field",
+      "type": "json"
+    }
+  ]
+}
