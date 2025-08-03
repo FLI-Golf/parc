@@ -491,6 +491,11 @@
 	let selectedSeat = null;
 	let seatNames = {}; // Map of seat numbers to names
 	
+	// Calculate totals from current ticket items (reactive)
+	$: calculatedSubtotal = currentTicketItems.reduce((sum, item) => sum + (item.total_price || 0), 0);
+	$: calculatedTax = calculatedSubtotal * 0.08875; // NYC tax rate
+	$: calculatedTotal = calculatedSubtotal + calculatedTax;
+	
 	// Menu modifiers (will be loaded from CSV later)
 	const menuModifiers = [
 		{ id: 1, name: "Saignant (Rare)", type: "cooking_style", price_change: 0, applicable_categories: ["main_course"] },
@@ -647,6 +652,23 @@
 		const name = seatNames[seatNumber];
 		return name ? `Seat ${seatNumber} (${name})` : `Seat ${seatNumber}`;
 	}
+	
+	async function updateTicketTotals() {
+		if (currentTicket) {
+			try {
+				await collections.updateTicket(currentTicket.id, {
+					subtotal_amount: calculatedSubtotal,
+					tax_amount: calculatedTax,
+					total_amount: calculatedTotal
+				});
+				// Refresh the ticket in the store
+				await collections.getTickets();
+				currentTicket = $tickets.find(t => t.id === currentTicket.id);
+			} catch (error) {
+				console.error('Error updating ticket totals:', error);
+			}
+		}
+	}
 
 	async function addItemToTicket(menuItem, quantity = 1, modifications = '') {
 		if (!currentTicket) return;
@@ -706,9 +728,8 @@
 			const newItem = await collections.addTicketItem(itemData);
 			currentTicketItems = [...currentTicketItems, newItem];
 			
-			// Refresh current ticket to get updated totals
-			await collections.getTickets();
-			currentTicket = $tickets.find(t => t.id === currentTicket.id);
+			// Update backend totals (non-blocking)
+			updateTicketTotals();
 			
 			closeItemModal();
 		} catch (error) {
@@ -739,9 +760,8 @@
 				total_price: newTotalPrice
 			});
 			
-			// Refresh current ticket to get updated totals
-			await collections.getTickets();
-			currentTicket = $tickets.find(t => t.id === currentTicket.id);
+			// Update backend totals (non-blocking)
+			updateTicketTotals();
 		} catch (error) {
 			console.error('Error updating item quantity:', error);
 			// Revert local state if backend update failed
@@ -1526,7 +1546,7 @@
 				
 				{#if currentTicket}
 					<div class="text-right">
-						<p class="text-2xl font-bold text-green-400">${currentTicket.total_amount?.toFixed(2) || '0.00'}</p>
+						<p class="text-2xl font-bold text-green-400">${calculatedTotal.toFixed(2)}</p>
 						<p class="text-sm text-gray-400">{currentTicketItems.length} item{currentTicketItems.length !== 1 ? 's' : ''}</p>
 					</div>
 				{/if}
@@ -1755,15 +1775,15 @@
 						<div class="space-y-2">
 							<div class="flex justify-between text-gray-300">
 								<span>Subtotal:</span>
-								<span>${currentTicket.subtotal_amount?.toFixed(2) || '0.00'}</span>
+								<span>${calculatedSubtotal.toFixed(2)}</span>
 							</div>
 							<div class="flex justify-between text-gray-300">
-								<span>Tax (9%):</span>
-								<span>${currentTicket.tax_amount?.toFixed(2) || '0.00'}</span>
+								<span>Tax (8.875%):</span>
+								<span>${calculatedTax.toFixed(2)}</span>
 							</div>
 							<div class="flex justify-between text-xl font-bold text-white border-t border-gray-600 pt-2">
 								<span>Total:</span>
-								<span>${currentTicket.total_amount?.toFixed(2) || '0.00'}</span>
+								<span>${calculatedTotal.toFixed(2)}</span>
 							</div>
 						</div>
 
