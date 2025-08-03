@@ -587,6 +587,19 @@ export const collections = {
 		}
 	},
 
+	async updateTicketItem(itemId, data) {
+		try {
+			const record = await pb.collection('ticket_items_collection').update(itemId, data);
+			ticketItems.update(items => items.map(item => 
+				item.id === itemId ? record : item
+			));
+			return record;
+		} catch (error) {
+			console.error('Error updating ticket item:', error);
+			throw error;
+		}
+	},
+
 	// Sections
 	async getSections() {
 		try {

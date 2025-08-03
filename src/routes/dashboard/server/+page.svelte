@@ -484,6 +484,31 @@
 	let currentTicket = null;
 	let currentTicketItems = [];
 	let selectedMenuItem = null;
+	let showItemModal = false;
+	let selectedModifiers = [];
+	let itemQuantity = 1;
+	let specialInstructions = '';
+	
+	// Menu modifiers (will be loaded from CSV later)
+	const menuModifiers = [
+		{ id: 1, name: "Saignant (Rare)", type: "cooking_style", price_change: 0, applicable_categories: ["main_course"] },
+		{ id: 2, name: "À Point (Medium-Rare)", type: "cooking_style", price_change: 0, applicable_categories: ["main_course"] },
+		{ id: 3, name: "Bien Cuit (Well Done)", type: "cooking_style", price_change: 0, applicable_categories: ["main_course"] },
+		{ id: 4, name: "Sauce Béarnaise", type: "sauce", price_change: 3.50, applicable_categories: ["main_course"] },
+		{ id: 5, name: "Sauce Hollandaise", type: "sauce", price_change: 3.00, applicable_categories: ["main_course"] },
+		{ id: 6, name: "Extra Cheese (Gruyère)", type: "add_on", price_change: 4.50, applicable_categories: ["appetizer", "main_course"] },
+		{ id: 7, name: "Truffle Oil Drizzle", type: "add_on", price_change: 8.00, applicable_categories: ["appetizer", "main_course"] },
+		{ id: 8, name: "Double Portion", type: "size", price_change: 18.00, applicable_categories: ["main_course"] },
+		{ id: 9, name: "Champagne Upgrade", type: "size", price_change: 15.00, applicable_categories: ["beverage"] },
+		{ id: 10, name: "Extra Garlic", type: "add_on", price_change: 1.50, applicable_categories: ["appetizer", "main_course"] }
+	];
+	
+	function getApplicableModifiers(menuItem) {
+		const category = menuItem.category_field || menuItem.category;
+		return menuModifiers.filter(modifier => 
+			modifier.applicable_categories.includes(category)
+		);
+	}
 	let guestCount = 2;
 	let selectedCategory = 'appetizer';
 	let searchQuery = '';
@@ -572,6 +597,39 @@
 		}
 	}
 
+	function openItemModal(menuItem) {
+		selectedMenuItem = menuItem;
+		itemQuantity = 1;
+		selectedModifiers = [];
+		specialInstructions = '';
+		showItemModal = true;
+	}
+	
+	function closeItemModal() {
+		showItemModal = false;
+		selectedMenuItem = null;
+		itemQuantity = 1;
+		selectedModifiers = [];
+		specialInstructions = '';
+	}
+	
+	function toggleModifier(modifier) {
+		const index = selectedModifiers.findIndex(m => m.id === modifier.id);
+		if (index >= 0) {
+			selectedModifiers.splice(index, 1);
+		} else {
+			selectedModifiers.push(modifier);
+		}
+		selectedModifiers = [...selectedModifiers];
+	}
+	
+	function calculateItemTotal() {
+		if (!selectedMenuItem) return 0;
+		const basePrice = selectedMenuItem.price_field || selectedMenuItem.price || 0;
+		const modifierTotal = selectedModifiers.reduce((sum, mod) => sum + (mod.price_change || 0), 0);
+		return (basePrice + modifierTotal) * itemQuantity;
+	}
+
 	async function addItemToTicket(menuItem, quantity = 1, modifications = '') {
 		if (!currentTicket) return;
 		
@@ -588,8 +646,6 @@
 				kitchen_station: getKitchenStation(category)
 			};
 			
-
-			
 			const newItem = await collections.addTicketItem(itemData);
 			currentTicketItems = [...currentTicketItems, newItem];
 			
@@ -599,6 +655,75 @@
 		} catch (error) {
 			console.error('Error adding item to ticket:', error);
 			// Collection may not exist yet - check admin panel
+		}
+	}
+	
+	async function addCustomizedItemToTicket() {
+		if (!selectedMenuItem || !currentTicket) return;
+		
+		// Build modifications string
+		const modifierNames = selectedModifiers.map(m => m.name).join(', ');
+		const modifications = [modifierNames, specialInstructions].filter(Boolean).join(' | ');
+		
+		// Calculate adjusted price
+		const basePrice = selectedMenuItem.price_field || selectedMenuItem.price || 0;
+		const modifierTotal = selectedModifiers.reduce((sum, mod) => sum + (mod.price_change || 0), 0);
+		const unitPrice = basePrice + modifierTotal;
+		
+		try {
+			const category = selectedMenuItem.category_field || selectedMenuItem.category;
+			const itemData = {
+				ticket_id: currentTicket.id,
+				menu_item_id: selectedMenuItem.id,
+				quantity: itemQuantity,
+				unit_price: unitPrice,
+				total_price: unitPrice * itemQuantity,
+				modifications: modifications,
+				course: mapCategoryToCourse(category),
+				kitchen_station: getKitchenStation(category)
+			};
+			
+			const newItem = await collections.addTicketItem(itemData);
+			currentTicketItems = [...currentTicketItems, newItem];
+			
+			// Refresh current ticket to get updated totals
+			await collections.getTickets();
+			currentTicket = $tickets.find(t => t.id === currentTicket.id);
+			
+			closeItemModal();
+		} catch (error) {
+			console.error('Error adding customized item to ticket:', error);
+		}
+	}
+	
+	async function updateItemQuantity(itemId, newQuantity) {
+		if (newQuantity < 1) return;
+		
+		try {
+			// Find the item to get its unit price
+			const item = currentTicketItems.find(i => i.id === itemId);
+			if (!item) return;
+			
+			const newTotalPrice = item.unit_price * newQuantity;
+			
+			// Update the ticket item
+			await collections.updateTicketItem(itemId, {
+				quantity: newQuantity,
+				total_price: newTotalPrice
+			});
+			
+			// Update local state
+			currentTicketItems = currentTicketItems.map(i => 
+				i.id === itemId 
+					? { ...i, quantity: newQuantity, total_price: newTotalPrice }
+					: i
+			);
+			
+			// Refresh current ticket to get updated totals
+			await collections.getTickets();
+			currentTicket = $tickets.find(t => t.id === currentTicket.id);
+		} catch (error) {
+			console.error('Error updating item quantity:', error);
 		}
 	}
 
@@ -1455,7 +1580,7 @@
 						<div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
 							{#each filteredMenuItems as item}
 								<button
-									on:click={() => addItemToTicket(item)}
+									on:click={() => openItemModal(item)}
 									class="bg-gray-800 hover:bg-gray-700 rounded-xl p-4 transition-colors text-left group"
 								>
 									<div class="aspect-square bg-gray-700 rounded-lg mb-3 flex items-center justify-center overflow-hidden">
@@ -1529,24 +1654,43 @@
 								<div class="flex justify-between items-start mb-2">
 									<div class="flex-1">
 										<p class="font-medium text-white">
-											{item.quantity}x {item.expand?.menu_item_id?.name || 'Unknown Item'}
+											{item.expand?.menu_item_id?.name || 'Unknown Item'}
 										</p>
 										{#if item.modifications}
-											<p class="text-sm text-yellow-400 mt-1">Note: {item.modifications}</p>
+											<p class="text-sm text-yellow-400 mt-1">🔧 {item.modifications}</p>
 										{/if}
 									</div>
 									<button
 										on:click={() => collections.removeTicketItem(item.id)}
 										class="text-red-400 hover:text-red-300 p-1"
+										title="Remove item"
 									>
 										<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 											<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
 										</svg>
 									</button>
 								</div>
+								
+								<!-- Quantity and Price Row -->
 								<div class="flex justify-between items-center">
-									<span class="text-sm text-gray-400 capitalize">{item.status}</span>
-									<span class="font-bold text-green-400">${item.total_price}</span>
+									<div class="flex items-center space-x-2">
+										<button
+											on:click={() => updateItemQuantity(item.id, Math.max(1, item.quantity - 1))}
+											class="w-6 h-6 rounded-full bg-gray-600 hover:bg-gray-500 flex items-center justify-center text-white text-sm font-bold"
+											disabled={item.quantity <= 1}
+										>
+											−
+										</button>
+										<span class="font-medium text-white w-8 text-center">{item.quantity}</span>
+										<button
+											on:click={() => updateItemQuantity(item.id, item.quantity + 1)}
+											class="w-6 h-6 rounded-full bg-gray-600 hover:bg-gray-500 flex items-center justify-center text-white text-sm font-bold"
+										>
+											+
+										</button>
+										<span class="text-sm text-gray-400 capitalize ml-2">• {item.status}</span>
+									</div>
+									<span class="font-bold text-green-400">${item.total_price?.toFixed(2)}</span>
 								</div>
 							</div>
 						{/each}
@@ -1598,6 +1742,129 @@
 					</div>
 				</div>
 			{/if}
+		</div>
+	</div>
+{/if}
+
+<!-- Item Customization Modal -->
+{#if showItemModal && selectedMenuItem}
+	<div class="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
+		<div class="bg-gray-800 rounded-xl max-w-2xl w-full max-h-[90vh] overflow-hidden flex flex-col">
+			<!-- Header -->
+			<div class="p-6 border-b border-gray-700">
+				<div class="flex justify-between items-start">
+					<div>
+						<h2 class="text-2xl font-bold text-white">{selectedMenuItem.name_field || selectedMenuItem.name}</h2>
+						<p class="text-gray-400 mt-1">{selectedMenuItem.description_field || selectedMenuItem.description}</p>
+						<p class="text-green-400 text-xl font-bold mt-2">${selectedMenuItem.price_field || selectedMenuItem.price}</p>
+					</div>
+					<button
+						on:click={closeItemModal}
+						class="text-gray-400 hover:text-white p-2"
+					>
+						<svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+							<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+						</svg>
+					</button>
+				</div>
+			</div>
+
+			<!-- Content -->
+			<div class="flex-1 overflow-y-auto p-6 space-y-6">
+				<!-- Quantity -->
+				<div>
+					<h3 class="text-lg font-semibold text-white mb-3">Quantity</h3>
+					<div class="flex items-center space-x-4">
+						<button
+							on:click={() => itemQuantity = Math.max(1, itemQuantity - 1)}
+							class="w-10 h-10 rounded-full bg-gray-700 hover:bg-gray-600 flex items-center justify-center text-white font-bold text-xl"
+						>
+							−
+						</button>
+						<span class="text-2xl font-bold text-white w-8 text-center">{itemQuantity}</span>
+						<button
+							on:click={() => itemQuantity = itemQuantity + 1}
+							class="w-10 h-10 rounded-full bg-gray-700 hover:bg-gray-600 flex items-center justify-center text-white font-bold text-xl"
+						>
+							+
+						</button>
+					</div>
+				</div>
+
+				<!-- Modifiers -->
+				{#if getApplicableModifiers(selectedMenuItem).length > 0}
+					<div>
+						<h3 class="text-lg font-semibold text-white mb-3">Customize</h3>
+						
+						{#each ['cooking_style', 'sauce', 'add_on', 'size', 'substitution'] as modifierType}
+							{@const typeModifiers = getApplicableModifiers(selectedMenuItem).filter(m => m.type === modifierType)}
+							{#if typeModifiers.length > 0}
+								<div class="mb-4">
+									<h4 class="text-sm font-medium text-gray-300 mb-2 capitalize">
+										{modifierType.replace('_', ' ')}
+										{#if modifierType === 'cooking_style'}🔥{/if}
+										{#if modifierType === 'sauce'}🍯{/if}
+										{#if modifierType === 'add_on'}➕{/if}
+										{#if modifierType === 'size'}📏{/if}
+										{#if modifierType === 'substitution'}🔄{/if}
+									</h4>
+									<div class="grid grid-cols-1 gap-2">
+										{#each typeModifiers as modifier}
+											<label class="flex items-center p-3 bg-gray-700 hover:bg-gray-600 rounded-lg cursor-pointer transition-colors">
+												<input
+													type="checkbox"
+													checked={selectedModifiers.some(m => m.id === modifier.id)}
+													on:change={() => toggleModifier(modifier)}
+													class="mr-3 text-blue-600"
+												>
+												<div class="flex-1">
+													<span class="text-white">{modifier.name}</span>
+													{#if modifier.price_change > 0}
+														<span class="text-green-400 ml-2">+${modifier.price_change}</span>
+													{/if}
+												</div>
+											</label>
+										{/each}
+									</div>
+								</div>
+							{/if}
+						{/each}
+					</div>
+				{/if}
+
+				<!-- Special Instructions -->
+				<div>
+					<h3 class="text-lg font-semibold text-white mb-3">Special Instructions</h3>
+					<textarea
+						bind:value={specialInstructions}
+						placeholder="Any special requests or notes..."
+						class="w-full p-3 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400 resize-none"
+						rows="3"
+					></textarea>
+				</div>
+			</div>
+
+			<!-- Footer -->
+			<div class="p-6 border-t border-gray-700 bg-gray-750">
+				<div class="flex justify-between items-center mb-4">
+					<span class="text-gray-300">Total:</span>
+					<span class="text-2xl font-bold text-green-400">${calculateItemTotal().toFixed(2)}</span>
+				</div>
+				<div class="flex space-x-3">
+					<button
+						on:click={closeItemModal}
+						class="flex-1 px-6 py-3 bg-gray-600 hover:bg-gray-500 text-white rounded-lg font-medium transition-colors"
+					>
+						Cancel
+					</button>
+					<button
+						on:click={addCustomizedItemToTicket}
+						class="flex-1 px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors"
+					>
+						Add to Order
+					</button>
+				</div>
+			</div>
 		</div>
 	</div>
 {/if}
