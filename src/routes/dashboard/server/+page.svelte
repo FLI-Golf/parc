@@ -726,24 +726,33 @@
 			
 			const newTotalPrice = item.unit_price * newQuantity;
 			
-			// Update the ticket item
-			await collections.updateTicketItem(itemId, {
-				quantity: newQuantity,
-				total_price: newTotalPrice
-			});
-			
-			// Update local state
+			// Update local state immediately for responsive UI
 			currentTicketItems = currentTicketItems.map(i => 
 				i.id === itemId 
 					? { ...i, quantity: newQuantity, total_price: newTotalPrice }
 					: i
 			);
 			
+			// Update the backend
+			await collections.updateTicketItem(itemId, {
+				quantity: newQuantity,
+				total_price: newTotalPrice
+			});
+			
 			// Refresh current ticket to get updated totals
 			await collections.getTickets();
 			currentTicket = $tickets.find(t => t.id === currentTicket.id);
 		} catch (error) {
 			console.error('Error updating item quantity:', error);
+			// Revert local state if backend update failed
+			const item = currentTicketItems.find(i => i.id === itemId);
+			if (item) {
+				currentTicketItems = currentTicketItems.map(i => 
+					i.id === itemId 
+						? { ...i, quantity: item.quantity, total_price: item.unit_price * item.quantity }
+						: i
+				);
+			}
 		}
 	}
 
@@ -1688,9 +1697,17 @@
 										{/if}
 									</div>
 									<button
-										on:click={() => {
+										on:click={async () => {
 											console.log('Removing ticket item:', item.id, item);
-											collections.removeTicketItem(item.id);
+											try {
+												await collections.removeTicketItem(item.id);
+												// Update local currentTicketItems immediately
+												currentTicketItems = currentTicketItems.filter(i => i.id !== item.id);
+											} catch (error) {
+												console.error('Error removing item:', error);
+												// Still remove from UI even if backend fails
+												currentTicketItems = currentTicketItems.filter(i => i.id !== item.id);
+											}
 										}}
 										class="text-red-400 hover:text-red-300 p-1"
 										title="Remove item"
