@@ -513,7 +513,6 @@
 	let selectedCategory = 'appetizer';
 	let searchQuery = '';
 	let showModifiers = false;
-	let selectedModifiers = [];
 	
 	// Reactive statement for current shift's tables
 	$: currentShiftTables = (todayShifts.length > 0 && todayShifts[0] && selectedAdditionalSections !== undefined) 
