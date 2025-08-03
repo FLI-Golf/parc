@@ -499,6 +499,9 @@
 	let editSpecialInstructions = '';
 	let editSeat = null;
 	
+	// Dynamic seat management  
+	let maxSeats = 10; // Default max seats (expandable) - generous for walk-ins
+	
 	// Calculate totals from current ticket items (reactive)
 	$: calculatedSubtotal = currentTicketItems.reduce((sum, item) => sum + (item.total_price || 0), 0);
 	$: calculatedTax = calculatedSubtotal * 0.08875; // NYC tax rate
@@ -740,6 +743,16 @@
 		if (!seatNumber) return '';
 		const name = seatNames[seatNumber];
 		return name ? `Seat ${seatNumber} (${name})` : `Seat ${seatNumber}`;
+	}
+	
+	function addExtraSeat() {
+		maxSeats = maxSeats + 1;
+	}
+	
+	function getAvailableSeats() {
+		// Use the larger of guest count or maxSeats for flexibility
+		const guestCount = currentTicket?.customer_count || 2;
+		return Math.max(guestCount, maxSeats);
 	}
 	
 	async function updateTicketTotals() {
@@ -1965,17 +1978,26 @@
 				<div>
 					<h3 class="text-lg font-semibold text-white mb-3">🪑 Seat Assignment <span class="text-sm text-gray-400">(Optional)</span></h3>
 					<div class="space-y-3">
-						<select
-							bind:value={selectedSeat}
-							class="w-full p-3 bg-gray-700 border border-gray-600 rounded-lg text-white"
-						>
-							<option value={null}>No specific seat</option>
-							{#each Array.from({length: currentTicket?.customer_count || 6}, (_, i) => i + 1) as seatNum}
-								<option value={seatNum}>
-									{getSeatDisplay(seatNum) || `Seat ${seatNum}`}
-								</option>
-							{/each}
-						</select>
+						<div class="space-y-2">
+							<select
+								bind:value={selectedSeat}
+								class="w-full p-3 bg-gray-700 border border-gray-600 rounded-lg text-white"
+							>
+								<option value={null}>No specific seat</option>
+								{#each Array.from({length: getAvailableSeats()}, (_, i) => i + 1) as seatNum}
+									<option value={seatNum}>
+										{getSeatDisplay(seatNum) || `Seat ${seatNum}`}
+									</option>
+								{/each}
+							</select>
+							
+							<button
+								on:click={addExtraSeat}
+								class="w-full p-2 bg-gray-600 hover:bg-gray-500 text-white text-sm rounded-lg transition-colors"
+							>
+								+ Add Extra Seat (currently {getAvailableSeats()} seats)
+							</button>
+						</div>
 						
 						{#if selectedSeat}
 							<div>
@@ -2136,17 +2158,26 @@
 				<div>
 					<h3 class="text-lg font-semibold text-white mb-3">🪑 Seat Assignment</h3>
 					<div class="space-y-3">
-						<select
-							bind:value={editSeat}
-							class="w-full p-3 bg-gray-700 border border-gray-600 rounded-lg text-white"
-						>
-							<option value={null}>No specific seat</option>
-							{#each Array.from({length: currentTicket?.customer_count || 6}, (_, i) => i + 1) as seatNum}
-								<option value={seatNum}>
-									{getSeatDisplay(seatNum) || `Seat ${seatNum}`}
-								</option>
-							{/each}
-						</select>
+						<div class="space-y-2">
+							<select
+								bind:value={editSeat}
+								class="w-full p-3 bg-gray-700 border border-gray-600 rounded-lg text-white"
+							>
+								<option value={null}>No specific seat</option>
+								{#each Array.from({length: getAvailableSeats()}, (_, i) => i + 1) as seatNum}
+									<option value={seatNum}>
+										{getSeatDisplay(seatNum) || `Seat ${seatNum}`}
+									</option>
+								{/each}
+							</select>
+							
+							<button
+								on:click={addExtraSeat}
+								class="w-full p-2 bg-gray-600 hover:bg-gray-500 text-white text-sm rounded-lg transition-colors"
+							>
+								+ Add Extra Seat (currently {getAvailableSeats()} seats)
+							</button>
+						</div>
 						
 						{#if editSeat}
 							<div>
