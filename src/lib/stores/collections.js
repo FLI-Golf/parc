@@ -6,6 +6,8 @@ export const inventoryItems = writable([]);
 export const staff = writable([]);
 export const shifts = writable([]);
 export const menuItems = writable([]);
+export const menuCategories = writable([]);
+export const menuModifiers = writable([]);
 export const vendors = writable([]);
 export const events = writable([]);
 export const maintenanceTasks = writable([]);
@@ -14,6 +16,9 @@ export const maintenanceRecords = writable([]);
 export const sections = writable([]);
 export const tables = writable([]);
 export const tableUpdates = writable([]);
+export const tickets = writable([]);
+export const ticketItems = writable([]);
+export const payments = writable([]);
 
 // Loading states
 export const loading = writable({
@@ -21,6 +26,8 @@ export const loading = writable({
 	staff: false,
 	shifts: false,
 	menu: false,
+	menuCategories: false,
+	menuModifiers: false,
 	vendors: false,
 	events: false,
 	maintenance: false,
@@ -28,7 +35,10 @@ export const loading = writable({
 	records: false,
 	sections: false,
 	tables: false,
-	tableUpdates: false
+	tableUpdates: false,
+	tickets: false,
+	ticketItems: false,
+	payments: false
 });
 
 // Collection service functions
@@ -242,6 +252,64 @@ export const collections = {
 			menuItems.update(items => items.filter(item => item.id !== id));
 		} catch (error) {
 			console.error('Error deleting menu item:', error);
+			throw error;
+		}
+	},
+
+	// Menu Categories
+	async getMenuCategories() {
+		try {
+			loading.update(state => ({ ...state, menuCategories: true }));
+			const records = await pb.collection('menu_categories').getFullList({
+				sort: '+sort_order'
+			});
+			menuCategories.set(records);
+			return records;
+		} catch (error) {
+			console.error('Error fetching menu categories:', error);
+			menuCategories.set([]);
+			return [];
+		} finally {
+			loading.update(state => ({ ...state, menuCategories: false }));
+		}
+	},
+
+	async createMenuCategory(data) {
+		try {
+			const record = await pb.collection('menu_categories').create(data);
+			menuCategories.update(items => [...items, record]);
+			return record;
+		} catch (error) {
+			console.error('Error creating menu category:', error);
+			throw error;
+		}
+	},
+
+	// Menu Modifiers
+	async getMenuModifiers() {
+		try {
+			loading.update(state => ({ ...state, menuModifiers: true }));
+			const records = await pb.collection('menu_modifiers').getFullList({
+				sort: '+sort_order'
+			});
+			menuModifiers.set(records);
+			return records;
+		} catch (error) {
+			console.error('Error fetching menu modifiers:', error);
+			menuModifiers.set([]);
+			return [];
+		} finally {
+			loading.update(state => ({ ...state, menuModifiers: false }));
+		}
+	},
+
+	async createMenuModifier(data) {
+		try {
+			const record = await pb.collection('menu_modifiers').create(data);
+			menuModifiers.update(items => [...items, record]);
+			return record;
+		} catch (error) {
+			console.error('Error creating menu modifier:', error);
 			throw error;
 		}
 	},
@@ -624,6 +692,167 @@ export const collections = {
 			return record;
 		} catch (error) {
 			console.error('Error creating table update:', error);
+			throw error;
+		}
+	},
+
+	// Tickets
+	async getTickets() {
+		try {
+			loading.update(state => ({ ...state, tickets: true }));
+			const records = await pb.collection('tickets').getFullList({
+				expand: 'table_id,server_id',
+				sort: '-created'
+			});
+			tickets.set(records);
+			return records;
+		} catch (error) {
+			console.error('Error fetching tickets:', error);
+			tickets.set([]);
+			return [];
+		} finally {
+			loading.update(state => ({ ...state, tickets: false }));
+		}
+	},
+
+	async createTicket(data) {
+		try {
+			// Generate ticket number
+			const ticketNumber = `T${Date.now().toString().slice(-6)}`;
+			const ticketData = {
+				...data,
+				ticket_number: ticketNumber,
+				status: 'open',
+				subtotal_amount: 0,
+				tax_amount: 0,
+				tip_amount: 0,
+				total_amount: 0
+			};
+			
+			const record = await pb.collection('tickets').create(ticketData, {
+				expand: 'table_id,server_id'
+			});
+			tickets.update(items => [record, ...items]);
+			return record;
+		} catch (error) {
+			console.error('Error creating ticket:', error);
+			throw error;
+		}
+	},
+
+	async updateTicket(id, data) {
+		try {
+			const record = await pb.collection('tickets').update(id, data, {
+				expand: 'table_id,server_id'
+			});
+			tickets.update(items => 
+				items.map(item => item.id === id ? record : item)
+			);
+			return record;
+		} catch (error) {
+			console.error('Error updating ticket:', error);
+			throw error;
+		}
+	},
+
+	// Ticket Items
+	async getTicketItems(ticketId = null) {
+		try {
+			loading.update(state => ({ ...state, ticketItems: true }));
+			const filter = ticketId ? `ticket_id="${ticketId}"` : '';
+			const records = await pb.collection('ticket_items').getFullList({
+				expand: 'ticket_id,menu_item_id',
+				filter,
+				sort: 'created'
+			});
+			ticketItems.set(records);
+			return records;
+		} catch (error) {
+			console.error('Error fetching ticket items:', error);
+			ticketItems.set([]);
+			return [];
+		} finally {
+			loading.update(state => ({ ...state, ticketItems: false }));
+		}
+	},
+
+	async addTicketItem(data) {
+		try {
+			const itemData = {
+				ticket_id: data.ticket_id,
+				menu_item_id: data.menu_item_id,
+				quantity: data.quantity,
+				unit_price: data.unit_price,
+				total_price: data.total_price,
+				modifications: data.modifications,
+				course: data.course,
+				kitchen_station: data.kitchen_station,
+				status: 'ordered',
+				ordered_at: new Date().toISOString()
+			};
+			
+			const record = await pb.collection('ticket_items_collection').create(itemData, {
+				expand: 'ticket_id,menu_item_id'
+			});
+			ticketItems.update(items => [record, ...items]);
+			
+			// Update ticket totals
+			await this.recalculateTicketTotals(data.ticket_id);
+			
+			return record;
+		} catch (error) {
+			console.error('Error adding ticket item:', error);
+			throw error;
+		}
+	},
+
+	async updateTicketItem(id, data) {
+		try {
+			const record = await pb.collection('ticket_items').update(id, data, {
+				expand: 'ticket_id,menu_item_id'
+			});
+			ticketItems.update(items => 
+				items.map(item => item.id === id ? record : item)
+			);
+			return record;
+		} catch (error) {
+			console.error('Error updating ticket item:', error);
+			throw error;
+		}
+	},
+
+	async removeTicketItem(id) {
+		try {
+			const item = await pb.collection('ticket_items').getOne(id);
+			await pb.collection('ticket_items').delete(id);
+			ticketItems.update(items => items.filter(item => item.id !== id));
+			
+			// Update ticket totals
+			await this.recalculateTicketTotals(item.ticket_id);
+		} catch (error) {
+			console.error('Error removing ticket item:', error);
+			throw error;
+		}
+	},
+
+	async recalculateTicketTotals(ticketId) {
+		try {
+			const items = await pb.collection('ticket_items').getFullList({
+				filter: `ticket_id="${ticketId}"`
+			});
+			
+			const subtotal = items.reduce((sum, item) => sum + (item.total_price || 0), 0);
+			const taxRate = 0.09; // 9% tax rate
+			const taxAmount = subtotal * taxRate;
+			const totalAmount = subtotal + taxAmount;
+			
+			return await this.updateTicket(ticketId, {
+				subtotal_amount: subtotal,
+				tax_amount: taxAmount,
+				total_amount: totalAmount
+			});
+		} catch (error) {
+			console.error('Error recalculating ticket totals:', error);
 			throw error;
 		}
 	}

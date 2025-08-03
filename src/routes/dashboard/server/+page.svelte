@@ -2,7 +2,7 @@
 	import { onMount, onDestroy } from 'svelte';
 	import { goto } from '$app/navigation';
 	import { authStore } from '$lib/auth.js';
-	import { collections, shifts, menuItems, sections, tables, loading } from '$lib/stores/collections.js';
+	import { collections, shifts, menuItems, sections, tables, tickets, ticketItems, loading } from '$lib/stores/collections.js';
 
 	let activeTab = 'today';
 	let user = null;
@@ -78,7 +78,8 @@
 						collections.getShifts(),
 						collections.getMenuItems(),
 						collections.getSections(),
-						collections.getTables()
+						collections.getTables(),
+						collections.getTickets()
 					]);
 					
 					// Try to load table updates (optional - collection may not exist yet)
@@ -383,11 +384,20 @@
 
 	// Helper to get tables for a given section
 	function getTablesForSection(sectionId) {
-		if (!sectionId || !$tables || !$sections) return [];
+		if (!sectionId || !$tables || !$sections) {
+			console.log('getTablesForSection early return:', { sectionId, tablesLength: $tables?.length, sectionsLength: $sections?.length });
+			return [];
+		}
 		const section = $sections.find(s => s.id === sectionId);
-		if (!section || !section.section_code) return [];
+		console.log('getTablesForSection:', { sectionId, section, allSections: $sections });
+		if (!section || !section.section_code) {
+			console.log('No section found or no section_code:', section);
+			return [];
+		}
 		
-		return $tables.filter(table => table.section_code === section.section_code);
+		const filteredTables = $tables.filter(table => table.section_code === section.section_code);
+		console.log('Filtered tables:', { sectionCode: section.section_code, filteredTables, allTables: $tables });
+		return filteredTables;
 	}
 
 	// Helper to get all tables the server is responsible for (assigned + helping sections)
@@ -468,10 +478,35 @@
 	let showAllSections = false;
 	let selectedAdditionalSections = new Set(); // Track additional sections server is helping with
 	
+	// Ticket management state
+	let showTicketModal = false;
+	let selectedTable = null;
+	let currentTicket = null;
+	let currentTicketItems = [];
+	let selectedMenuItem = null;
+	let guestCount = 2;
+	let selectedCategory = 'appetizer';
+	let searchQuery = '';
+	let showModifiers = false;
+	let selectedModifiers = [];
+	
 	// Reactive statement for current shift's tables
-	$: currentShiftTables = (todayShifts.length > 0 && todayShifts[0] && selectedAdditionalSections) 
+	$: currentShiftTables = (todayShifts.length > 0 && todayShifts[0] && selectedAdditionalSections !== undefined) 
 		? getAllMyTables(todayShifts[0].assigned_section) 
 		: [];
+		
+	// Debug current shift tables
+	$: {
+		if (todayShifts.length > 0 && todayShifts[0]) {
+			console.log('Debug currentShiftTables:', {
+				shiftId: todayShifts[0].id,
+				assignedSection: todayShifts[0].assigned_section,
+				currentShiftTables,
+				allSections: $sections,
+				allTables: $tables
+			});
+		}
+	}
 
 	// Reactive checks for break reminders and auto-completion
 	$: {
@@ -493,6 +528,137 @@
 
 	// Force reactivity for timer displays
 	$: timerDisplayKey = currentTime.getTime();
+
+	// Table click handler for ticket management
+	async function handleTableClick(table) {
+		selectedTable = table;
+		
+		// Check if table has an existing open ticket
+		const existingTicket = $tickets.find(ticket => 
+			ticket.table_id === table.id && 
+			!['closed', 'payment_processing'].includes(ticket.status)
+		);
+		
+		if (existingTicket) {
+			currentTicket = existingTicket;
+			// Load ticket items
+			currentTicketItems = await collections.getTicketItems(existingTicket.id);
+		} else {
+			currentTicket = null;
+			currentTicketItems = [];
+		}
+		
+		showTicketModal = true;
+	}
+
+	async function createNewTicket(customerCount = 2) {
+		if (!selectedTable || !user) return;
+		
+		try {
+			const ticketData = {
+				table_id: selectedTable.id,
+				server_id: user.id,
+				customer_count: customerCount
+			};
+			
+			currentTicket = await collections.createTicket(ticketData);
+			currentTicketItems = [];
+			
+			// Update table status to occupied
+			await updateTableStatus(selectedTable.id, 'occupied');
+		} catch (error) {
+			console.error('Error creating ticket:', error);
+			alert('Failed to create ticket');
+		}
+	}
+
+	async function addItemToTicket(menuItem, quantity = 1, modifications = '') {
+		if (!currentTicket) return;
+		
+		try {
+			const category = menuItem.category_field || menuItem.category;
+			const itemData = {
+				ticket_id: currentTicket.id,
+				menu_item_id: menuItem.id,
+				quantity: quantity,
+				unit_price: menuItem.price_field || menuItem.price || 0,
+				total_price: (menuItem.price_field || menuItem.price || 0) * quantity,
+				modifications: modifications,
+				course: mapCategoryToCourse(category),
+				kitchen_station: getKitchenStation(category)
+			};
+			
+
+			
+			const newItem = await collections.addTicketItem(itemData);
+			currentTicketItems = [...currentTicketItems, newItem];
+			
+			// Refresh current ticket to get updated totals
+			await collections.getTickets();
+			currentTicket = $tickets.find(t => t.id === currentTicket.id);
+		} catch (error) {
+			console.error('Error adding item to ticket:', error);
+			// Collection may not exist yet - check admin panel
+		}
+	}
+
+	function getKitchenStation(category) {
+		switch (category) {
+			case 'beverage': return 'bar';
+			case 'appetizer': return 'cold_station';
+			case 'main_course': return 'kitchen';
+			case 'main': return 'kitchen';
+			case 'dessert': return 'cold_station';
+			default: return 'kitchen';
+		}
+	}
+	
+	function mapCategoryToCourse(category) {
+		switch (category) {
+			case 'main_course': return 'main';
+			case 'beverage': return 'drink';
+			case 'appetizer': return 'appetizer';
+			case 'dessert': return 'dessert';
+			case 'side_dish': return 'side';
+			default: return 'main';
+		}
+	}
+
+	function closeTicketModal() {
+		showTicketModal = false;
+		selectedTable = null;
+		currentTicket = null;
+		currentTicketItems = [];
+		selectedMenuItem = null;
+		guestCount = 2; // Reset to default
+		selectedCategory = 'appetizer';
+		searchQuery = '';
+		showModifiers = false;
+		selectedModifiers = [];
+	}
+
+	// Filter menu items based on category and search
+	$: filteredMenuItems = $menuItems.filter(item => {
+		const matchesCategory = selectedCategory === 'all' || item.category === selectedCategory;
+		const matchesSearch = !searchQuery || 
+			item.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+			item.description?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+			item.tags?.some(tag => tag.toLowerCase().includes(searchQuery.toLowerCase()));
+		return matchesCategory && matchesSearch && item.available;
+	});
+
+	// Get category icon
+	function getCategoryIcon(category) {
+		const icons = {
+			'appetizer': '🥗',
+			'main_course': '🍽️',
+			'dessert': '🍰',
+			'beverage': '🍷',
+			'special': '⭐',
+			'side_dish': '🥘'
+		};
+		return icons[category] || '🍴';
+	}
 </script>
 
 <div class="min-h-screen bg-gradient-to-br from-gray-900 to-gray-800 text-gray-100">
@@ -630,48 +796,71 @@
 									
 									{#if $loading.tables}
 										<p class="text-sm text-green-400">Section assigned (tables loading...)</p>
-									{:else if currentShiftTables.length > 0}
-										<div class="space-y-2">
-											<p class="text-sm text-green-400 font-medium">Your Tables:</p>
-											<div class="flex flex-wrap gap-2">
-												{#each currentShiftTables as table}
-													<div class="px-3 py-1 bg-gray-800/50 border rounded-lg text-sm font-medium flex items-center gap-2 {
-														$sections.find(s => s.section_code === table.section_code)?.id === shift.assigned_section
-															? 'border-green-600 text-green-300' 
-															: 'border-blue-600 text-blue-300'
-													}">
-														<span>{table.table_name || table.table_number_field}</span>
-														{#if table.capacity || table.seats_field}
-															<span class="text-xs text-gray-400">({table.capacity || table.seats_field} seats)</span>
-														{/if}
-														<span class="text-xs px-1 py-0.5 rounded {
-															$sections.find(s => s.section_code === table.section_code)?.id === shift.assigned_section
-																? 'bg-green-900/50 text-green-400' 
-																: 'bg-blue-900/50 text-blue-400'
-														}">{$sections.find(s => s.section_code === table.section_code)?.section_name || table.section_code}</span>
-														<div class="flex gap-1">
-															<button
-																on:click={() => updateTableStatus(table.id, 'occupied')}
-																class="w-2 h-2 rounded-full bg-red-500 hover:bg-red-400"
-																title="Mark as Occupied"
-															></button>
-															<button
-																on:click={() => updateTableStatus(table.id, 'available')}
-																class="w-2 h-2 rounded-full bg-green-500 hover:bg-green-400"
-																title="Mark as Available"
-															></button>
-															<button
-																on:click={() => updateTableStatus(table.id, 'cleaning')}
-																class="w-2 h-2 rounded-full bg-yellow-500 hover:bg-yellow-400"
-																title="Mark as Cleaning"
-															></button>
+									{:else}
+										{@const directSectionTables = getTablesForSection(shift.assigned_section)}
+										{#if directSectionTables.length > 0}
+											<div class="space-y-2">
+												<p class="text-sm text-green-400 font-medium">Your Tables:</p>
+												<div class="flex flex-wrap gap-2">
+													{#each directSectionTables as table}
+														{@const existingTicket = $tickets.find(t => t.table_id === table.id && !['closed'].includes(t.status))}
+														<button 
+															on:click={() => handleTableClick(table)}
+															class="px-3 py-1 bg-gray-800/50 border rounded-lg text-sm font-medium flex items-center gap-2 hover:bg-gray-700/50 transition-colors cursor-pointer border-green-600 text-green-300"
+														>
+															<span>{table.table_name || table.table_number_field}</span>
+															{#if table.capacity || table.seats_field}
+																<span class="text-xs text-gray-400">({table.capacity || table.seats_field} seats)</span>
+															{/if}
+															<span class="text-xs px-1 py-0.5 rounded bg-green-900/50 text-green-400">
+																{getSectionName(shift.assigned_section) || 'Main Dining'}
+															</span>
+															
+															<!-- Table status indicator -->
+															{#if existingTicket}
+																<div class="w-2 h-2 rounded-full bg-orange-500" title="Has active ticket"></div>
+															{:else}
+																<div class="w-2 h-2 rounded-full bg-gray-500" title="Available for new ticket"></div>
+															{/if}
+														</button>
+													{/each}
+												</div>
+											</div>
+										{:else}
+											<div class="space-y-2">
+												<p class="text-sm text-yellow-400 font-medium">Debug Info:</p>
+												<p class="text-xs text-gray-400">
+													Section ID: {shift.assigned_section}<br>
+													Section Name: {getSectionName(shift.assigned_section)}<br>
+													Available Sections: {$sections?.length || 0}<br>
+													Available Tables: {$tables?.length || 0}
+												</p>
+												{#if $tables && $tables.length > 0}
+													<div class="space-y-1">
+														<p class="text-sm text-blue-400 font-medium">All Available Tables:</p>
+														<div class="flex flex-wrap gap-2">
+															{#each $tables as table}
+																{@const existingTicket = $tickets.find(t => t.table_id === table.id && !['closed'].includes(t.status))}
+																<button 
+																	on:click={() => handleTableClick(table)}
+																	class="px-2 py-1 bg-gray-700/50 border rounded text-xs font-medium flex items-center gap-1 hover:bg-gray-600/50 transition-colors cursor-pointer border-blue-600 text-blue-300"
+																>
+																	<span>{table.table_name || table.table_number_field}</span>
+																	<span class="text-xs text-gray-400">({table.section_code})</span>
+																	{#if existingTicket}
+																		<div class="w-1.5 h-1.5 rounded-full bg-orange-500"></div>
+																	{:else}
+																		<div class="w-1.5 h-1.5 rounded-full bg-gray-500"></div>
+																	{/if}
+																</button>
+															{/each}
 														</div>
 													</div>
-												{/each}
+												{:else}
+													<p class="text-sm text-red-400">No tables found in database</p>
+												{/if}
 											</div>
-										</div>
-									{:else}
-										<p class="text-sm text-green-400">No tables assigned to this section</p>
+										{/if}
 									{/if}
 
 									<!-- Expanded sections view -->
@@ -1146,3 +1335,269 @@
 		{/if}
 	</main>
 </div>
+
+<!-- Full-Screen POS System -->
+{#if showTicketModal && selectedTable}
+	<div class="fixed inset-0 bg-gray-900 z-50 flex flex-col">
+		<!-- POS Header -->
+		<div class="bg-gray-800 border-b border-gray-700 p-4">
+			<div class="flex justify-between items-center">
+				<div class="flex items-center space-x-4">
+					<button
+						on:click={closeTicketModal}
+						class="flex items-center space-x-2 px-4 py-2 bg-gray-700 hover:bg-gray-600 rounded-lg text-white transition-colors"
+					>
+						<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+							<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path>
+						</svg>
+						<span>Back</span>
+					</button>
+					<div>
+						<h1 class="text-xl font-bold text-white">
+							{selectedTable.table_name || selectedTable.table_number_field}
+							{#if currentTicket}
+								- #{currentTicket.ticket_number}
+							{:else}
+								- New Order
+							{/if}
+						</h1>
+						<p class="text-gray-400 text-sm">
+							{selectedTable.capacity || selectedTable.seats_field} seats
+							{#if currentTicket}
+								• {currentTicket.customer_count} guests • <span class="capitalize">{currentTicket.status}</span>
+							{/if}
+						</p>
+					</div>
+				</div>
+				
+				{#if currentTicket}
+					<div class="text-right">
+						<p class="text-2xl font-bold text-green-400">${currentTicket.total_amount?.toFixed(2) || '0.00'}</p>
+						<p class="text-sm text-gray-400">{currentTicketItems.length} item{currentTicketItems.length !== 1 ? 's' : ''}</p>
+					</div>
+				{/if}
+			</div>
+		</div>
+
+		<div class="flex-1 flex overflow-hidden">
+			<!-- Left Side: Menu Selection -->
+			<div class="flex-1 flex flex-col bg-gray-900">
+				{#if !currentTicket}
+					<!-- Guest Count Setup -->
+					<div class="p-8 flex-1 flex items-center justify-center">
+						<div class="bg-gray-800 rounded-2xl p-8 max-w-md w-full text-center">
+							<h2 class="text-2xl font-bold text-white mb-6">Start New Order</h2>
+							<div class="space-y-4">
+								<div>
+									<label class="block text-sm font-medium text-gray-300 mb-2">Number of Guests</label>
+									<input 
+										type="number" 
+										min="1" 
+										max="12" 
+										bind:value={guestCount}
+										class="w-full px-4 py-3 bg-gray-700 border border-gray-600 rounded-lg text-white text-center text-xl font-bold"
+									>
+								</div>
+								<button
+									on:click={() => createNewTicket(guestCount)}
+									class="w-full px-6 py-4 bg-green-600 hover:bg-green-700 rounded-lg text-white font-bold text-lg transition-colors"
+								>
+									Start Order
+								</button>
+							</div>
+						</div>
+					</div>
+				{:else}
+					<!-- Category Navigation -->
+					<div class="p-4 bg-gray-800 border-b border-gray-700">
+						<div class="flex space-x-2 mb-4">
+							<button
+								on:click={() => selectedCategory = 'all'}
+								class="px-4 py-2 rounded-lg font-medium transition-colors {
+									selectedCategory === 'all' 
+										? 'bg-blue-600 text-white' 
+										: 'bg-gray-700 text-gray-300 hover:bg-gray-600'
+								}"
+							>
+								🍴 All
+							</button>
+							{#each ['appetizer', 'main_course', 'beverage', 'dessert', 'special'] as category}
+								<button
+									on:click={() => selectedCategory = category}
+									class="px-4 py-2 rounded-lg font-medium transition-colors flex items-center space-x-2 {
+										selectedCategory === category 
+											? 'bg-blue-600 text-white' 
+											: 'bg-gray-700 text-gray-300 hover:bg-gray-600'
+									}"
+								>
+									<span>{getCategoryIcon(category)}</span>
+									<span class="capitalize">{category.replace('_', ' ')}</span>
+								</button>
+							{/each}
+						</div>
+						
+						<!-- Search Bar -->
+						<div class="relative">
+							<svg class="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+								<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
+							</svg>
+							<input
+								type="text"
+								placeholder="Search menu items..."
+								bind:value={searchQuery}
+								class="w-full pl-10 pr-4 py-3 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400"
+							>
+						</div>
+					</div>
+
+					<!-- Menu Items Grid -->
+					<div class="flex-1 overflow-y-auto p-4">
+						<div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
+							{#each filteredMenuItems as item}
+								<button
+									on:click={() => addItemToTicket(item)}
+									class="bg-gray-800 hover:bg-gray-700 rounded-xl p-4 transition-colors text-left group"
+								>
+									<div class="aspect-square bg-gray-700 rounded-lg mb-3 flex items-center justify-center overflow-hidden">
+										{#if item.image}
+											<img src={item.image} alt={item.name} class="w-full h-full object-cover">
+										{:else}
+											<span class="text-3xl">{getCategoryIcon(item.category)}</span>
+										{/if}
+									</div>
+									
+									<h3 class="font-bold text-white mb-1 group-hover:text-blue-400 transition-colors">
+										{item.name}
+									</h3>
+									
+									{#if item.description}
+										<p class="text-xs text-gray-400 mb-2 line-clamp-2">{item.description}</p>
+									{/if}
+									
+									<div class="flex justify-between items-center">
+										<span class="text-lg font-bold text-green-400">${item.price}</span>
+										{#if item.featured}
+											<span class="text-xs bg-yellow-600 text-yellow-100 px-2 py-1 rounded">⭐ Featured</span>
+										{/if}
+									</div>
+									
+									{#if item.tags && item.tags.length > 0}
+										<div class="flex flex-wrap gap-1 mt-2">
+											{#each item.tags.slice(0, 2) as tag}
+												<span class="text-xs bg-gray-600 text-gray-300 px-2 py-1 rounded">
+													{tag}
+												</span>
+											{/each}
+										</div>
+									{/if}
+									
+									{#if item.allergens && item.allergens.length > 0}
+										<div class="flex flex-wrap gap-1 mt-2">
+											{#each item.allergens.slice(0, 3) as allergen}
+												<span class="text-xs bg-red-900/50 text-red-300 px-2 py-1 rounded">
+													{allergen}
+												</span>
+											{/each}
+										</div>
+									{/if}
+								</button>
+							{/each}
+						</div>
+						
+						{#if filteredMenuItems.length === 0}
+							<div class="text-center py-12">
+								<div class="text-6xl mb-4">🔍</div>
+								<h3 class="text-xl font-bold text-gray-400 mb-2">No items found</h3>
+								<p class="text-gray-500">Try adjusting your search or category filter</p>
+							</div>
+						{/if}
+					</div>
+				{/if}
+			</div>
+
+			<!-- Right Side: Order Summary -->
+			{#if currentTicket}
+				<div class="w-96 bg-gray-800 border-l border-gray-700 flex flex-col">
+					<div class="p-4 border-b border-gray-700">
+						<h2 class="text-lg font-bold text-white">Current Order</h2>
+					</div>
+
+					<!-- Order Items -->
+					<div class="flex-1 overflow-y-auto p-4 space-y-3">
+						{#each currentTicketItems as item}
+							<div class="bg-gray-700 rounded-lg p-3">
+								<div class="flex justify-between items-start mb-2">
+									<div class="flex-1">
+										<p class="font-medium text-white">
+											{item.quantity}x {item.expand?.menu_item_id?.name || 'Unknown Item'}
+										</p>
+										{#if item.modifications}
+											<p class="text-sm text-yellow-400 mt-1">Note: {item.modifications}</p>
+										{/if}
+									</div>
+									<button
+										on:click={() => collections.removeTicketItem(item.id)}
+										class="text-red-400 hover:text-red-300 p-1"
+									>
+										<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+											<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+										</svg>
+									</button>
+								</div>
+								<div class="flex justify-between items-center">
+									<span class="text-sm text-gray-400 capitalize">{item.status}</span>
+									<span class="font-bold text-green-400">${item.total_price}</span>
+								</div>
+							</div>
+						{/each}
+						
+						{#if currentTicketItems.length === 0}
+							<div class="text-center py-8 text-gray-400">
+								<div class="text-4xl mb-2">🛒</div>
+								<p>No items added yet</p>
+							</div>
+						{/if}
+					</div>
+
+					<!-- Order Totals & Actions -->
+					<div class="p-4 border-t border-gray-700 space-y-4">
+						<div class="space-y-2">
+							<div class="flex justify-between text-gray-300">
+								<span>Subtotal:</span>
+								<span>${currentTicket.subtotal_amount?.toFixed(2) || '0.00'}</span>
+							</div>
+							<div class="flex justify-between text-gray-300">
+								<span>Tax (9%):</span>
+								<span>${currentTicket.tax_amount?.toFixed(2) || '0.00'}</span>
+							</div>
+							<div class="flex justify-between text-xl font-bold text-white border-t border-gray-600 pt-2">
+								<span>Total:</span>
+								<span>${currentTicket.total_amount?.toFixed(2) || '0.00'}</span>
+							</div>
+						</div>
+
+						<div class="space-y-2">
+							{#if currentTicketItems.length > 0}
+								<button
+									on:click={() => {
+										collections.updateTicket(currentTicket.id, { status: 'sent_to_kitchen' });
+										closeTicketModal();
+									}}
+									class="w-full px-4 py-3 bg-blue-600 hover:bg-blue-700 rounded-lg text-white font-bold"
+								>
+									🍳 Send to Kitchen
+								</button>
+							{/if}
+							<button
+								on:click={closeTicketModal}
+								class="w-full px-4 py-2 bg-gray-600 hover:bg-gray-500 rounded-lg text-white font-medium"
+							>
+								Save & Close
+							</button>
+						</div>
+					</div>
+				</div>
+			{/if}
+		</div>
+	</div>
+{/if}
