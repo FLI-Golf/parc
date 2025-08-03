@@ -14,16 +14,9 @@
 
 	// Reactive declarations
 	$: myShifts = $shifts.filter(shift => {
-		console.log('Checking shift:', shift);
-		console.log('Staff member fields:', Object.keys(shift.expand?.staff_member || {}));
-		console.log('shift.expand.staff_member:', shift.expand?.staff_member);
-		console.log('user?.id:', user?.id);
-		console.log('user?.email:', user?.email);
-		
 		// Try matching by email as fallback
 		const emailMatch = shift.expand?.staff_member?.email === user?.email;
 		const userIdMatch = shift.expand?.staff_member?.user_id === user?.id;
-		console.log('Email match:', emailMatch, 'User ID match:', userIdMatch);
 		
 		return userIdMatch || emailMatch;
 	});
@@ -41,7 +34,6 @@
 		// Handle both "YYYY-MM-DD" and "YYYY-MM-DD HH:MM:SS" formats
 		const shiftDateOnly = shift.shift_date.split(' ')[0];
 		const today = getTodayString();
-		console.log('Today filter - shiftDateOnly:', shiftDateOnly, 'today:', today, 'match:', shiftDateOnly === today);
 		return shiftDateOnly === today;
 	});
 
@@ -88,9 +80,6 @@
 					} catch (tableUpdateError) {
 						console.warn('Table updates collection not available:', tableUpdateError.message);
 					}
-					
-					console.log('Loaded shifts:', $shifts);
-					console.log('Current user:', user);
 					
 					// Load any existing shift timers
 					loadShiftTimers();
@@ -388,18 +377,14 @@
 	// Helper to get tables for a given section
 	function getTablesForSection(sectionId) {
 		if (!sectionId || !$tables || !$sections) {
-			console.log('getTablesForSection early return:', { sectionId, tablesLength: $tables?.length, sectionsLength: $sections?.length });
 			return [];
 		}
 		const section = $sections.find(s => s.id === sectionId);
-		console.log('getTablesForSection:', { sectionId, section, allSections: $sections });
 		if (!section || !section.section_code) {
-			console.log('No section found or no section_code:', section);
 			return [];
 		}
 		
 		const filteredTables = $tables.filter(table => table.section_code === section.section_code);
-		console.log('Filtered tables:', { sectionCode: section.section_code, filteredTables, allTables: $tables });
 		return filteredTables;
 	}
 
@@ -469,7 +454,6 @@
 			};
 			
 			// Simple visual feedback (could be replaced with toast notification)
-			console.log(statusMessages[status] || 'Table status updated');
 			
 		} catch (error) {
 			console.error('Error updating table status:', error);
@@ -546,18 +530,7 @@
 		? getAllMyTables(todayShifts[0].assigned_section) 
 		: [];
 		
-	// Debug current shift tables
-	$: {
-		if (todayShifts.length > 0 && todayShifts[0]) {
-			console.log('Debug currentShiftTables:', {
-				shiftId: todayShifts[0].id,
-				assignedSection: todayShifts[0].assigned_section,
-				currentShiftTables,
-				allSections: $sections,
-				allTables: $tables
-			});
-		}
-	}
+
 
 	// Reactive checks for break reminders and auto-completion
 	$: {
@@ -936,6 +909,10 @@
 	async function sendToKitchen() {
 		if (!currentTicket || !currentTicketItems.length) return;
 
+		console.log('🚀 SEND ORDERS DEBUG - Starting send to kitchen process');
+		console.log('📋 Ticket:', currentTicket);
+		console.log('🍽️ Items to send:', currentTicketItems);
+
 		try {
 			// Update ticket status
 			await collections.updateTicket(currentTicket.id, { 
@@ -944,6 +921,7 @@
 				tax_amount: calculatedTax,
 				total_amount: calculatedTotal
 			});
+			console.log('✅ Ticket status updated to sent_to_kitchen');
 
 			// Process each item and assign to appropriate station with timestamps
 			const now = new Date().toISOString();
@@ -973,6 +951,8 @@
 					kitchenItems.push(item);
 				}
 
+				console.log(`📍 Item "${menuItem?.name || 'Unknown'}" → ${station} (category: ${category})`);
+
 				// Update each ticket item with station assignment and timestamp
 				await collections.updateTicketItem(item.id, {
 					status: 'sent_to_kitchen',
@@ -981,20 +961,25 @@
 				});
 			}
 
+			console.log(`🍳 Kitchen items: ${kitchenItems.length}, 🍹 Bar items: ${barItems.length}`);
+
 			// Trigger drink ticket printing for bar items
 			if (barItems.length > 0) {
 				printDrinkTickets(barItems);
+				console.log('🖨️ Drink tickets printed');
 			}
 
 			// Refresh data to update table status displays
 			await collections.getTickets();
 			await collections.getTicketItems();
+			console.log('🔄 Data refreshed for table status updates');
 
 			// Close modal and update table status to show it has active orders
 			closeTicketModal();
+			console.log('✅ SEND ORDERS COMPLETE - Check table for status change');
 
 		} catch (error) {
-			console.error('Error sending to kitchen:', error);
+			console.error('❌ SEND ORDERS ERROR:', error);
 			alert('Error sending order to kitchen. Please try again.');
 		}
 	}
