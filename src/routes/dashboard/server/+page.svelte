@@ -932,6 +932,246 @@
 		return matchesCategory && matchesSearch && item.available;
 	});
 
+	// Send ticket to kitchen and bar
+	async function sendToKitchen() {
+		if (!currentTicket || !currentTicketItems.length) return;
+
+		try {
+			// Update ticket status
+			await collections.updateTicket(currentTicket.id, { 
+				status: 'sent_to_kitchen',
+				subtotal_amount: calculatedSubtotal,
+				tax_amount: calculatedTax,
+				total_amount: calculatedTotal
+			});
+
+			// Process each item and assign to appropriate station with timestamps
+			const now = new Date().toISOString();
+			const kitchenItems = [];
+			const barItems = [];
+			
+			for (const item of currentTicketItems) {
+				// Get the menu item data to determine category and station
+				const menuItem = $menuItems.find(m => m.id === item.menu_item_id);
+				const category = menuItem?.category || item.category || 'unknown';
+				
+				// Determine kitchen station based on category
+				let station = 'kitchen'; // default
+				if (category === 'beverage' || category === 'drink') {
+					station = 'bar';
+					barItems.push(item);
+				} else if (category === 'appetizer' || category === 'side_dish') {
+					station = 'cold_station';
+					kitchenItems.push(item);
+				} else if (category === 'main_course') {
+					station = 'grill';
+					kitchenItems.push(item);
+				} else if (category === 'dessert') {
+					station = 'cold_station';
+					kitchenItems.push(item);
+				} else {
+					kitchenItems.push(item);
+				}
+
+				// Update each ticket item with station assignment and timestamp
+				await collections.updateTicketItem(item.id, {
+					status: 'sent_to_kitchen',
+					kitchen_station: station,
+					ordered_at: now
+				});
+			}
+
+			// Trigger drink ticket printing for bar items
+			if (barItems.length > 0) {
+				printDrinkTickets(barItems);
+			}
+
+			// Refresh data to update table status displays
+			await collections.getTickets();
+			await collections.getTicketItems();
+
+			// Close modal and update table status to show it has active orders
+			closeTicketModal();
+
+		} catch (error) {
+			console.error('Error sending to kitchen:', error);
+			alert('Error sending order to kitchen. Please try again.');
+		}
+	}
+
+	// Print drink tickets for bar
+	function printDrinkTickets(barItems) {
+		const ticketContent = generateDrinkTicketContent(barItems);
+		
+		// Open print dialog with formatted drink tickets
+		const printWindow = window.open('', '_blank');
+		printWindow.document.write(ticketContent);
+		printWindow.document.close();
+		printWindow.print();
+		printWindow.close();
+	}
+
+	// Generate formatted drink ticket content
+	function generateDrinkTicketContent(barItems) {
+		const ticketNumber = currentTicket?.ticket_number || 'N/A';
+		const tableNumber = currentTicket?.table_id || 'N/A';
+		const timestamp = new Date().toLocaleTimeString('en-US', { 
+			hour12: false, 
+			hour: '2-digit', 
+			minute: '2-digit' 
+		});
+
+		let content = `
+			<html>
+			<head>
+				<style>
+					body { font-family: monospace; font-size: 12px; margin: 0; }
+					.ticket { width: 3in; margin: 0.25in 0; padding: 0.1in; border: 1px dashed #000; }
+					.header { text-align: center; font-weight: bold; margin-bottom: 0.1in; }
+					.item { margin: 0.05in 0; }
+					.modifications { font-size: 10px; color: #666; margin-left: 0.1in; }
+					.footer { margin-top: 0.1in; border-top: 1px solid #000; text-align: center; font-size: 10px; }
+				</style>
+			</head>
+			<body>
+		`;
+
+		barItems.forEach((item, index) => {
+			const seatInfo = item.seat_number ? `Seat ${item.seat_number}` : '';
+			const guestName = item.seat_name ? `(${item.seat_name})` : '';
+			const modifications = item.modifications || '';
+			const specialInstructions = item.special_instructions || '';
+
+			content += `
+				<div class="ticket">
+					<div class="header">
+						BAR ORDER #${ticketNumber}<br>
+						Table ${tableNumber} | ${timestamp}
+					</div>
+					<div class="item">
+						<strong>${item.quantity}x ${item.name}</strong><br>
+						${seatInfo} ${guestName}
+					</div>
+					${modifications ? `<div class="modifications">Mods: ${modifications}</div>` : ''}
+					${specialInstructions ? `<div class="modifications">Special: ${specialInstructions}</div>` : ''}
+					<div class="footer">
+						Item ${index + 1} of ${barItems.length}
+					</div>
+				</div>
+			`;
+		});
+
+		content += `
+			</body>
+			</html>
+		`;
+
+		return content;
+	}
+
+	// Get table order status and details
+	function getTableOrderStatus(tableId) {
+		const tableTickets = $tickets.filter(ticket => 
+			ticket.table_id === tableId && 
+			['sent_to_kitchen', 'preparing', 'ready'].includes(ticket.status)
+		);
+		
+		if (tableTickets.length === 0) return null;
+		
+		const ticket = tableTickets[0]; // Most recent active ticket
+		const items = $ticketItems.filter(item => item.ticket_id === ticket.id);
+		
+		// Calculate overall status based on items
+		const statuses = items.map(item => item.status);
+		let overallStatus = 'sent_to_kitchen';
+		
+		if (statuses.every(s => s === 'ready')) {
+			overallStatus = 'ready';
+		} else if (statuses.some(s => s === 'preparing')) {
+			overallStatus = 'preparing';
+		}
+		
+		// Calculate estimated time remaining
+		const now = new Date();
+		const maxEstimated = Math.max(...items.map(item => {
+			const menuItem = $menuItems.find(m => m.id === item.menu_item_id);
+			const prepTime = menuItem?.preparation_time || 12;
+			const orderedAt = new Date(item.ordered_at);
+			const elapsed = Math.floor((now - orderedAt) / (1000 * 60));
+			return Math.max(0, prepTime - elapsed);
+		}));
+		
+		return {
+			ticket,
+			items,
+			status: overallStatus,
+			estimatedTimeRemaining: maxEstimated,
+			itemCount: items.length
+		};
+	}
+
+	// Get table status color and icon
+	function getTableStatusDisplay(tableId) {
+		const orderStatus = getTableOrderStatus(tableId);
+		
+		if (!orderStatus) {
+			return {
+				color: 'bg-gray-500',
+				icon: '○',
+				text: 'Available'
+			};
+		}
+		
+		const { status, estimatedTimeRemaining } = orderStatus;
+		
+		switch (status) {
+			case 'sent_to_kitchen':
+				return {
+					color: 'bg-orange-500',
+					icon: '🍳',
+					text: `Cooking (${estimatedTimeRemaining}m)`
+				};
+			case 'preparing':
+				return {
+					color: 'bg-blue-500',
+					icon: '⏳',
+					text: `Preparing (${estimatedTimeRemaining}m)`
+				};
+			case 'ready':
+				return {
+					color: 'bg-green-500 animate-pulse',
+					icon: '✅',
+					text: 'Ready for Pickup'
+				};
+			default:
+				return {
+					color: 'bg-gray-500',
+					icon: '○',
+					text: 'Available'
+				};
+		}
+	}
+
+	// Show table order details modal
+	let showTableDetailsModal = false;
+	let selectedTableDetails = null;
+
+	function showTableOrderDetails(table) {
+		const orderStatus = getTableOrderStatus(table.id);
+		if (!orderStatus) return;
+		
+		selectedTableDetails = {
+			table,
+			...orderStatus
+		};
+		showTableDetailsModal = true;
+	}
+
+	function closeTableDetailsModal() {
+		showTableDetailsModal = false;
+		selectedTableDetails = null;
+	}
+
 	// Get category icon
 	function getCategoryIcon(category) {
 		const icons = {
@@ -1251,36 +1491,64 @@
 															{/if}
 														</div>
 														{#if section.tables && section.tables.length > 0}
-															<div class="flex flex-wrap gap-1">
+															<!-- Table Grid View -->
+															<div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3">
 																{#each section.tables as table}
-																	<div class="px-2 py-1 text-xs rounded flex items-center gap-1 {
-																		section.id === shift.assigned_section ? 'bg-green-900/50 text-green-300' : 
-																		selectedAdditionalSections.has(section.id) ? 'bg-blue-900/50 text-blue-300' : 'bg-gray-700/50 text-gray-400'
-																	}">
-																		<span>{table.table_name || table.table_number_field}</span>
-																		{#if table.capacity || table.seats_field}
-																		<span>({table.capacity || table.seats_field})</span>
-																		{/if}
-																		{#if section.id === shift.assigned_section || selectedAdditionalSections.has(section.id)}
-																		<div class="flex gap-0.5 ml-1">
-																		<button
-																		on:click={() => updateTableStatus(table.id, 'occupied')}
-																		class="w-1.5 h-1.5 rounded-full bg-red-500 hover:bg-red-400"
-																		title="Mark as Occupied"
-																		></button>
-																		<button
-																		on:click={() => updateTableStatus(table.id, 'available')}
-																		class="w-1.5 h-1.5 rounded-full bg-green-500 hover:bg-green-400"
-																		title="Mark as Available"
-																		></button>
-																		<button
-																		on:click={() => updateTableStatus(table.id, 'cleaning')}
-																		class="w-1.5 h-1.5 rounded-full bg-yellow-500 hover:bg-yellow-400"
-																		title="Mark as Cleaning"
-																		></button>
+																	{@const statusDisplay = getTableStatusDisplay(table.id)}
+																	{@const hasOrders = getTableOrderStatus(table.id) !== null}
+																	{@const orderStatus = getTableOrderStatus(table.id)}
+																	
+																	<button
+																		on:click={() => hasOrders ? showTableOrderDetails(table) : handleTableClick(table)}
+																		class="relative p-4 rounded-xl border-2 transition-all hover:scale-105 bg-gray-800/50 backdrop-blur-sm {
+																			section.id === shift.assigned_section ? 'border-green-500' : 
+																			selectedAdditionalSections.has(section.id) ? 'border-blue-500' : 'border-gray-600'
+																		} {hasOrders ? 'cursor-pointer shadow-lg' : 'hover:border-gray-500'}"
+																		title={hasOrders ? 'Click to view order details' : 'Click to create new order'}
+																	>
+																		<!-- Status Indicator (Top Right) -->
+																		<div class="absolute -top-2 -right-2 w-6 h-6 rounded-full {statusDisplay.color} border-2 border-gray-800 flex items-center justify-center shadow-lg">
+																			<span class="text-xs font-bold">{statusDisplay.icon}</span>
 																		</div>
-																		{/if}
-																	</div>
+																		
+																		<!-- Table Content -->
+																		<div class="text-center">
+																			<!-- Table Number -->
+																			<div class="text-xl font-bold text-white mb-1">
+																				{table.table_name || table.table_number_field}
+																			</div>
+																			
+																			<!-- Seats -->
+																			<div class="text-sm text-gray-400 mb-2">
+																				{table.capacity || table.seats_field} seats
+																			</div>
+																			
+																			<!-- Section Name -->
+																			<div class="text-xs font-medium text-gray-300 mb-2">
+																				{section.area_name || 'Available'}
+																			</div>
+																			
+																			<!-- Order Status -->
+																			{#if hasOrders && orderStatus}
+																				<div class="space-y-1">
+																					<div class="text-xs font-medium {
+																						statusDisplay.status === 'ready' ? 'text-green-400' : 
+																						statusDisplay.status === 'preparing' ? 'text-blue-400' : 
+																						'text-orange-400'
+																					}">
+																						{statusDisplay.text}
+																					</div>
+																					<div class="text-xs text-gray-500">
+																						{orderStatus.itemCount} items
+																					</div>
+																				</div>
+																			{:else}
+																				<div class="text-xs text-gray-500">
+																					Available
+																				</div>
+																			{/if}
+																		</div>
+																	</button>
 																{/each}
 															</div>
 														{:else}
@@ -1982,13 +2250,10 @@
 						<div class="space-y-2">
 							{#if currentTicketItems.length > 0}
 								<button
-									on:click={() => {
-										collections.updateTicket(currentTicket.id, { status: 'sent_to_kitchen' });
-										closeTicketModal();
-									}}
+									on:click={sendToKitchen}
 									class="w-full px-4 py-3 bg-blue-600 hover:bg-blue-700 rounded-lg text-white font-bold"
 								>
-									🍳 Send to Kitchen
+									📋 Send Orders
 								</button>
 							{/if}
 							<button
@@ -2380,6 +2645,136 @@
 						Update Item
 					</button>
 				</div>
+			</div>
+		</div>
+	</div>
+{/if}
+
+<!-- Table Order Details Modal -->
+{#if showTableDetailsModal && selectedTableDetails}
+	<div class="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
+		<div class="bg-gray-800 rounded-lg border border-gray-700 w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+			<!-- Header -->
+			<div class="flex justify-between items-center p-6 border-b border-gray-700">
+				<div>
+					<h2 class="text-2xl font-bold">
+						{selectedTableDetails.table.table_name || selectedTableDetails.table.table_number_field}
+					</h2>
+					<p class="text-gray-400">
+						({selectedTableDetails.table.capacity || selectedTableDetails.table.seats_field} seats) • 
+						Ticket #{selectedTableDetails.ticket.ticket_number}
+					</p>
+				</div>
+				<button
+					on:click={closeTableDetailsModal}
+					class="text-gray-400 hover:text-white p-2"
+				>
+					✕
+				</button>
+			</div>
+
+			<!-- Order Status -->
+			<div class="p-6 border-b border-gray-700">
+			{#if selectedTableDetails}
+			 {@const statusDisplay = getTableStatusDisplay(selectedTableDetails.table.id)}
+			<div class="flex items-center gap-4 mb-4">
+			<div class="w-6 h-6 rounded-full {statusDisplay.color} flex items-center justify-center">
+			  <span class="text-sm">{statusDisplay.icon}</span>
+			 </div>
+			<div>
+			 <h3 class="text-lg font-semibold">{statusDisplay.text}</h3>
+			<p class="text-gray-400">
+			 {selectedTableDetails.itemCount} items • 
+			  {selectedTableDetails.estimatedTimeRemaining}m remaining
+			  </p>
+			  </div>
+				</div>
+
+			 <!-- Progress Bar -->
+			{@const totalEstimated = Math.max(...selectedTableDetails.items.map(item => {
+			 const menuItem = $menuItems.find(m => m.id === item.menu_item_id);
+			  return menuItem?.preparation_time || 12;
+			 }))}
+			 {@const progress = Math.max(0, Math.min(100, ((totalEstimated - selectedTableDetails.estimatedTimeRemaining) / totalEstimated) * 100))}
+			<div class="w-full bg-gray-700 rounded-full h-3">
+			<div 
+			class="h-3 rounded-full transition-all duration-300 {
+			 selectedTableDetails.status === 'ready' ? 'bg-green-500' :
+			 selectedTableDetails.status === 'preparing' ? 'bg-blue-500' :
+			  'bg-orange-500'
+			 }"
+			  style="width: {progress}%"
+			  ></div>
+			  </div>
+			{/if}
+		</div>
+
+			<!-- Order Items -->
+			<div class="p-6">
+				<h3 class="text-lg font-semibold mb-4">Order Items</h3>
+				<div class="space-y-3">
+					{#each selectedTableDetails.items as item}
+						{@const menuItem = $menuItems.find(m => m.id === item.menu_item_id)}
+						{@const prepTime = menuItem?.preparation_time || 12}
+						{@const orderedAt = new Date(item.ordered_at)}
+						{@const elapsed = Math.floor((currentTime - orderedAt) / (1000 * 60))}
+						{@const remaining = Math.max(0, prepTime - elapsed)}
+						
+						<div class="bg-gray-700 rounded-lg p-4">
+							<div class="flex justify-between items-start mb-2">
+								<div>
+									<h4 class="font-medium">
+										{item.quantity}x {menuItem?.name || 'Unknown Item'}
+									</h4>
+									{#if item.seat_number}
+										<p class="text-sm text-blue-300">
+											Seat {item.seat_number} {item.seat_name ? `(${item.seat_name})` : ''}
+										</p>
+									{/if}
+								</div>
+								<div class="text-right">
+									<span class="px-2 py-1 rounded text-xs font-medium {
+										item.status === 'ready' ? 'bg-green-900 text-green-300' :
+										item.status === 'preparing' ? 'bg-blue-900 text-blue-300' :
+										'bg-orange-900 text-orange-300'
+									}">
+										{item.status.replace('_', ' ').toUpperCase()}
+									</span>
+									<p class="text-sm text-gray-400 mt-1">
+										{remaining}m remaining
+									</p>
+								</div>
+							</div>
+
+							{#if item.modifications}
+								<p class="text-sm text-yellow-300">
+									<strong>Mods:</strong> {item.modifications}
+								</p>
+							{/if}
+
+							{#if item.special_instructions}
+								<p class="text-sm text-orange-300">
+									<strong>Special:</strong> {item.special_instructions}
+								</p>
+							{/if}
+
+							<div class="mt-2 flex justify-between items-center text-sm text-gray-400">
+								<span>Kitchen Station: {item.kitchen_station?.replace('_', ' ')}</span>
+								<span>Est. {prepTime} min • {elapsed}m elapsed</span>
+							</div>
+						</div>
+					{/each}
+				</div>
+			</div>
+
+			<!-- Footer -->
+			<div class="p-6 border-t border-gray-700 flex justify-end">
+				<button
+					on:click={closeTableDetailsModal}
+					class="px-4 py-2 bg-gray-600 hover:bg-gray-500 rounded-lg text-white font-medium"
+				>
+					Close
+				</button>
 			</div>
 		</div>
 	</div>
