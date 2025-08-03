@@ -491,6 +491,14 @@
 	let selectedSeat = null;
 	let seatNames = {}; // Map of seat numbers to names
 	
+	// Item edit modal state
+	let showEditItemModal = false;
+	let editingItem = null;
+	let editQuantity = 1;
+	let editModifiers = [];
+	let editSpecialInstructions = '';
+	let editSeat = null;
+	
 	// Calculate totals from current ticket items (reactive)
 	$: calculatedSubtotal = currentTicketItems.reduce((sum, item) => sum + (item.total_price || 0), 0);
 	$: calculatedTax = calculatedSubtotal * 0.08875; // NYC tax rate
@@ -621,6 +629,77 @@
 		selectedSeat = null;
 	}
 	
+	function openEditItemModal(item) {
+		editingItem = item;
+		editQuantity = item.quantity;
+		editSpecialInstructions = item.special_instructions || '';
+		editSeat = item.seat_number || null;
+		
+		// Parse existing modifiers from modifications string
+		editModifiers = [];
+		if (item.modifications) {
+			const modifierText = item.modifications.split(' | ')[0]; // Get modifiers part (before special instructions)
+			editModifiers = menuModifiers.filter(mod => 
+				modifierText.includes(mod.name)
+			);
+		}
+		
+		showEditItemModal = true;
+	}
+	
+	function closeEditItemModal() {
+		showEditItemModal = false;
+		editingItem = null;
+		editQuantity = 1;
+		editModifiers = [];
+		editSpecialInstructions = '';
+		editSeat = null;
+	}
+	
+	async function saveEditedItem() {
+		if (!editingItem) return;
+		
+		try {
+			// Build new modifications string
+			const modifierNames = editModifiers.map(m => m.name).join(', ');
+			const modifications = [modifierNames, editSpecialInstructions].filter(Boolean).join(' | ');
+			
+			// Calculate new prices with modifiers
+			const basePrice = editingItem.unit_price - (editingItem.modifier_total || 0); // Remove old modifier cost
+			const modifierTotal = editModifiers.reduce((sum, mod) => sum + (mod.price_change || 0), 0);
+			const newUnitPrice = basePrice + modifierTotal;
+			const newTotalPrice = newUnitPrice * editQuantity;
+			
+			// Update the item
+			const updateData = {
+				quantity: editQuantity,
+				unit_price: newUnitPrice,
+				total_price: newTotalPrice,
+				modifications: modifications,
+				seat_number: editSeat,
+				seat_name: editSeat ? seatNames[editSeat] || '' : '',
+				special_instructions: editSpecialInstructions
+			};
+			
+			// Update local state immediately
+			currentTicketItems = currentTicketItems.map(item => 
+				item.id === editingItem.id 
+					? { ...item, ...updateData, modifier_total: modifierTotal }
+					: item
+			);
+			
+			// Update backend
+			await collections.updateTicketItem(editingItem.id, updateData);
+			
+			// Update backend totals
+			updateTicketTotals();
+			
+			closeEditItemModal();
+		} catch (error) {
+			console.error('Error updating item:', error);
+		}
+	}
+	
 	function toggleModifier(modifier) {
 		const index = selectedModifiers.findIndex(m => m.id === modifier.id);
 		if (index >= 0) {
@@ -629,6 +708,16 @@
 			selectedModifiers.push(modifier);
 		}
 		selectedModifiers = [...selectedModifiers];
+	}
+	
+	function toggleEditModifier(modifier) {
+		const index = editModifiers.findIndex(m => m.id === modifier.id);
+		if (index >= 0) {
+			editModifiers.splice(index, 1);
+		} else {
+			editModifiers.push(modifier);
+		}
+		editModifiers = [...editModifiers];
 	}
 	
 	function calculateItemTotal() {
@@ -1699,65 +1788,79 @@
 					<!-- Order Items -->
 					<div class="flex-1 overflow-y-auto p-4 space-y-3">
 						{#each currentTicketItems as item}
-							<div class="bg-gray-700 rounded-lg p-3">
-								<div class="flex justify-between items-start mb-2">
-									<div class="flex-1">
-										<div class="flex items-center gap-2">
-											<p class="font-medium text-white">
-												{item.expand?.menu_item_id?.name || 'Unknown Item'}
-											</p>
-											{#if item.seat_number}
-												<span class="text-xs bg-blue-600 text-blue-100 px-2 py-1 rounded-full">
-													🪑 {item.seat_name ? `${item.seat_name} (${item.seat_number})` : `Seat ${item.seat_number}`}
-												</span>
+							<div class="bg-gray-700 rounded-lg overflow-hidden">
+								<!-- Clickable item area -->
+								<button
+									on:click={() => openEditItemModal(item)}
+									class="w-full p-3 text-left hover:bg-gray-600 transition-colors"
+								>
+									<div class="flex justify-between items-start mb-2">
+										<div class="flex-1">
+											<div class="flex items-center gap-2">
+												<p class="font-medium text-white">
+													{item.expand?.menu_item_id?.name || 'Unknown Item'}
+												</p>
+												{#if item.seat_number}
+													<span class="text-xs bg-blue-600 text-blue-100 px-2 py-1 rounded-full">
+														🪑 {item.seat_name ? `${item.seat_name} (${item.seat_number})` : `Seat ${item.seat_number}`}
+													</span>
+												{/if}
+											</div>
+											{#if item.modifications}
+												<p class="text-sm text-yellow-400 mt-1">🔧 {item.modifications}</p>
 											{/if}
 										</div>
-										{#if item.modifications}
-											<p class="text-sm text-yellow-400 mt-1">🔧 {item.modifications}</p>
-										{/if}
+										<div class="flex items-center gap-2">
+											<span class="text-xs text-gray-400">click to edit</span>
+										</div>
 									</div>
-									<button
-										on:click={async () => {
-											console.log('Removing ticket item:', item.id, item);
-											try {
-												await collections.removeTicketItem(item.id);
-												// Update local currentTicketItems immediately
-												currentTicketItems = currentTicketItems.filter(i => i.id !== item.id);
-											} catch (error) {
-												console.error('Error removing item:', error);
-												// Still remove from UI even if backend fails
-												currentTicketItems = currentTicketItems.filter(i => i.id !== item.id);
-											}
-										}}
-										class="text-red-400 hover:text-red-300 p-1"
-										title="Remove item"
-									>
-										<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-											<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
-										</svg>
-									</button>
-								</div>
+								</button>
 								
-								<!-- Quantity and Price Row -->
-								<div class="flex justify-between items-center">
-									<div class="flex items-center space-x-2">
-										<button
-											on:click={() => updateItemQuantity(item.id, Math.max(1, item.quantity - 1))}
-											class="w-6 h-6 rounded-full bg-gray-600 hover:bg-gray-500 flex items-center justify-center text-white text-sm font-bold"
-											disabled={item.quantity <= 1}
-										>
-											−
-										</button>
-										<span class="font-medium text-white w-8 text-center">{item.quantity}</span>
-										<button
-											on:click={() => updateItemQuantity(item.id, item.quantity + 1)}
-											class="w-6 h-6 rounded-full bg-gray-600 hover:bg-gray-500 flex items-center justify-center text-white text-sm font-bold"
-										>
-											+
-										</button>
-										<span class="text-sm text-gray-400 capitalize ml-2">• {item.status}</span>
+								<!-- Quantity controls and delete (non-clickable area) -->
+								<div class="px-3 pb-3">
+									<div class="flex justify-between items-center">
+										<div class="flex items-center space-x-2">
+											<button
+												on:click|stopPropagation={() => updateItemQuantity(item.id, Math.max(1, item.quantity - 1))}
+												class="w-6 h-6 rounded-full bg-gray-600 hover:bg-gray-500 flex items-center justify-center text-white text-sm font-bold"
+												disabled={item.quantity <= 1}
+											>
+												−
+											</button>
+											<span class="font-medium text-white w-8 text-center">{item.quantity}</span>
+											<button
+												on:click|stopPropagation={() => updateItemQuantity(item.id, item.quantity + 1)}
+												class="w-6 h-6 rounded-full bg-gray-600 hover:bg-gray-500 flex items-center justify-center text-white text-sm font-bold"
+											>
+												+
+											</button>
+											<span class="text-sm text-gray-400 capitalize ml-2">• {item.status}</span>
+										</div>
+										<div class="flex items-center gap-2">
+											<span class="font-bold text-green-400">${item.total_price?.toFixed(2)}</span>
+											<button
+												on:click={async (e) => {
+													e.stopPropagation();
+													console.log('Removing ticket item:', item.id, item);
+													try {
+														await collections.removeTicketItem(item.id);
+														// Update local currentTicketItems immediately
+														currentTicketItems = currentTicketItems.filter(i => i.id !== item.id);
+													} catch (error) {
+														console.error('Error removing item:', error);
+														// Still remove from UI even if backend fails
+														currentTicketItems = currentTicketItems.filter(i => i.id !== item.id);
+													}
+												}}
+												class="text-red-400 hover:text-red-300 p-1"
+												title="Remove item"
+											>
+												<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+													<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+												</svg>
+											</button>
+										</div>
 									</div>
-									<span class="font-bold text-green-400">${item.total_price?.toFixed(2)}</span>
 								</div>
 							</div>
 						{/each}
@@ -1963,6 +2066,179 @@
 						class="flex-1 px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors"
 					>
 						Add to Order
+					</button>
+				</div>
+			</div>
+		</div>
+	</div>
+{/if}
+
+<!-- Edit Item Modal -->
+{#if showEditItemModal && editingItem}
+	<div class="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
+		<div class="bg-gray-800 rounded-xl max-w-2xl w-full max-h-[90vh] overflow-hidden flex flex-col">
+			<!-- Header -->
+			<div class="p-6 border-b border-gray-700">
+				<div class="flex justify-between items-start">
+					<div>
+						<h2 class="text-2xl font-bold text-white">Edit Order Item</h2>
+						<p class="text-xl font-semibold text-blue-400 mt-1">{editingItem.expand?.menu_item_id?.name || 'Unknown Item'}</p>
+						<p class="text-gray-400 mt-1">{editingItem.expand?.menu_item_id?.description || ''}</p>
+					</div>
+					<button
+						on:click={closeEditItemModal}
+						class="text-gray-400 hover:text-white p-2"
+					>
+						<svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+							<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+						</svg>
+					</button>
+				</div>
+			</div>
+
+			<!-- Content -->
+			<div class="flex-1 overflow-y-auto p-6 space-y-6">
+				<!-- Current Status -->
+				<div class="bg-gray-700 p-4 rounded-lg">
+					<div class="flex justify-between items-center">
+						<div>
+							<span class="text-gray-300">Status:</span>
+							<span class="text-white font-medium ml-2 capitalize">{editingItem.status}</span>
+						</div>
+						<div>
+							<span class="text-gray-300">Original Price:</span>
+							<span class="text-green-400 font-bold ml-2">${editingItem.unit_price?.toFixed(2)}</span>
+						</div>
+					</div>
+				</div>
+
+				<!-- Quantity -->
+				<div>
+					<h3 class="text-lg font-semibold text-white mb-3">Quantity</h3>
+					<div class="flex items-center space-x-4">
+						<button
+							on:click={() => editQuantity = Math.max(1, editQuantity - 1)}
+							class="w-10 h-10 rounded-full bg-gray-700 hover:bg-gray-600 flex items-center justify-center text-white font-bold text-xl"
+						>
+							−
+						</button>
+						<span class="text-2xl font-bold text-white w-8 text-center">{editQuantity}</span>
+						<button
+							on:click={() => editQuantity = editQuantity + 1}
+							class="w-10 h-10 rounded-full bg-gray-700 hover:bg-gray-600 flex items-center justify-center text-white font-bold text-xl"
+						>
+							+
+						</button>
+					</div>
+				</div>
+
+				<!-- Seat Assignment -->
+				<div>
+					<h3 class="text-lg font-semibold text-white mb-3">🪑 Seat Assignment</h3>
+					<div class="space-y-3">
+						<select
+							bind:value={editSeat}
+							class="w-full p-3 bg-gray-700 border border-gray-600 rounded-lg text-white"
+						>
+							<option value={null}>No specific seat</option>
+							{#each Array.from({length: currentTicket?.customer_count || 6}, (_, i) => i + 1) as seatNum}
+								<option value={seatNum}>
+									{getSeatDisplay(seatNum) || `Seat ${seatNum}`}
+								</option>
+							{/each}
+						</select>
+						
+						{#if editSeat}
+							<div>
+								<label class="block text-sm text-gray-300 mb-1">Guest Name (Optional)</label>
+								<input
+									type="text"
+									placeholder="e.g., Joe, Sarah, etc."
+									value={seatNames[editSeat] || ''}
+									on:input={(e) => updateSeatName(editSeat, e.target.value)}
+									class="w-full p-2 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400"
+								>
+							</div>
+						{/if}
+					</div>
+				</div>
+
+				<!-- Modifiers -->
+				{#if getApplicableModifiers(editingItem.expand?.menu_item_id || {}).length > 0}
+					<div>
+						<h3 class="text-lg font-semibold text-white mb-3">Customize</h3>
+						
+						{#each ['cooking_style', 'sauce', 'add_on', 'size', 'substitution'] as modifierType}
+							{@const typeModifiers = getApplicableModifiers(editingItem.expand?.menu_item_id || {}).filter(m => m.type === modifierType)}
+							{#if typeModifiers.length > 0}
+								<div class="mb-4">
+									<h4 class="text-sm font-medium text-gray-300 mb-2 capitalize">
+										{modifierType.replace('_', ' ')}
+										{#if modifierType === 'cooking_style'}🔥{/if}
+										{#if modifierType === 'sauce'}🍯{/if}
+										{#if modifierType === 'add_on'}➕{/if}
+										{#if modifierType === 'size'}📏{/if}
+										{#if modifierType === 'substitution'}🔄{/if}
+									</h4>
+									<div class="grid grid-cols-1 gap-2">
+										{#each typeModifiers as modifier}
+											<label class="flex items-center p-3 bg-gray-700 hover:bg-gray-600 rounded-lg cursor-pointer transition-colors">
+												<input
+													type="checkbox"
+													checked={editModifiers.some(m => m.id === modifier.id)}
+													on:change={() => toggleEditModifier(modifier)}
+													class="mr-3 text-blue-600"
+												>
+												<div class="flex-1">
+													<span class="text-white">{modifier.name}</span>
+													{#if modifier.price_change > 0}
+														<span class="text-green-400 ml-2">+${modifier.price_change}</span>
+													{/if}
+												</div>
+											</label>
+										{/each}
+									</div>
+								</div>
+							{/if}
+						{/each}
+					</div>
+				{/if}
+
+				<!-- Special Instructions -->
+				<div>
+					<h3 class="text-lg font-semibold text-white mb-3">Special Instructions</h3>
+					<textarea
+						bind:value={editSpecialInstructions}
+						placeholder="Any special requests or notes..."
+						class="w-full p-3 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400 resize-none"
+						rows="3"
+					></textarea>
+					<p class="text-xs text-gray-400 mt-1">
+						💡 Examples: "Add a candle it is a birthday", "Extra crispy", "On the side"
+					</p>
+				</div>
+			</div>
+
+			<!-- Footer -->
+			<div class="p-6 border-t border-gray-700 bg-gray-750">
+				<div class="flex justify-between items-center mb-4">
+					<span class="text-gray-300">Updated Total:</span>
+					<span class="text-2xl font-bold text-green-400">
+						${(((editingItem.unit_price || 0) - (editingItem.modifier_total || 0)) + editModifiers.reduce((sum, mod) => sum + (mod.price_change || 0), 0)) * editQuantity}
+					</span>
+				</div>
+				<div class="flex space-x-3">
+					<button
+						on:click={closeEditItemModal}
+						class="flex-1 px-6 py-3 bg-gray-600 hover:bg-gray-500 text-white rounded-lg font-medium transition-colors"
+					>
+						Cancel
+					</button>
+					<button
+						on:click={saveEditedItem}
+						class="flex-1 px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors"
+					>
+						Update Item
 					</button>
 				</div>
 			</div>
