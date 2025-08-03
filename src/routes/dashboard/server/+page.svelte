@@ -488,6 +488,8 @@
 	let selectedModifiers = [];
 	let itemQuantity = 1;
 	let specialInstructions = '';
+	let selectedSeat = null;
+	let seatNames = {}; // Map of seat numbers to names
 	
 	// Menu modifiers (will be loaded from CSV later)
 	const menuModifiers = [
@@ -601,6 +603,7 @@
 		itemQuantity = 1;
 		selectedModifiers = [];
 		specialInstructions = '';
+		selectedSeat = null;
 		showItemModal = true;
 	}
 	
@@ -610,6 +613,7 @@
 		itemQuantity = 1;
 		selectedModifiers = [];
 		specialInstructions = '';
+		selectedSeat = null;
 	}
 	
 	function toggleModifier(modifier) {
@@ -627,6 +631,21 @@
 		const basePrice = selectedMenuItem.price_field || selectedMenuItem.price || 0;
 		const modifierTotal = selectedModifiers.reduce((sum, mod) => sum + (mod.price_change || 0), 0);
 		return (basePrice + modifierTotal) * itemQuantity;
+	}
+	
+	function updateSeatName(seatNumber, name) {
+		if (name.trim()) {
+			seatNames[seatNumber] = name.trim();
+		} else {
+			delete seatNames[seatNumber];
+		}
+		seatNames = { ...seatNames }; // Trigger reactivity
+	}
+	
+	function getSeatDisplay(seatNumber) {
+		if (!seatNumber) return '';
+		const name = seatNames[seatNumber];
+		return name ? `Seat ${seatNumber} (${name})` : `Seat ${seatNumber}`;
 	}
 
 	async function addItemToTicket(menuItem, quantity = 1, modifications = '') {
@@ -679,7 +698,9 @@
 				total_price: unitPrice * itemQuantity,
 				modifications: modifications,
 				course: mapCategoryToCourse(category),
-				kitchen_station: getKitchenStation(category)
+				kitchen_station: getKitchenStation(category),
+				seat_number: selectedSeat,
+				seat_name: selectedSeat ? seatNames[selectedSeat] || '' : ''
 			};
 			
 			const newItem = await collections.addTicketItem(itemData);
@@ -1652,9 +1673,16 @@
 							<div class="bg-gray-700 rounded-lg p-3">
 								<div class="flex justify-between items-start mb-2">
 									<div class="flex-1">
-										<p class="font-medium text-white">
-											{item.expand?.menu_item_id?.name || 'Unknown Item'}
-										</p>
+										<div class="flex items-center gap-2">
+											<p class="font-medium text-white">
+												{item.expand?.menu_item_id?.name || 'Unknown Item'}
+											</p>
+											{#if item.seat_number}
+												<span class="text-xs bg-blue-600 text-blue-100 px-2 py-1 rounded-full">
+													🪑 {item.seat_name ? `${item.seat_name} (${item.seat_number})` : `Seat ${item.seat_number}`}
+												</span>
+											{/if}
+										</div>
 										{#if item.modifications}
 											<p class="text-sm text-yellow-400 mt-1">🔧 {item.modifications}</p>
 										{/if}
@@ -1787,6 +1815,40 @@
 						>
 							+
 						</button>
+					</div>
+				</div>
+
+				<!-- Seat Assignment (Optional) -->
+				<div>
+					<h3 class="text-lg font-semibold text-white mb-3">🪑 Seat Assignment <span class="text-sm text-gray-400">(Optional)</span></h3>
+					<div class="space-y-3">
+						<select
+							bind:value={selectedSeat}
+							class="w-full p-3 bg-gray-700 border border-gray-600 rounded-lg text-white"
+						>
+							<option value={null}>No specific seat</option>
+							{#each Array.from({length: currentTicket?.customer_count || 6}, (_, i) => i + 1) as seatNum}
+								<option value={seatNum}>
+									{getSeatDisplay(seatNum) || `Seat ${seatNum}`}
+								</option>
+							{/each}
+						</select>
+						
+						{#if selectedSeat}
+							<div>
+								<label class="block text-sm text-gray-300 mb-1">Guest Name (Optional)</label>
+								<input
+									type="text"
+									placeholder="e.g., Joe, Sarah, etc."
+									value={seatNames[selectedSeat] || ''}
+									on:input={(e) => updateSeatName(selectedSeat, e.target.value)}
+									class="w-full p-2 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400"
+								>
+								<p class="text-xs text-gray-400 mt-1">
+									💡 Helps food runners deliver to the right person
+								</p>
+							</div>
+						{/if}
 					</div>
 				</div>
 
