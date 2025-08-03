@@ -1,11 +1,16 @@
 <script>
-	import { onMount } from 'svelte';
+	import { onMount, onDestroy } from 'svelte';
 	import { goto } from '$app/navigation';
 	import { authStore } from '$lib/auth.js';
 	import { collections, shifts, menuItems, sections, tables, loading } from '$lib/stores/collections.js';
 
 	let activeTab = 'today';
 	let user = null;
+
+	// Shift timer state
+	let shiftTimers = new Map(); // Map of shiftId -> timer data
+	let currentTime = new Date();
+	let timeInterval;
 
 	// Reactive declarations
 	$: myShifts = $shifts.filter(shift => {
@@ -47,6 +52,11 @@
 	}).sort((a, b) => new Date(a.shift_date.split(' ')[0]) - new Date(b.shift_date.split(' ')[0]));
 
 	onMount(async () => {
+		// Start time tracking interval
+		timeInterval = setInterval(() => {
+			currentTime = new Date();
+		}, 1000);
+
 		// Check authentication and role
 		const unsubscribe = authStore.subscribe(async (auth) => {
 			if (!auth.isLoggedIn && !auth.isLoading) {
@@ -80,6 +90,9 @@
 					
 					console.log('Loaded shifts:', $shifts);
 					console.log('Current user:', user);
+					
+					// Load any existing shift timers
+					loadShiftTimers();
 				} catch (error) {
 					console.error('Error loading dashboard data:', error);
 				}
@@ -87,6 +100,12 @@
 		});
 
 		return unsubscribe;
+	});
+
+	onDestroy(() => {
+		if (timeInterval) {
+			clearInterval(timeInterval);
+		}
 	});
 
 	async function logout() {
@@ -101,10 +120,233 @@
 
 	async function updateShiftStatus(shiftId, status) {
 		try {
+			if (status === 'in_progress') {
+				// Start shift timer
+				startShiftTimer(shiftId);
+			} else if (status === 'completed') {
+				// Stop shift timer
+				stopShiftTimer(shiftId);
+			}
+			
 			await collections.updateShift(shiftId, { status });
 		} catch (error) {
 			console.error('Error updating shift status:', error);
 			alert('Failed to update shift status');
+		}
+	}
+
+	function startShiftTimer(shiftId) {
+		const now = new Date();
+		const timerData = {
+			startTime: now,
+			breakReminded: false,
+			autoCompleteChecked: false
+		};
+		shiftTimers.set(shiftId, timerData);
+		shiftTimers = new Map(shiftTimers); // Trigger reactivity
+		
+		// Save to localStorage for persistence
+		localStorage.setItem(`shift_timer_${shiftId}`, JSON.stringify({
+			...timerData,
+			startTime: now.toISOString()
+		}));
+	}
+
+	function stopShiftTimer(shiftId) {
+		shiftTimers.delete(shiftId);
+		shiftTimers = new Map(shiftTimers); // Trigger reactivity
+		localStorage.removeItem(`shift_timer_${shiftId}`);
+	}
+
+	function loadShiftTimers() {
+		// Load existing timers from localStorage
+		for (let i = 0; i < localStorage.length; i++) {
+			const key = localStorage.key(i);
+			if (key && key.startsWith('shift_timer_')) {
+				const shiftId = key.replace('shift_timer_', '');
+				const data = JSON.parse(localStorage.getItem(key));
+				if (data) {
+					shiftTimers.set(shiftId, {
+						...data,
+						startTime: new Date(data.startTime)
+					});
+				}
+			}
+		}
+		shiftTimers = new Map(shiftTimers); // Trigger reactivity
+	}
+
+	function getShiftDuration(shiftId) {
+		const timer = shiftTimers.get(shiftId);
+		if (!timer) return null;
+		
+		const duration = currentTime - timer.startTime;
+		const hours = Math.floor(duration / (1000 * 60 * 60));
+		const minutes = Math.floor((duration % (1000 * 60 * 60)) / (1000 * 60));
+		return { hours, minutes, duration };
+	}
+
+	function getCountdownInfo(shiftId) {
+		const timer = shiftTimers.get(shiftId);
+		const shift = todayShifts.find(s => s.id === shiftId);
+		if (!timer || !shift) return null;
+		
+		const elapsed = currentTime - timer.startTime;
+		const threeHours = 3 * 60 * 60 * 1000; // 3 hours in milliseconds
+		
+		// Calculate elapsed time
+		const elapsedHours = Math.floor(elapsed / (1000 * 60 * 60));
+		const elapsedMinutes = Math.floor((elapsed % (1000 * 60 * 60)) / (1000 * 60));
+		
+		// Calculate scheduled shift duration
+		const [startHour, startMinute] = shift.start_time.split(':').map(Number);
+		const [endHour, endMinute] = shift.end_time.split(':').map(Number);
+		const shiftDurationHours = endHour - startHour;
+		const shiftDurationMinutes = endMinute - startMinute;
+		const totalShiftMinutes = shiftDurationHours * 60 + shiftDurationMinutes;
+		
+		// Check if all tables are available (for post-break countdown)
+		const myTables = getAllMyTables(shift.assigned_section);
+		const allTablesAvailable = myTables.length === 0 || myTables.every(table => 
+			table.status_field === 'available' || !table.status_field
+		);
+		const occupiedTables = myTables.filter(table => 
+			table.status_field === 'occupied' || table.status_field === 'cleaning'
+		).length;
+		
+		const baseMetadata = {
+			elapsedTime: `${elapsedHours}h ${elapsedMinutes}m`,
+			shiftDuration: `${Math.floor(totalShiftMinutes / 60)}h ${totalShiftMinutes % 60}m`,
+			breakDuration: shift.break_duration ? `${shift.break_duration} min` : 'Not specified',
+			tablesTotal: myTables.length,
+			tablesOccupied: occupiedTables,
+			tablesAvailable: myTables.length - occupiedTables
+		};
+		
+		if (elapsed < threeHours) {
+			// Countdown to break time
+			const timeToBreak = threeHours - elapsed;
+			const hours = Math.floor(timeToBreak / (1000 * 60 * 60));
+			const minutes = Math.floor((timeToBreak % (1000 * 60 * 60)) / (1000 * 60));
+			const seconds = Math.floor((timeToBreak % (1000 * 60)) / 1000);
+			
+			return {
+				type: 'break',
+				hours,
+				minutes,
+				seconds,
+				message: 'Break time in',
+				color: 'green',
+				...baseMetadata
+			};
+		} else {
+			// Past break time
+			if (allTablesAvailable) {
+				// Countdown to scheduled end time
+				const [endHour, endMinute] = shift.end_time.split(':').map(Number);
+				const today = new Date();
+				const endTime = new Date(today.getFullYear(), today.getMonth(), today.getDate(), endHour, endMinute);
+				
+				// If end time has passed, don't show countdown
+				if (currentTime >= endTime) {
+					return {
+						type: 'overtime',
+						hours: 0,
+						minutes: 0,
+						seconds: 0,
+						message: 'Ready to clock out',
+						color: 'blue',
+						...baseMetadata
+					};
+				}
+				
+				const timeToEnd = endTime - currentTime;
+				const hours = Math.floor(timeToEnd / (1000 * 60 * 60));
+				const minutes = Math.floor((timeToEnd % (1000 * 60 * 60)) / (1000 * 60));
+				const seconds = Math.floor((timeToEnd % (1000 * 60)) / 1000);
+				
+				return {
+					type: 'clockout',
+					hours,
+					minutes,
+					seconds,
+					message: 'Clock out in',
+					color: 'blue',
+					...baseMetadata
+				};
+			} else {
+				// Tables still occupied, show elapsed time since break
+				const timeSinceBreak = elapsed - threeHours;
+				const hours = Math.floor(timeSinceBreak / (1000 * 60 * 60));
+				const minutes = Math.floor((timeSinceBreak % (1000 * 60 * 60)) / (1000 * 60));
+				
+				return {
+					type: 'working',
+					hours,
+					minutes,
+					seconds: 0,
+					message: 'Working overtime',
+					color: 'yellow',
+					...baseMetadata
+				};
+			}
+		}
+	}
+
+	function shouldShowBreakReminder(shiftId) {
+		const timer = shiftTimers.get(shiftId);
+		if (!timer || timer.breakReminded) return false;
+		
+		const duration = currentTime - timer.startTime;
+		const threeHours = 3 * 60 * 60 * 1000; // 3 hours in milliseconds
+		
+		if (duration >= threeHours && !timer.breakReminded) {
+			timer.breakReminded = true;
+			shiftTimers.set(shiftId, timer);
+			return true;
+		}
+		return false;
+	}
+
+	function isPastBreakTime(shiftId) {
+		const timer = shiftTimers.get(shiftId);
+		if (!timer) return false;
+		
+		const duration = currentTime - timer.startTime;
+		const threeHours = 3 * 60 * 60 * 1000; // 3 hours in milliseconds
+		return duration > threeHours;
+	}
+
+	async function checkAutoComplete(shiftId) {
+		const timer = shiftTimers.get(shiftId);
+		if (!timer || !isPastBreakTime(shiftId)) return;
+		
+		// Check if all tables are available
+		const shift = todayShifts.find(s => s.id === shiftId);
+		if (!shift) return;
+		
+		const myTables = getAllMyTables(shift.assigned_section);
+		const allTablesAvailable = myTables.every(table => 
+			table.status_field === 'available' || !table.status_field
+		);
+		
+		if (allTablesAvailable && !timer.autoCompleteChecked) {
+			timer.autoCompleteChecked = true;
+			shiftTimers.set(shiftId, timer);
+			
+			// Wait 15 minutes, then auto-complete if still all available
+			setTimeout(async () => {
+				const currentMyTables = getAllMyTables(shift.assigned_section);
+				const stillAllAvailable = currentMyTables.every(table => 
+					table.status_field === 'available' || !table.status_field
+				);
+				
+				if (stillAllAvailable) {
+					if (confirm('All your tables have been available for 15 minutes. Would you like to complete your shift automatically?')) {
+						await updateShiftStatus(shiftId, 'completed');
+					}
+				}
+			}, 15 * 60 * 1000); // 15 minutes
 		}
 	}
 
@@ -118,6 +360,18 @@
 			month: 'long',
 			day: 'numeric'
 		});
+	}
+
+	function formatTime(timeStr) {
+		// Convert 24-hour format (14:00) to 12-hour format (2:00 pm)
+		if (!timeStr) return timeStr;
+		
+		const [hours, minutes] = timeStr.split(':');
+		const hour24 = parseInt(hours);
+		const hour12 = hour24 === 0 ? 12 : hour24 > 12 ? hour24 - 12 : hour24;
+		const ampm = hour24 < 12 ? 'am' : 'pm';
+		
+		return `${hour12}:${minutes} ${ampm}`;
 	}
 
 	// Helper to get section name by ID
@@ -218,6 +472,27 @@
 	$: currentShiftTables = (todayShifts.length > 0 && todayShifts[0] && selectedAdditionalSections) 
 		? getAllMyTables(todayShifts[0].assigned_section) 
 		: [];
+
+	// Reactive checks for break reminders and auto-completion
+	$: {
+		if (currentTime && todayShifts.length > 0) {
+			todayShifts.forEach(shift => {
+				const timer = shiftTimers.get(shift.id);
+				if (timer) {
+					// Check for break reminder
+					if (shouldShowBreakReminder(shift.id)) {
+						alert('Time for your break! You\'ve been working for 3 hours.');
+					}
+					
+					// Check for auto-completion
+					checkAutoComplete(shift.id);
+				}
+			});
+		}
+	}
+
+	// Force reactivity for timer displays
+	$: timerDisplayKey = currentTime.getTime();
 </script>
 
 <div class="min-h-screen bg-gradient-to-br from-gray-900 to-gray-800 text-gray-100">
@@ -310,9 +585,9 @@
 						<div class="bg-gray-800/50 backdrop-blur-sm rounded-xl border border-gray-700 p-6">
 							<div class="flex justify-between items-start mb-4">
 								<div>
-									<h3 class="text-xl font-bold">{shift.position}</h3>
+									<h3 class="text-xl font-bold">{shift.expand?.staff_member?.first_name || shift.position}</h3>
 									<p class="text-gray-400">
-										{shift.start_time} - {shift.end_time}
+										{formatTime(shift.start_time)} - {formatTime(shift.end_time)}
 										{#if shift.break_duration}
 											<span class="ml-2 text-sm">(Break: {shift.break_duration} min)</span>
 										{/if}
@@ -489,22 +764,240 @@
 								</div>
 							{/if}
 
-							<div class="flex space-x-3">
-								{#if shift.status === 'scheduled'}
-									<button
-										on:click={() => updateShiftStatus(shift.id, 'confirmed')}
-										class="px-4 py-2 bg-green-600 hover:bg-green-700 rounded-lg text-sm font-medium"
-									>
-										Confirm Attendance
-									</button>
-								{:else if shift.status === 'confirmed'}
-									<button
-										on:click={() => updateShiftStatus(shift.id, 'completed')}
-										class="px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded-lg text-sm font-medium"
-									>
-										Mark Complete
-									</button>
+							<div class="flex flex-col space-y-3">
+								<!-- Shift Timer Display -->
+								{#if shiftTimers.has(shift.id)}
+									{#key timerDisplayKey}
+										{@const countdown = getCountdownInfo(shift.id)}
+										{#if countdown}
+											<div class="p-4 rounded-lg border {
+												countdown.color === 'green' ? 'bg-green-900/20 border-green-700' :
+												countdown.color === 'blue' ? 'bg-blue-900/20 border-blue-700' :
+												countdown.color === 'yellow' ? 'bg-yellow-900/20 border-yellow-700' :
+												'bg-gray-900/20 border-gray-700'
+											}">
+												<!-- Main Timer Display -->
+												<div class="flex items-center space-x-3 mb-3">
+													<svg class="w-6 h-6 {
+														countdown.color === 'green' ? 'text-green-400' :
+														countdown.color === 'blue' ? 'text-blue-400' :
+														countdown.color === 'yellow' ? 'text-yellow-400' :
+														'text-gray-400'
+													}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+														<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+													</svg>
+													<div class="flex-1">
+														<p class="text-sm font-medium {
+															countdown.color === 'green' ? 'text-green-300' :
+															countdown.color === 'blue' ? 'text-blue-300' :
+															countdown.color === 'yellow' ? 'text-yellow-300' :
+															'text-gray-300'
+														}">{countdown.message}</p>
+														<p class="text-2xl font-mono font-bold {
+															countdown.color === 'green' ? 'text-green-400' :
+															countdown.color === 'blue' ? 'text-blue-400' :
+															countdown.color === 'yellow' ? 'text-yellow-400' :
+															'text-gray-400'
+														}">
+															{#if countdown.type === 'break' || countdown.type === 'clockout'}
+																{countdown.hours.toString().padStart(2, '0')}:{countdown.minutes.toString().padStart(2, '0')}:{countdown.seconds.toString().padStart(2, '0')}
+															{:else}
+																{countdown.hours}h {countdown.minutes}m
+															{/if}
+														</p>
+													</div>
+												</div>
+												
+												<!-- Metadata Grid -->
+												<div class="grid grid-cols-2 gap-3 text-xs">
+													<div class="space-y-1">
+														<div class="flex justify-between">
+															<span class="text-gray-400">Time Worked:</span>
+															<span class="font-medium text-gray-300">{countdown.elapsedTime}</span>
+														</div>
+														<div class="flex justify-between">
+															<span class="text-gray-400">Shift Length:</span>
+															<span class="font-medium text-gray-300">{countdown.shiftDuration}</span>
+														</div>
+														<div class="flex justify-between">
+															<span class="text-gray-400">Break Time:</span>
+															<span class="font-medium text-gray-300">{countdown.breakDuration}</span>
+														</div>
+													</div>
+													<div class="space-y-1">
+														<div class="flex justify-between">
+															<span class="text-gray-400">Total Tables:</span>
+															<span class="font-medium text-gray-300">{countdown.tablesTotal}</span>
+														</div>
+														<div class="flex justify-between">
+															<span class="text-gray-400">Occupied:</span>
+															<span class="font-medium {countdown.tablesOccupied > 0 ? 'text-red-400' : 'text-green-400'}">{countdown.tablesOccupied}</span>
+														</div>
+														<div class="flex justify-between">
+															<span class="text-gray-400">Available:</span>
+															<span class="font-medium {countdown.tablesAvailable === countdown.tablesTotal ? 'text-green-400' : 'text-yellow-400'}">{countdown.tablesAvailable}</span>
+														</div>
+													</div>
+												</div>
+
+												<!-- Status Indicator -->
+												{#if countdown.type === 'break'}
+													<div class="mt-3 text-center">
+														<span class="inline-flex items-center px-2 py-1 rounded-full text-xs bg-green-900/50 text-green-300">
+															🍕 Break due soon
+														</span>
+													</div>
+												{:else if countdown.type === 'clockout'}
+													<div class="mt-3 text-center">
+														<span class="inline-flex items-center px-2 py-1 rounded-full text-xs bg-blue-900/50 text-blue-300">
+															✅ All tables clear - ready to clock out
+														</span>
+													</div>
+												{:else if countdown.type === 'working'}
+													<div class="mt-3 text-center">
+														<span class="inline-flex items-center px-2 py-1 rounded-full text-xs bg-yellow-900/50 text-yellow-300">
+															⚠️ {countdown.tablesOccupied} table{countdown.tablesOccupied !== 1 ? 's' : ''} still occupied
+														</span>
+													</div>
+												{:else if countdown.type === 'overtime'}
+													<div class="mt-3 text-center">
+														<span class="inline-flex items-center px-2 py-1 rounded-full text-xs bg-blue-900/50 text-blue-300">
+															🎯 Shift complete - ready to clock out
+														</span>
+													</div>
+												{/if}
+											</div>
+										{/if}
+									{/key}
 								{/if}
+
+								<!-- Action Buttons -->
+								<div class="flex space-x-3">
+									{#if shift.status === 'scheduled'}
+										<button
+											on:click={() => updateShiftStatus(shift.id, 'confirmed')}
+											class="px-4 py-2 bg-green-600 hover:bg-green-700 rounded-lg text-sm font-medium"
+										>
+											Confirm Attendance
+										</button>
+									{:else if shift.status === 'confirmed'}
+										{@const timer = shiftTimers.get(shift.id)}
+										{@const inProgress = timer !== undefined}
+										{@const pastBreakTime = isPastBreakTime(shift.id)}
+										
+										{#if !inProgress}
+											<!-- Start Shift Button -->
+											<button
+												on:click={() => updateShiftStatus(shift.id, 'in_progress')}
+												class="px-4 py-2 bg-green-600 hover:bg-green-700 rounded-lg text-sm font-medium flex items-center space-x-2"
+											>
+												<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+													<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+												</svg>
+												<span>Start Shift</span>
+											</button>
+										{:else}
+											{@const timer = shiftTimers.get(shift.id)}
+											{@const elapsed = currentTime - timer.startTime}
+											{@const threeHours = 3 * 60 * 60 * 1000}
+											{@const atBreakTime = elapsed >= threeHours && !timer.breakReminded}
+											
+											<!-- Take Break Button (prominent when it's break time) -->
+											{#if atBreakTime}
+												<button
+													on:click={() => {
+														timer.breakReminded = true;
+														shiftTimers.set(shift.id, timer);
+														alert('Enjoy your 30-minute break! Remember to mark your tables as available when you step away.');
+													}}
+													class="px-4 py-2 bg-green-600 hover:bg-green-700 rounded-lg text-sm font-medium flex items-center space-x-2"
+												>
+													<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+														<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"></path>
+													</svg>
+													<span>Take Your Break</span>
+												</button>
+											{/if}
+											
+											<!-- Mark Complete Button (dynamic size based on time) -->
+											<button
+												on:click={() => updateShiftStatus(shift.id, 'completed')}
+												class="px-4 py-2 rounded-lg text-sm font-medium flex items-center space-x-2 transition-all {
+													pastBreakTime 
+														? 'bg-blue-600 hover:bg-blue-700 text-white' 
+														: 'bg-gray-600 hover:bg-gray-500 text-gray-300 text-xs px-3 py-1'
+												}"
+											>
+												<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+													<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+												</svg>
+												<span>{pastBreakTime ? 'Complete Shift' : 'End Early'}</span>
+											</button>
+											
+											<!-- Additional Options (when not past break time) -->
+											{#if !pastBreakTime}
+												<div class="flex space-x-2">
+													<!-- Take Break Button -->
+													<button
+														on:click={() => {
+															const timer = shiftTimers.get(shift.id);
+															if (timer) {
+																timer.breakReminded = true;
+																shiftTimers.set(shift.id, timer);
+																alert('Enjoy your break! Remember to mark your tables as available when you step away.');
+															}
+														}}
+														class="px-3 py-1 bg-blue-600 hover:bg-blue-700 rounded text-xs font-medium flex items-center space-x-1"
+													>
+														<svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+															<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"></path>
+														</svg>
+														<span>Break</span>
+													</button>
+													
+													<!-- Emergency Options -->
+													<button
+														on:click={() => {
+															if (confirm('Are you feeling sick and need to end your shift early?')) {
+																updateShiftStatus(shift.id, 'completed');
+															}
+														}}
+														class="px-3 py-1 bg-red-600 hover:bg-red-700 rounded text-xs font-medium flex items-center space-x-1"
+													>
+														<svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+															<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"></path>
+														</svg>
+														<span>Sick</span>
+													</button>
+													<button
+														on:click={() => {
+															if (confirm('Have you transferred all your sections to another server?')) {
+																updateShiftStatus(shift.id, 'completed');
+															}
+														}}
+														class="px-3 py-1 bg-yellow-600 hover:bg-yellow-700 rounded text-xs font-medium flex items-center space-x-1"
+													>
+														<svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+															<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4"></path>
+														</svg>
+														<span>Transfer</span>
+													</button>
+												</div>
+											{/if}
+										{/if}
+									{:else if shift.status === 'in_progress'}
+										<!-- This shouldn't happen, but just in case -->
+										<button
+											on:click={() => updateShiftStatus(shift.id, 'completed')}
+											class="px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded-lg text-sm font-medium flex items-center space-x-2"
+										>
+											<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+												<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+											</svg>
+											<span>Complete Shift</span>
+										</button>
+									{/if}
+								</div>
 							</div>
 						</div>
 					{/each}
@@ -530,7 +1023,7 @@
 								<div>
 									<h3 class="text-lg font-medium">{formatDate(shift.shift_date)}</h3>
 									<p class="text-gray-400">{shift.position}</p>
-									<p class="text-sm text-gray-300">{shift.start_time} - {shift.end_time}</p>
+									<p class="text-sm text-gray-300">{formatTime(shift.start_time)} - {formatTime(shift.end_time)}</p>
 								</div>
 								<span class="px-3 py-1 rounded-full text-sm {
 									shift.status === 'confirmed' ? 'bg-green-900/50 text-green-300' :
