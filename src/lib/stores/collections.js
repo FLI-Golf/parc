@@ -713,7 +713,7 @@ export const collections = {
 	async getTickets() {
 		try {
 			loading.update(state => ({ ...state, tickets: true }));
-			const records = await pb.collection('tickets').getFullList({
+			const records = await pb.collection('tickets_collection').getFullList({
 				expand: 'table_id,server_id',
 				sort: '-created'
 			});
@@ -742,8 +742,8 @@ export const collections = {
 				total_amount: 0
 			};
 			
-			const record = await pb.collection('tickets').create(ticketData, {
-				expand: 'table_id,server_id'
+			const record = await pb.collection('tickets_collection').create(ticketData, {
+			expand: 'table_id,server_id'
 			});
 			tickets.update(items => [record, ...items]);
 			return record;
@@ -755,8 +755,8 @@ export const collections = {
 
 	async updateTicket(id, data) {
 		try {
-			const record = await pb.collection('tickets').update(id, data, {
-				expand: 'table_id,server_id'
+			const record = await pb.collection('tickets_collection').update(id, data, {
+			expand: 'table_id,server_id'
 			});
 			tickets.update(items => 
 				items.map(item => item.id === id ? record : item)
@@ -773,10 +773,10 @@ export const collections = {
 		try {
 			loading.update(state => ({ ...state, ticketItems: true }));
 			const filter = ticketId ? `ticket_id="${ticketId}"` : '';
-			const records = await pb.collection('ticket_items').getFullList({
-				expand: 'ticket_id,menu_item_id',
-				filter,
-				sort: 'created'
+			const records = await pb.collection('ticket_items_collection').getFullList({
+			expand: 'ticket_id,menu_item_id',
+			filter,
+			sort: 'created'
 			});
 			ticketItems.set(records);
 			return records;
@@ -821,8 +821,8 @@ export const collections = {
 
 	async updateTicketItem(id, data) {
 		try {
-			const record = await pb.collection('ticket_items').update(id, data, {
-				expand: 'ticket_id,menu_item_id'
+			const record = await pb.collection('ticket_items_collection').update(id, data, {
+			expand: 'ticket_id,menu_item_id'
 			});
 			ticketItems.update(items => 
 				items.map(item => item.id === id ? record : item)
@@ -836,8 +836,8 @@ export const collections = {
 
 	async removeTicketItem(id) {
 		try {
-			const item = await pb.collection('ticket_items').getOne(id);
-			await pb.collection('ticket_items').delete(id);
+			const item = await pb.collection('ticket_items_collection').getOne(id);
+			await pb.collection('ticket_items_collection').delete(id);
 			ticketItems.update(items => items.filter(item => item.id !== id));
 			
 			// Update ticket totals
@@ -850,7 +850,7 @@ export const collections = {
 
 	async recalculateTicketTotals(ticketId) {
 		try {
-			const items = await pb.collection('ticket_items').getFullList({
+			const items = await pb.collection('ticket_items_collection').getFullList({
 				filter: `ticket_id="${ticketId}"`
 			});
 			
