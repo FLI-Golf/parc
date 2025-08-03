@@ -1056,12 +1056,22 @@
 
 	// Get table order status and details
 	function getTableOrderStatus(tableId) {
+		// DEBUG: Check what data we have
+		console.log('🔍 DEBUG TABLE STATUS for tableId:', tableId);
+		console.log('📋 All tickets:', $tickets);
+		console.log('🍽️ All ticket items:', $ticketItems);
+		
 		const tableTickets = $tickets.filter(ticket => 
 			ticket.table_id === tableId && 
 			['sent_to_kitchen', 'preparing', 'ready'].includes(ticket.status)
 		);
 		
-		if (tableTickets.length === 0) return null;
+		console.log('🎯 Matching tickets for table', tableId + ':', tableTickets);
+		
+		if (tableTickets.length === 0) {
+			console.log('❌ No matching tickets found for table', tableId);
+			return null;
+		}
 		
 		const ticket = tableTickets[0]; // Most recent active ticket
 		const items = $ticketItems.filter(item => item.ticket_id === ticket.id);
@@ -1155,6 +1165,20 @@
 	function closeTableDetailsModal() {
 		showTableDetailsModal = false;
 		selectedTableDetails = null;
+	}
+
+	// DEBUG: Helper function to check table data
+	function debugTableData() {
+		console.log('🔍 DEBUG ALL TABLE DATA:');
+		console.log('🏢 Tables:', $tables);
+		console.log('📋 Tickets:', $tickets);
+		console.log('🍽️ Ticket Items:', $ticketItems);
+		
+		// Check each table for status
+		$tables.forEach(table => {
+			const status = getTableOrderStatus(table.id);
+			console.log(`🎯 Table ${table.table_name || table.table_number_field} (ID: ${table.id}) →`, status ? 'HAS ORDERS' : 'NO ORDERS');
+		});
 	}
 
 	// Get category icon
@@ -1264,6 +1288,12 @@
 							</div>
 						</div>
 					{/if}
+					<button
+						on:click={debugTableData}
+						class="px-3 py-2 bg-purple-600 hover:bg-purple-700 rounded-lg transition-colors text-xs font-medium"
+					>
+						🔍 Debug Tables
+					</button>
 					<button
 						on:click={logout}
 						class="px-4 py-2 bg-gray-700 hover:bg-gray-600 rounded-lg transition-colors text-sm font-medium"
