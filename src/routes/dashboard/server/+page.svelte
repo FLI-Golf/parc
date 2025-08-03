@@ -1688,7 +1688,10 @@
 										{/if}
 									</div>
 									<button
-										on:click={() => collections.removeTicketItem(item.id)}
+										on:click={() => {
+											console.log('Removing ticket item:', item.id, item);
+											collections.removeTicketItem(item.id);
+										}}
 										class="text-red-400 hover:text-red-300 p-1"
 										title="Remove item"
 									>

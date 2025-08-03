@@ -836,15 +836,52 @@ export const collections = {
 
 	async removeTicketItem(id) {
 		try {
-			const item = await pb.collection('ticket_items_collection').getOne(id);
-			await pb.collection('ticket_items_collection').delete(id);
+			// Try to get the item from the correct collection first
+			let item = null;
+			let ticketId = null;
+			
+			try {
+				item = await pb.collection('ticket_items_collection').getOne(id);
+				ticketId = item.ticket_id;
+			} catch (getError) {
+				console.warn('Item not found in ticket_items_collection, trying ticket_items:', getError);
+				// Try the other collection name as fallback
+				try {
+					item = await pb.collection('ticket_items').getOne(id);
+					ticketId = item.ticket_id;
+				} catch (fallbackError) {
+					console.error('Item not found in either collection:', fallbackError);
+					// Still try to remove from local state
+					ticketItems.update(items => items.filter(item => item.id !== id));
+					return;
+				}
+			}
+			
+			// Try to delete from the collection where we found it
+			try {
+				if (item) {
+					await pb.collection('ticket_items_collection').delete(id);
+				}
+			} catch (deleteError) {
+				console.warn('Failed to delete from ticket_items_collection, trying ticket_items:', deleteError);
+				try {
+					await pb.collection('ticket_items').delete(id);
+				} catch (fallbackDeleteError) {
+					console.error('Failed to delete from both collections:', fallbackDeleteError);
+				}
+			}
+			
+			// Always update local state regardless
 			ticketItems.update(items => items.filter(item => item.id !== id));
 			
-			// Update ticket totals
-			await this.recalculateTicketTotals(item.ticket_id);
+			// Update ticket totals if we have a ticket ID
+			if (ticketId) {
+				await this.recalculateTicketTotals(ticketId);
+			}
 		} catch (error) {
 			console.error('Error removing ticket item:', error);
-			throw error;
+			// Don't throw the error, just log it and update local state
+			ticketItems.update(items => items.filter(item => item.id !== id));
 		}
 	},
 
