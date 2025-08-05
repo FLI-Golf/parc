@@ -51,7 +51,12 @@
 
 		// Check authentication and role
 		const unsubscribe = authStore.subscribe(async (auth) => {
-			if (!auth.isLoggedIn && !auth.isLoading) {
+			// Wait for auth to finish loading
+			if (auth.isLoading) {
+				return;
+			}
+			
+			if (!auth.isLoggedIn) {
 				goto('/');
 				return;
 			}
@@ -70,7 +75,7 @@
 				return;
 			}
 
-			if (auth.isLoggedIn) {
+			if (auth.isLoggedIn && auth.user) {
 				user = auth.user;
 				// Load relevant data for servers
 				try {
@@ -91,6 +96,9 @@
 					
 					// Load any existing shift timers
 					loadShiftTimers();
+					
+					// Load bar orders for bartenders
+					await loadBarOrders();
 				} catch (error) {
 					console.error('Error loading dashboard data:', error);
 				}
@@ -527,6 +535,11 @@
 	$: calculatedSubtotal = currentTicketItems.reduce((sum, item) => sum + (item.total_price || 0), 0);
 	$: calculatedTax = calculatedSubtotal * 0.08875; // NYC tax rate
 	$: calculatedTotal = calculatedSubtotal + calculatedTax;
+	
+	// Reactive: Update bar orders when ticket items change
+	$: if ($ticketItems && user?.role?.toLowerCase() === 'bartender') {
+		loadBarOrders();
+	}
 	
 	// Menu modifiers (will be loaded from CSV later)
 	const menuModifiers = [
@@ -1182,6 +1195,9 @@
 	// Show table order details modal
 	let showTableDetailsModal = false;
 	let selectedTableDetails = null;
+	
+	// Bar orders for bartenders
+	let barOrders = [];
 
 	function showTableOrderDetails(table) {
 		const orderStatus = getTableOrderStatus(table.id);
@@ -1215,6 +1231,103 @@
 			const status = getTableOrderStatus(table.id);
 			console.log(`🎯 Table ${table.table_name || table.table_number_field} (ID: ${table.id}) →`, status ? 'HAS ORDERS' : 'NO ORDERS');
 		});
+	}
+
+	// Load bar orders for bartenders
+	async function loadBarOrders() {
+		if (user?.role?.toLowerCase() !== 'bartender') {
+			barOrders = [];
+			return;
+		}
+
+		try {
+			// Get all active ticket items that are bar orders
+			const allItems = $ticketItems || [];
+			
+			const activeBarItems = allItems.filter(item => 
+				item.kitchen_station === 'bar' &&
+				(item.status === 'sent_to_kitchen' || item.status === 'preparing' || item.status === 'ready')
+			);
+
+			// Add metadata to items and filter by 7-minute visibility window
+			const now = new Date();
+			barOrders = activeBarItems
+				.map(item => {
+					const orderedAt = new Date(item.ordered_at);
+					const preparedAt = item.prepared_at ? new Date(item.prepared_at) : null;
+					const elapsedMinutes = Math.floor((now - orderedAt) / (1000 * 60));
+					const estimatedMinutes = 3; // Bar items typically 3 minutes
+					const remainingMinutes = Math.max(0, estimatedMinutes - elapsedMinutes);
+					
+					// Calculate display time - 7 minutes from when marked ready
+					const displayUntil = preparedAt ? 
+						new Date(preparedAt.getTime() + 7 * 60 * 1000) : // 7 minutes after ready
+						new Date(orderedAt.getTime() + 10 * 60 * 1000); // 10 minutes after ordered if not ready yet
+					
+					const shouldDisplay = now < displayUntil;
+					const minutesUntilHidden = Math.max(0, Math.floor((displayUntil - now) / (1000 * 60)));
+					
+					return {
+						...item,
+						elapsedMinutes,
+						estimatedMinutes,
+						remainingMinutes,
+						isOverdue: elapsedMinutes > estimatedMinutes,
+						shouldDisplay,
+						minutesUntilHidden,
+						displayUntil
+					};
+				})
+				.filter(item => item.shouldDisplay); // Only show items within display window
+			
+		} catch (error) {
+			console.error('Error loading bar orders:', error);
+		}
+	}
+
+	// Mark bar item as preparing
+	async function markBarItemPreparing(item) {
+		try {
+			await collections.updateTicketItem(item.id, {
+				status: 'preparing'
+			});
+			await loadBarOrders();
+		} catch (error) {
+			console.error('Error marking bar item preparing:', error);
+		}
+	}
+
+	// Mark bar item as ready
+	async function markBarItemReady(item) {
+		try {
+			await collections.updateTicketItem(item.id, {
+				status: 'ready',
+				prepared_at: new Date().toISOString()
+			});
+			await loadBarOrders();
+		} catch (error) {
+			console.error('Error marking bar item ready:', error);
+		}
+	}
+
+	// Send reminder to server about uncollected drink
+	async function sendDrinkReminder(item) {
+		try {
+			// Create a simple notification system (could be enhanced with real notifications)
+			const tableInfo = item.expand?.ticket_id?.table_id || 'Unknown Table';
+			const drinkName = item.expand?.menu_item_id?.name || 'Drink';
+			
+			alert(`🔔 REMINDER: ${item.quantity}x ${drinkName} ready for pickup at ${tableInfo}!\n\nDrink has been ready for ${item.elapsedMinutes}+ minutes.`);
+			
+			// Could also:
+			// - Send to server's device notification
+			// - Add to a reminder queue
+			// - Log in notification system
+			console.log(`📱 Reminder sent: ${drinkName} ready at ${tableInfo}`);
+			
+		} catch (error) {
+			console.error('Error sending drink reminder:', error);
+		}
 	}
 
 	// Get category icon
@@ -1887,6 +2000,127 @@
 							</div>
 						</div>
 					{/each}
+				</div>
+			{/if}
+
+			<!-- Bar Orders Section (for bartenders only) -->
+			{#if user?.role?.toLowerCase() === 'bartender'}
+				<!-- Debug: Always show for bartenders to debug -->
+				<div class="mt-8">
+					<div class="mb-6">
+						<h2 class="text-3xl font-bold">🍹 Bar Orders ({barOrders.length})</h2>
+						<p class="text-gray-400 mt-2">Drinks waiting to be prepared</p>
+						<button
+							on:click={() => {
+								console.log('🔍 DEBUG BAR ORDERS:');
+								console.log('User role:', user?.role);
+								console.log('All ticket items:', $ticketItems);
+								console.log('Bar orders:', barOrders);
+								loadBarOrders();
+							}}
+							class="px-3 py-2 bg-purple-600 hover:bg-purple-700 rounded-lg text-white text-sm mt-2"
+						>
+							🔍 Debug Bar Orders
+						</button>
+					</div>
+
+				{#if barOrders.length > 0}
+
+					<div class="grid gap-4">
+						{#each barOrders as item}
+							<div class="bg-gray-800/50 backdrop-blur-sm rounded-xl border border-gray-700 p-6 {
+								item.isOverdue ? 'border-red-500 bg-red-900/10' : 
+								item.remainingMinutes <= 1 ? 'border-orange-500 bg-orange-900/10' : 
+								''
+							}">
+								<div class="flex justify-between items-start">
+									<div class="flex-1">
+										<h3 class="text-xl font-medium text-white">
+											{item.quantity}x {item.expand?.menu_item_id?.name || 'Unknown Drink'}
+										</h3>
+										
+										<div class="text-sm text-gray-400 mt-1">
+											Table {item.expand?.ticket_id?.table_id || 'Unknown'} • 
+											Ticket #{item.expand?.ticket_id?.ticket_number || 'N/A'}
+										</div>
+
+										{#if item.seat_number}
+											<div class="text-sm text-blue-300 mt-1">
+												Seat {item.seat_number} {item.seat_name ? `(${item.seat_name})` : ''}
+											</div>
+										{/if}
+
+										{#if item.modifications}
+											<div class="text-sm text-yellow-300 mt-2">
+												<strong>Modifications:</strong> {item.modifications}
+											</div>
+										{/if}
+
+										{#if item.special_instructions}
+											<div class="text-sm text-orange-300 mt-2">
+												<strong>Special Instructions:</strong> {item.special_instructions}
+											</div>
+										{/if}
+									</div>
+
+									<div class="text-right ml-4">
+										{#if item.status === 'ready'}
+											<div class="text-2xl font-bold text-green-400 mb-2">
+												✅ READY
+											</div>
+											<div class="text-sm text-orange-400">
+												Hides in {item.minutesUntilHidden}m
+											</div>
+										{:else}
+											<div class="text-3xl font-bold {item.isOverdue ? 'text-red-400' : 'text-green-400'} mb-2">
+												{item.remainingMinutes}m
+											</div>
+											<div class="text-sm text-gray-400">
+												{item.elapsedMinutes}m elapsed
+											</div>
+										{/if}
+										<div class="text-xs text-gray-500">
+											Est. {item.estimatedMinutes}m total
+										</div>
+									</div>
+								</div>
+
+								<div class="flex space-x-3 mt-4">
+									{#if item.status === 'sent_to_kitchen'}
+										<button
+											on:click={() => markBarItemPreparing(item)}
+											class="flex-1 px-4 py-2 bg-yellow-600 hover:bg-yellow-700 rounded-lg text-sm font-medium transition-colors"
+										>
+											🍹 Start Making
+										</button>
+									{/if}
+									
+									{#if item.status !== 'ready'}
+										<button
+											on:click={() => markBarItemReady(item)}
+											class="flex-1 px-4 py-2 bg-green-600 hover:bg-green-700 rounded-lg text-sm font-medium transition-colors"
+										>
+											✅ Ready for Pickup
+										</button>
+									{:else}
+										<button
+											on:click={() => sendDrinkReminder(item)}
+											class="flex-1 px-4 py-2 bg-orange-600 hover:bg-orange-700 rounded-lg text-sm font-medium transition-colors"
+										>
+											🔔 Send Reminder
+										</button>
+									{/if}
+								</div>
+							</div>
+						{/each}
+					</div>
+				{:else}
+					<div class="text-center py-8 text-gray-400">
+						<div class="text-4xl mb-2">🍹</div>
+						<p>No pending drink orders</p>
+						<p class="text-sm mt-1">Orders appear here when servers send drinks to the bar</p>
+					</div>
+				{/if}
 				</div>
 			{/if}
 

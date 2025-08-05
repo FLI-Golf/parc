@@ -13,6 +13,7 @@
 	let activeView = 'overview'; // 'overview' or 'tables'
 	let selectedTable = null;
 	let tableGroups = [];
+	let isDataLoaded = false;
 
 	// Estimated cooking times by station (in minutes)
 	const estimatedTimes = {
@@ -26,16 +27,34 @@
 	// Auto-refresh every 30 seconds
 	onMount(() => {
 		const unsubscribe = authStore.subscribe(async (auth) => {
-			user = auth.user;
-			if (!auth.isLoggedIn && !auth.isLoading) {
+			console.log('🔐 Kitchen Auth State:', auth);
+			
+			// Wait for auth to finish loading
+			if (auth.isLoading) {
+				console.log('⏳ Auth still loading...');
+				return;
+			}
+			
+			// Redirect if not logged in
+			if (!auth.isLoggedIn) {
+				console.log('❌ Not logged in, redirecting...');
 				goto('/');
 				return;
 			}
 			
-			// Load initial data
-			if (auth.isLoggedIn) {
-				await collections.getMenuItems(); // Load menu items for preparation times
-				await loadKitchenOrders();
+			// Set user and load data only when auth is ready
+			if (auth.isLoggedIn && auth.user) {
+				console.log('✅ Auth ready, loading data for user:', auth.user.email);
+				user = auth.user;
+				
+				try {
+					await collections.getMenuItems(); // Load menu items for preparation times
+					await loadKitchenOrders();
+					isDataLoaded = true;
+					console.log('📊 Kitchen data loaded successfully');
+				} catch (error) {
+					console.error('❌ Error loading kitchen data:', error);
+				}
 			}
 		});
 
@@ -76,21 +95,38 @@
 				item.kitchen_station
 			);
 
-			// Separate by station
-			kitchenOrders = activeItems.filter(item => 
-				item.kitchen_station !== 'bar'
-			);
+			// Filter by user role
+			const userRole = user?.role?.toLowerCase();
 			
-			barOrders = activeItems.filter(item => 
-				item.kitchen_station === 'bar'
-			);
+			if (userRole === 'bartender') {
+				// Bartenders only see bar orders
+				kitchenOrders = [];
+				barOrders = activeItems.filter(item => 
+					item.kitchen_station === 'bar'
+				);
+			} else if (userRole === 'kitchen_prep' || userRole === 'dishwasher') {
+				// Kitchen prep and dishwashers only see kitchen orders (no bar)
+				kitchenOrders = activeItems.filter(item => 
+					item.kitchen_station !== 'bar'
+				);
+				barOrders = [];
+			} else {
+				// Chefs and managers see everything
+				kitchenOrders = activeItems.filter(item => 
+					item.kitchen_station !== 'bar'
+				);
+				barOrders = activeItems.filter(item => 
+					item.kitchen_station === 'bar'
+				);
+			}
 
 			// Add metadata to items
 			kitchenOrders = kitchenOrders.map(addOrderMetadata);
 			barOrders = barOrders.map(addOrderMetadata);
 
-			// Group orders by table for table view
-			groupOrdersByTable([...kitchenOrders, ...barOrders]);
+			// Group orders by table for table view (only include relevant orders for this user)
+			const allRelevantOrders = [...kitchenOrders, ...barOrders];
+			groupOrdersByTable(allRelevantOrders);
 
 		} catch (error) {
 			console.error('Error loading kitchen orders:', error);
@@ -214,12 +250,23 @@
 
 	async function logout() {
 		const { auth } = await import('$lib/auth.js');
-		await auth.signOut();
+		await auth.logout();
 		goto('/');
 	}
 </script>
 
 <div class="min-h-screen bg-gradient-to-br from-gray-900 to-gray-800 text-gray-100">
+	
+	<!-- Loading Screen -->
+	{#if !user || !isDataLoaded}
+		<div class="min-h-screen flex items-center justify-center">
+			<div class="text-center">
+				<div class="w-16 h-16 border-4 border-orange-600 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+				<h2 class="text-xl font-semibold text-white mb-2">Loading Kitchen Dashboard</h2>
+				<p class="text-gray-400">Please wait while we load your orders...</p>
+			</div>
+		</div>
+	{:else}
 	<!-- Header -->
 	<header class="bg-gray-800/50 backdrop-blur-sm border-b border-gray-700">
 		<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -284,7 +331,7 @@
 
 		{#if activeView === 'overview'}
 			<!-- Station-Based View (Original) -->
-			<div class="grid grid-cols-1 xl:grid-cols-2 gap-6">
+			<div class="grid grid-cols-1 {(user?.role?.toLowerCase() === 'bartender' || user?.role?.toLowerCase() === 'chef') ? 'xl:grid-cols-2' : ''} gap-6">
 			
 			<!-- Kitchen Orders -->
 			<div class="space-y-4">
@@ -365,9 +412,10 @@
 				{/if}
 			</div>
 
-			<!-- Bar Orders -->
-			<div class="space-y-4">
-				<h2 class="text-xl font-bold">Bar Orders ({barOrders.length})</h2>
+			<!-- Bar Orders (only show for bartenders and chefs) -->
+			{#if user?.role?.toLowerCase() === 'bartender' || user?.role?.toLowerCase() === 'chef'}
+				<div class="space-y-4">
+					<h2 class="text-xl font-bold">Bar Orders ({barOrders.length})</h2>
 
 				{#if barOrders.length === 0}
 					<div class="text-center py-8 text-gray-400">
@@ -434,7 +482,8 @@
 						{/each}
 					</div>
 				{/if}
-			</div>
+				</div>
+			{/if}
 			</div>
 		{:else if activeView === 'tables'}
 			<!-- Table-Based View -->
@@ -564,4 +613,5 @@
 			</div>
 		{/if}
 	</div>
+	{/if}
 </div>
