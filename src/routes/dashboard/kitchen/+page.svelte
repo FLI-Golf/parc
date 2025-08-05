@@ -10,6 +10,9 @@
 	let kitchenOrders = [];
 	let barOrders = [];
 	let refreshInterval;
+	let activeView = 'overview'; // 'overview' or 'tables'
+	let selectedTable = null;
+	let tableGroups = [];
 
 	// Estimated cooking times by station (in minutes)
 	const estimatedTimes = {
@@ -85,6 +88,9 @@
 			// Add metadata to items
 			kitchenOrders = kitchenOrders.map(addOrderMetadata);
 			barOrders = barOrders.map(addOrderMetadata);
+
+			// Group orders by table for table view
+			groupOrdersByTable([...kitchenOrders, ...barOrders]);
 
 		} catch (error) {
 			console.error('Error loading kitchen orders:', error);
@@ -168,6 +174,44 @@
 		return colors[urgency] || colors.normal;
 	}
 
+	// Group orders by table
+	function groupOrdersByTable(allOrders) {
+		const grouped = {};
+		
+		allOrders.forEach(item => {
+			const tableId = item.expand?.ticket_id?.table_id || item.table_id || 'Unknown';
+			if (!grouped[tableId]) {
+				grouped[tableId] = {
+					tableId,
+					ticketNumber: item.expand?.ticket_id?.ticket_number || item.ticket_number,
+					items: [],
+					totalItems: 0,
+					urgentItems: 0,
+					overdueItems: 0
+				};
+			}
+			
+			grouped[tableId].items.push(item);
+			grouped[tableId].totalItems++;
+			
+			if (item.urgencyLevel === 'urgent' || item.urgencyLevel === 'overdue') {
+				grouped[tableId].urgentItems++;
+			}
+			if (item.urgencyLevel === 'overdue' || item.urgencyLevel === 'critical') {
+				grouped[tableId].overdueItems++;
+			}
+		});
+		
+		tableGroups = Object.values(grouped).sort((a, b) => b.overdueItems - a.overdueItems || b.urgentItems - a.urgentItems);
+	}
+
+	// Get table status color
+	function getTableStatusColor(table) {
+		if (table.overdueItems > 0) return 'bg-red-600';
+		if (table.urgentItems > 0) return 'bg-orange-600';
+		return 'bg-green-600';
+	}
+
 	async function logout() {
 		const { auth } = await import('$lib/auth.js');
 		await auth.signOut();
@@ -212,7 +256,35 @@
 	</header>
 
 	<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-		<div class="grid grid-cols-1 xl:grid-cols-2 gap-6">
+		<!-- Tab Navigation -->
+		<div class="mb-6 border-b border-gray-700">
+			<nav class="flex space-x-8">
+				<button
+					on:click={() => activeView = 'overview'}
+					class="py-2 px-1 border-b-2 font-medium text-sm transition-colors {
+						activeView === 'overview' 
+							? 'border-orange-500 text-orange-400' 
+							: 'border-transparent text-gray-400 hover:text-gray-300 hover:border-gray-300'
+					}"
+				>
+					📊 Station Overview
+				</button>
+				<button
+					on:click={() => activeView = 'tables'}
+					class="py-2 px-1 border-b-2 font-medium text-sm transition-colors {
+						activeView === 'tables' 
+							? 'border-orange-500 text-orange-400' 
+							: 'border-transparent text-gray-400 hover:text-gray-300 hover:border-gray-300'
+					}"
+				>
+					🍽️ By Table ({tableGroups.length})
+				</button>
+			</nav>
+		</div>
+
+		{#if activeView === 'overview'}
+			<!-- Station-Based View (Original) -->
+			<div class="grid grid-cols-1 xl:grid-cols-2 gap-6">
 			
 			<!-- Kitchen Orders -->
 			<div class="space-y-4">
@@ -363,6 +435,133 @@
 					</div>
 				{/if}
 			</div>
-		</div>
+			</div>
+		{:else if activeView === 'tables'}
+			<!-- Table-Based View -->
+			<div class="space-y-6">
+				{#if selectedTable}
+					<!-- Table Detail View -->
+					<div class="bg-gray-800 rounded-lg border border-gray-700 p-6">
+						<div class="flex items-center justify-between mb-6">
+							<div>
+								<h2 class="text-2xl font-bold">Table {selectedTable.tableId}</h2>
+								<p class="text-gray-400">Ticket #{selectedTable.ticketNumber} • {selectedTable.totalItems} items</p>
+							</div>
+							<button
+								on:click={() => selectedTable = null}
+								class="px-4 py-2 bg-gray-700 hover:bg-gray-600 rounded-lg"
+							>
+								← Back to Tables
+							</button>
+						</div>
+
+						<div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+							{#each selectedTable.items as item}
+								<div class="p-4 rounded-lg border-2 {getUrgencyColors(item.urgencyLevel)}">
+									<div class="flex justify-between items-start mb-2">
+										<div>
+											<div class="font-bold text-lg">
+												{item.quantity}x {item.expand?.menu_item_id?.name || item.name}
+											</div>
+											<div class="text-sm text-gray-300">
+												{getStationName(item.kitchen_station)}
+											</div>
+											{#if item.seat_number}
+												<div class="text-sm text-blue-300">
+													Seat {item.seat_number} {item.seat_name ? `(${item.seat_name})` : ''}
+												</div>
+											{/if}
+										</div>
+										<div class="text-right">
+											<div class="text-xl font-bold {item.isOverdue ? 'text-red-400' : 'text-green-400'}">
+												{item.remainingMinutes}m
+											</div>
+											<div class="text-xs text-gray-400">
+												{item.elapsedMinutes}m elapsed
+											</div>
+										</div>
+									</div>
+
+									{#if item.modifications}
+										<div class="text-sm text-yellow-300 mb-2">
+											<strong>Mods:</strong> {item.modifications}
+										</div>
+									{/if}
+
+									{#if item.special_instructions}
+										<div class="text-sm text-orange-300 mb-3">
+											<strong>Special:</strong> {item.special_instructions}
+										</div>
+									{/if}
+
+									<div class="flex space-x-2">
+										{#if item.status === 'sent_to_kitchen'}
+											<button
+												on:click={() => markItemPreparing(item)}
+												class="flex-1 px-3 py-2 bg-yellow-600 hover:bg-yellow-700 rounded text-sm font-medium"
+											>
+												▶️ Start Preparing
+											</button>
+										{/if}
+										<button
+											on:click={() => markItemReady(item)}
+											class="flex-1 px-3 py-2 bg-green-600 hover:bg-green-700 rounded text-sm font-medium"
+										>
+											✅ Mark Ready
+										</button>
+									</div>
+								</div>
+							{/each}
+						</div>
+					</div>
+				{:else}
+					<!-- Table Overview -->
+					<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+						{#each tableGroups as table}
+							<button
+								on:click={() => selectedTable = table}
+								class="p-6 bg-gray-800 hover:bg-gray-750 border border-gray-700 rounded-lg text-left transition-all hover:scale-105"
+							>
+								<div class="flex items-center justify-between mb-3">
+									<h3 class="text-lg font-bold">Table {table.tableId}</h3>
+									<div class="w-4 h-4 rounded-full {getTableStatusColor(table)}"></div>
+								</div>
+								
+								<div class="text-sm text-gray-400 mb-2">
+									Ticket #{table.ticketNumber}
+								</div>
+								
+								<div class="space-y-1">
+									<div class="flex justify-between text-sm">
+										<span>Total Items:</span>
+										<span class="font-medium">{table.totalItems}</span>
+									</div>
+									{#if table.urgentItems > 0}
+										<div class="flex justify-between text-sm text-orange-400">
+											<span>Urgent:</span>
+											<span class="font-medium">{table.urgentItems}</span>
+										</div>
+									{/if}
+									{#if table.overdueItems > 0}
+										<div class="flex justify-between text-sm text-red-400">
+											<span>Overdue:</span>
+											<span class="font-medium">{table.overdueItems}</span>
+										</div>
+									{/if}
+								</div>
+							</button>
+						{/each}
+					</div>
+
+					{#if tableGroups.length === 0}
+						<div class="text-center py-12 text-gray-400">
+							<div class="text-6xl mb-4">🎉</div>
+							<h3 class="text-xl font-semibold mb-2">All Orders Complete!</h3>
+							<p>No active orders from any tables right now.</p>
+						</div>
+					{/if}
+				{/if}
+			</div>
+		{/if}
 	</div>
 </div>

@@ -57,7 +57,15 @@
 			}
 			
 			const userRole = auth.role?.toLowerCase();
-			if (auth.isLoggedIn && !['server', 'host', 'bartender', 'busser', 'chef', 'kitchen_prep', 'dishwasher'].includes(userRole)) {
+			
+			// Redirect kitchen staff to kitchen dashboard
+			if (auth.isLoggedIn && ['chef', 'kitchen_prep', 'dishwasher'].includes(userRole)) {
+				goto('/dashboard/kitchen');
+				return;
+			}
+			
+			// Only allow front-of-house staff to access server dashboard
+			if (auth.isLoggedIn && !['server', 'host', 'bartender', 'busser'].includes(userRole)) {
 				goto('/dashboard');
 				return;
 			}
@@ -149,6 +157,19 @@
 		shiftTimers.delete(shiftId);
 		shiftTimers = new Map(shiftTimers); // Trigger reactivity
 		localStorage.removeItem(`shift_timer_${shiftId}`);
+	}
+
+	// Reset break reminder for a shift (if it gets stuck)
+	function resetBreakReminder(shiftId) {
+		const timer = shiftTimers.get(shiftId);
+		if (timer) {
+			timer.breakReminded = false;
+			shiftTimers.set(shiftId, timer);
+			localStorage.setItem(`shift_timer_${shiftId}`, JSON.stringify({
+				...timer,
+				startTime: timer.startTime.toISOString()
+			}));
+		}
 	}
 
 	function loadShiftTimers() {
@@ -296,6 +317,13 @@
 		if (duration >= threeHours && !timer.breakReminded) {
 			timer.breakReminded = true;
 			shiftTimers.set(shiftId, timer);
+			
+			// Save the updated timer to localStorage to persist the flag
+			localStorage.setItem(`shift_timer_${shiftId}`, JSON.stringify({
+				...timer,
+				startTime: timer.startTime.toISOString()
+			}));
+			
 			return true;
 		}
 		return false;
@@ -538,9 +566,13 @@
 			todayShifts.forEach(shift => {
 				const timer = shiftTimers.get(shift.id);
 				if (timer) {
-					// Check for break reminder
-					if (shouldShowBreakReminder(shift.id)) {
-						alert('Time for your break! You\'ve been working for 3 hours.');
+					// Check for break reminder (only if shift is still in progress)
+					if (shift.status === 'in_progress' && shouldShowBreakReminder(shift.id)) {
+						const takeBreak = confirm('Time for your break! You\'ve been working for 3 hours.\n\nWould you like to mark yourself as on break?');
+						if (takeBreak) {
+							// Optional: Update shift status to 'on_break' if that status exists
+							console.log('User chose to take break');
+						}
 					}
 					
 					// Check for auto-completion
@@ -1155,6 +1187,10 @@
 		const orderStatus = getTableOrderStatus(table.id);
 		if (!orderStatus) return;
 		
+		console.log('🍽️ Opening table details for:', table.table_name || table.table_number_field);
+		console.log('📋 Order status:', orderStatus);
+		console.log('🍴 Menu items:', $menuItems);
+		
 		selectedTableDetails = {
 			table,
 			...orderStatus
@@ -1294,6 +1330,22 @@
 					>
 						🔍 Debug Tables
 					</button>
+					{#if todayShifts.length > 0 && todayShifts.some(s => s.status === 'in_progress')}
+						<button
+							on:click={() => {
+								todayShifts.forEach(shift => {
+									if (shift.status === 'in_progress') {
+										resetBreakReminder(shift.id);
+									}
+								});
+								alert('Break reminder reset!');
+							}}
+							class="px-3 py-2 bg-yellow-600 hover:bg-yellow-700 rounded-lg transition-colors text-xs font-medium"
+							title="Reset break reminder if it's stuck"
+						>
+							🔄 Reset Break
+						</button>
+					{/if}
 					<button
 						on:click={logout}
 						class="px-4 py-2 bg-gray-700 hover:bg-gray-600 rounded-lg transition-colors text-sm font-medium"
@@ -1512,9 +1564,19 @@
 																	{@const statusDisplay = getTableStatusDisplay(table.id)}
 																	{@const hasOrders = getTableOrderStatus(table.id) !== null}
 																	{@const orderStatus = getTableOrderStatus(table.id)}
+									{@const debugOrderStatus = (() => {
+										const status = getTableOrderStatus(table.id);
+										console.log(`🔍 Table ${table.table_name} click check:`, status ? 'HAS ORDERS' : 'NO ORDERS', status);
+										return status;
+									})()}
 																	
 																	<button
-																		on:click={() => hasOrders ? showTableOrderDetails(table) : handleTableClick(table)}
+																		on:click={() => {
+																			console.log('🔥 CLICKED TABLE:', table.table_name || table.table_number_field);
+																			console.log('🔥 HAS ORDERS:', hasOrders);
+																			console.log('🔥 ORDER STATUS:', orderStatus);
+																			return hasOrders ? showTableOrderDetails(table) : handleTableClick(table);
+																		}}
 																		class="relative p-4 rounded-xl border-2 transition-all hover:scale-105 bg-gray-800/50 backdrop-blur-sm {
 																			section.id === shift.assigned_section ? 'border-green-500' : 
 																			selectedAdditionalSections.has(section.id) ? 'border-blue-500' : 'border-gray-600'
@@ -1987,6 +2049,81 @@
 						</svg>
 						<span>Back</span>
 					</button>
+					
+					{#if currentTicket}
+						<button
+							on:click={() => {
+								console.log('🔥 DEBUG ORDER STATUS:');
+								console.log('📋 Current Ticket:', currentTicket);
+								console.log('🍽️ Ticket Items:', currentTicketItems);
+								console.log('🍴 Menu Items:', $menuItems);
+								
+								// Show what getTableOrderStatus would return
+								const orderStatus = getTableOrderStatus(selectedTable.id);
+								console.log('📊 Table Order Status:', orderStatus);
+								
+								// Calculate prep times for each item
+								console.log('\n⏰ PREP TIME BREAKDOWN:');
+								currentTicketItems.forEach((item, index) => {
+									const menuItem = $menuItems.find(m => m.id === item.menu_item_id);
+									
+									// Better prep time defaults based on kitchen station
+									let prepTime = menuItem?.preparation_time;
+									if (!prepTime) {
+										switch(item.kitchen_station) {
+											case 'bar': prepTime = 3; break;
+											case 'cold_station': prepTime = 5; break;
+											case 'fryer': prepTime = 8; break;
+											case 'grill': prepTime = 15; break;
+											case 'kitchen': prepTime = 12; break;
+											default: prepTime = 10; break;
+										}
+									}
+									
+									const orderedAt = new Date(item.ordered_at);
+									const now = new Date();
+									const elapsed = Math.floor((now - orderedAt) / (1000 * 60));
+									const remaining = Math.max(0, prepTime - elapsed);
+									
+									// Calculate realistic status based on elapsed time
+									let calculatedStatus = item.status;
+									if (item.status === 'sent_to_kitchen') {
+										if (elapsed >= prepTime * 1.5) {
+											calculatedStatus = 'OVERDUE';
+										} else if (elapsed >= prepTime) {
+											calculatedStatus = 'READY';
+										} else if (elapsed >= prepTime * 0.7) {
+											calculatedStatus = 'PREPARING';
+										}
+									}
+									
+									console.log(`  ${index + 1}. ${menuItem?.name || 'Unknown Item'}`);
+									console.log(`     Stored Status: ${item.status}`);
+									console.log(`     Calculated Status: ${calculatedStatus}`);
+									console.log(`     Prep Time: ${prepTime} min`);
+									console.log(`     Ordered: ${orderedAt.toLocaleTimeString()}`);
+									console.log(`     Elapsed: ${elapsed} min`);
+									console.log(`     Remaining: ${remaining} min`);
+									console.log(`     Kitchen Station: ${item.kitchen_station}`);
+								});
+								
+								// Try to open the order details modal manually
+								if (orderStatus) {
+									selectedTableDetails = {
+										table: selectedTable,
+										...orderStatus
+									};
+									showTableDetailsModal = true;
+									console.log('🎯 Opened table details modal');
+								} else {
+									console.log('❌ No order status found - cannot open details modal');
+								}
+							}}
+							class="px-3 py-2 bg-purple-600 hover:bg-purple-700 rounded-lg text-white text-sm transition-colors"
+						>
+							📊 Order Status
+						</button>
+					{/if}
 					<div>
 						<h1 class="text-xl font-bold text-white">
 							{selectedTable.table_name || selectedTable.table_number_field}
@@ -2730,10 +2867,27 @@
 				<div class="space-y-3">
 					{#each selectedTableDetails.items as item}
 						{@const menuItem = $menuItems.find(m => m.id === item.menu_item_id)}
-						{@const prepTime = menuItem?.preparation_time || 12}
+						{@const prepTime = (() => {
+							if (menuItem?.preparation_time) return menuItem.preparation_time;
+							switch(item.kitchen_station) {
+								case 'bar': return 3;
+								case 'cold_station': return 5;
+								case 'fryer': return 8;
+								case 'grill': return 15;
+								case 'kitchen': return 12;
+								default: return 10;
+							}
+						})()}
 						{@const orderedAt = new Date(item.ordered_at)}
 						{@const elapsed = Math.floor((currentTime - orderedAt) / (1000 * 60))}
 						{@const remaining = Math.max(0, prepTime - elapsed)}
+						{@const calculatedStatus = (() => {
+							if (item.status !== 'sent_to_kitchen') return item.status;
+							if (elapsed >= prepTime * 1.5) return 'overdue';
+							if (elapsed >= prepTime) return 'ready';
+							if (elapsed >= prepTime * 0.7) return 'preparing';
+							return 'sent_to_kitchen';
+						})()}
 						
 						<div class="bg-gray-700 rounded-lg p-4">
 							<div class="flex justify-between items-start mb-2">
@@ -2749,14 +2903,17 @@
 								</div>
 								<div class="text-right">
 									<span class="px-2 py-1 rounded text-xs font-medium {
-										item.status === 'ready' ? 'bg-green-900 text-green-300' :
-										item.status === 'preparing' ? 'bg-blue-900 text-blue-300' :
+										calculatedStatus === 'ready' ? 'bg-green-900 text-green-300' :
+										calculatedStatus === 'preparing' ? 'bg-blue-900 text-blue-300' :
+										calculatedStatus === 'overdue' ? 'bg-red-900 text-red-300 animate-pulse' :
 										'bg-orange-900 text-orange-300'
 									}">
-										{item.status.replace('_', ' ').toUpperCase()}
+										{calculatedStatus.replace('_', ' ').toUpperCase()}
 									</span>
 									<p class="text-sm text-gray-400 mt-1">
-										{remaining}m remaining
+										{calculatedStatus === 'overdue' ? `${elapsed - prepTime}m overdue` : 
+										 calculatedStatus === 'ready' ? 'Ready now!' :
+										 `${remaining}m remaining`}
 									</p>
 								</div>
 							</div>
