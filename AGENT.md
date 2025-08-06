@@ -15,9 +15,18 @@ pnpm preview               # Preview production build
 pnpm check                 # Run type checking
 
 # Testing
-pnpm test                  # Run tests (when implemented)
+pnpm test                  # Run all tests
 pnpm test:unit            # Run unit tests
 pnpm test:integration     # Run integration tests
+pnpm test <pattern>       # Run specific test files (e.g., pnpm test vendors)
+
+# Test Coverage by Collection
+pnpm test table-updates   # Table status management tests
+pnpm test tickets         # Order/ticket management tests  
+pnpm test ticket-items    # Individual order item tests
+pnpm test vendors         # Vendor management tests
+pnpm test shifts          # Staff scheduling tests
+pnpm test sections        # Restaurant layout tests
 
 # Code Quality
 pnpm lint                 # Run ESLint
@@ -64,6 +73,9 @@ src/
 ### Server Role
 - View-only access to schedules and menu
 - Can update own shift status
+- Table management for assigned section
+- Can help other sections (cross-section table management)
+- Order taking and payment processing
 - Limited to operational needs
 - No administrative functions
 
@@ -77,6 +89,10 @@ src/
 - **Shifts**: `shifts_collection`
 - **Menu**: `menu_collection`
 - **Events**: `events_collection`
+- **Tickets**: `tickets_collection`
+- **Ticket Items**: `ticket_items_collection`
+- **Table Updates**: `table_updates_collection`
+- **Sections**: `sections_collection`
 
 ### Field Naming Convention
 All custom field IDs use the pattern: `{field_name}_field`
@@ -142,6 +158,21 @@ Most collections use these rules:
 - **Create/Update**: `@request.auth.role = 'admin' || @request.auth.role = 'manager'`
 - **Delete**: `@request.auth.role = 'admin'`
 
+## Key Server Dashboard Features
+
+### Cross-Section Table Management
+Servers can help other sections by clicking "Help Here" on any section:
+- Tables from helping sections appear in the main "Your Tables" area
+- Provides seamless management of all assigned and helping tables
+- Visual distinction: assigned section tables (green), helping sections (blue)
+- Reduces clicks and scrolling for efficient service
+
+### Bar Orders Integration
+For bartenders, Bar Orders section appears prominently after Today's Shifts:
+- Shows pending drink orders with timing and priority
+- Integrates with kitchen workflow for drink preparation
+- Real-time updates when orders are sent to bar
+
 ## Common Patterns
 
 ### Authentication Check
@@ -195,11 +226,24 @@ try {
 - Test utility functions
 - Test store logic
 - Test component behavior
+- Test collection CRUD operations
+- Test field validation (status, categories, types)
+- Test role-based access controls
 
 ### Integration Tests
 - Test authentication flow
-- Test CRUD operations
-- Test role-based access
+- Test complete workflows (order lifecycle, shift scheduling)
+- Test cross-collection relationships
+- Test business logic and calculations
+- Test real-time updates and notifications
+
+### Collection Test Coverage
+- **Table Updates**: Status transitions, capacity management
+- **Tickets**: Order workflow, payment processing, kitchen integration
+- **Ticket Items**: Kitchen station routing, course coordination
+- **Vendors**: Onboarding workflow, performance tracking
+- **Shifts**: Scheduling optimization, conflict detection
+- **Sections**: Layout management, staffing requirements
 
 ### E2E Tests
 - Test complete user workflows
@@ -262,7 +306,14 @@ try {
 - ✅ Manager dashboard with full CRUD
 - ✅ Server dashboard with limited access
 - ✅ Inventory management
-- ✅ Basic shift management
+- ✅ Shift management and scheduling
+- ✅ Vendor management and onboarding
+- ✅ Table status and updates tracking
+- ✅ Order/ticket management system
+- ✅ Kitchen workflow and item routing
+- ✅ Restaurant section layout management
+- ✅ Cross-section table management (helping other sections)
+- ✅ Comprehensive test coverage for all collections
 
 ### Planned Features
 - 🔄 Real-time updates

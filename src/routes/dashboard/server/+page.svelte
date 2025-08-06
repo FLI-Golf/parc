@@ -169,7 +169,7 @@
 				stopShiftTimer(shiftId);
 			}
 			
-			await collections.updateShift(shiftId, { status_field: status });
+			await collections.updateShift(shiftId, { status: status });
 		} catch (error) {
 			console.error('Error updating shift status:', error);
 			alert('Failed to update shift status');
@@ -612,8 +612,8 @@
 	let searchQuery = '';
 	let showModifiers = false;
 	
-	// Reactive statement for current shift's tables
-	$: currentShiftTables = (todayShifts.length > 0 && todayShifts[0] && selectedAdditionalSections !== undefined) 
+	// Reactive statement for current shift's tables (updates when selectedAdditionalSections changes)
+	$: currentShiftTables = (todayShifts.length > 0 && todayShifts[0] && selectedAdditionalSections) 
 		? getAllMyTables(todayShifts[0].assigned_section) 
 		: [];
 		
@@ -2628,6 +2628,133 @@
 				<p class="text-gray-400 mt-2">{formatDate(getTodayString())}</p>
 			</div>
 
+			<!-- Bar Orders Section (for bartenders only) -->
+			{#if user?.role?.toLowerCase() === 'bartender'}
+				<div class="mb-8">
+					<div class="mb-6">
+						<h2 class="text-3xl font-bold">🍹 Bar Orders ({barOrders.length})</h2>
+						<p class="text-gray-400 mt-2">Drinks waiting to be prepared</p>
+						<button
+							on:click={() => {
+								console.log('🔍 DEBUG BAR ORDERS:');
+								console.log('User role:', user?.role);
+								console.log('All ticket items:', $ticketItems);
+								console.log('Bar orders:', barOrders);
+								loadBarOrders();
+							}}
+							class="px-3 py-2 bg-purple-600 hover:bg-purple-700 rounded-lg text-white text-sm mt-2"
+						>
+							🔍 Debug Bar Orders
+						</button>
+					</div>
+
+					{#if barOrders.length > 0}
+						<div class="grid gap-4">
+							{#each barOrders as item}
+								<div class="bg-gray-800/50 backdrop-blur-sm rounded-xl border border-gray-700 p-6 {
+									item.isOverdue ? 'border-red-500 bg-red-900/10' : 
+									item.remainingMinutes <= 1 ? 'border-orange-500 bg-orange-900/10' : 
+									''
+								}">
+									<div class="flex justify-between items-start">
+										<div class="flex-1">
+											<h3 class="text-xl font-medium text-white">
+												{item.quantity}x {item.expand?.menu_item_id?.name || 'Unknown Drink'}
+											</h3>
+											
+											<div class="text-sm text-gray-400 mt-1">
+												Table {item.expand?.ticket_id?.table_id || 'Unknown'} • 
+												Ticket #{item.expand?.ticket_id?.ticket_number || 'N/A'}
+											</div>
+
+											{#if item.seat_number}
+												<div class="text-sm text-blue-300 mt-1">
+													Seat {item.seat_number} {item.seat_name ? `(${item.seat_name})` : ''}
+												</div>
+											{/if}
+
+											{#if item.modifications}
+												<div class="text-sm text-yellow-300 mt-2">
+													<strong>Modifications:</strong> {item.modifications}
+												</div>
+											{/if}
+
+											{#if item.expand?.ticket_id?.notes}
+												<div class="text-sm text-blue-300 mt-2">
+													<strong>Table Notes:</strong> {item.expand.ticket_id.notes}
+												</div>
+											{/if}
+										</div>
+
+										<!-- Timer Display -->
+										<div class="text-right min-w-0">
+											{#if item.isOverdue}
+												<div class="text-red-400 font-bold text-sm">
+													OVERDUE
+												</div>
+												<div class="text-sm text-gray-400">
+													{item.elapsedMinutes}m elapsed
+												</div>
+											{:else if item.remainingMinutes <= 1}
+												<div class="text-orange-400 font-bold text-sm">
+													DUE NOW
+												</div>
+												<div class="text-sm text-gray-400">
+													{item.elapsedMinutes}m elapsed
+												</div>
+											{:else if item.remainingMinutes <= 3}
+												<div class="text-yellow-400 font-bold text-sm">
+													{item.remainingMinutes}m left
+												</div>
+												<div class="text-sm text-gray-400">
+													{item.elapsedMinutes}m elapsed
+												</div>
+											{/if}
+											<div class="text-xs text-gray-500">
+												Est. {item.estimatedMinutes}m total
+											</div>
+										</div>
+									</div>
+
+									<div class="flex space-x-3 mt-4">
+										{#if item.status === 'sent_to_kitchen'}
+											<button
+												on:click={() => markBarItemPreparing(item)}
+												class="flex-1 px-4 py-2 bg-yellow-600 hover:bg-yellow-700 rounded-lg text-sm font-medium transition-colors"
+											>
+												🍹 Start Making
+											</button>
+										{/if}
+										
+										{#if item.status !== 'ready'}
+											<button
+												on:click={() => markBarItemReady(item)}
+												class="flex-1 px-4 py-2 bg-green-600 hover:bg-green-700 rounded-lg text-sm font-medium transition-colors"
+											>
+												✅ Ready for Pickup
+											</button>
+										{:else}
+											<button
+												on:click={() => sendDrinkReminder(item)}
+												class="flex-1 px-4 py-2 bg-orange-600 hover:bg-orange-700 rounded-lg text-sm font-medium transition-colors"
+											>
+												🔔 Send Reminder
+											</button>
+										{/if}
+									</div>
+								</div>
+							{/each}
+						</div>
+					{:else}
+						<div class="text-center py-8 text-gray-400">
+							<div class="text-4xl mb-2">🍹</div>
+							<p>No pending drink orders</p>
+							<p class="text-sm mt-1">Orders appear here when servers send drinks to the bar</p>
+						</div>
+					{/if}
+				</div>
+			{/if}
+
 			{#if $loading.shifts}
 				<div class="flex justify-center items-center h-64">
 					<div class="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-green-500"></div>
@@ -2692,13 +2819,13 @@
 									{#if $loading.tables}
 										<p class="text-sm text-green-400">Section assigned (tables loading...)</p>
 									{:else}
-										{@const directSectionTables = getTablesForSection(shift.assigned_section)}
-										{#if directSectionTables.length > 0}
-											<div class="space-y-2">
-												<p class="text-sm text-green-400 font-medium">Your Tables:</p>
-												<div class="flex flex-wrap gap-2">
-													{#each directSectionTables as table}
+										{#if currentShiftTables.length > 0}
+										 <div class="space-y-2">
+										 <p class="text-sm text-green-400 font-medium">Your Tables: ({currentShiftTables.length} total, helping {selectedAdditionalSections.size} sections)</p>
+										<div class="flex flex-wrap gap-2">
+										 {#each currentShiftTables as table}
 														{@const existingTicket = $tickets.find(t => t.table_id === table.id && !['closed'].includes(t.status))}
+														{@const tableSection = $sections.find(s => s.section_code === table.section_code)}
 														<button 
 															on:click={() => handleTableClick(table)}
 															class="px-3 py-1 bg-gray-800/50 border rounded-lg text-sm font-medium flex items-center gap-2 hover:bg-gray-700/50 transition-colors cursor-pointer border-green-600 text-green-300"
@@ -2707,8 +2834,8 @@
 															{#if table.capacity || table.seats_field}
 																<span class="text-xs text-gray-400">({table.capacity || table.seats_field} seats)</span>
 															{/if}
-															<span class="text-xs px-1 py-0.5 rounded bg-green-900/50 text-green-400">
-																{getSectionName(shift.assigned_section) || 'Main Dining'}
+															<span class="text-xs px-1 py-0.5 rounded {tableSection?.id === shift.assigned_section ? 'bg-green-900/50 text-green-400' : 'bg-blue-900/50 text-blue-400'}">
+																{tableSection?.section_name || table.section_code || 'Unknown Section'}
 															</span>
 															
 															<!-- Table status indicator -->
@@ -2723,13 +2850,6 @@
 											</div>
 										{:else}
 											<div class="space-y-2">
-												<p class="text-sm text-yellow-400 font-medium">Debug Info:</p>
-												<p class="text-xs text-gray-400">
-													Section ID: {shift.assigned_section}<br>
-													Section Name: {getSectionName(shift.assigned_section)}<br>
-													Available Sections: {$sections?.length || 0}<br>
-													Available Tables: {$tables?.length || 0}
-												</p>
 												{#if $tables && $tables.length > 0}
 													<div class="space-y-1">
 														<p class="text-sm text-blue-400 font-medium">All Available Tables:</p>
@@ -3128,10 +3248,10 @@
 
 			<!-- Bar Orders Section (for bartenders only) -->
 			{#if user?.role?.toLowerCase() === 'bartender'}
-				<!-- Debug: Always show for bartenders to debug -->
-				<div class="mt-8">
+			<!-- Debug: Always show for bartenders to debug -->
+			<div class="mt-8">
 					<div class="mb-6">
-						<h2 class="text-3xl font-bold">🍹 Bar Orders ({barOrders.length})</h2>
+						<!-- Bar Orders moved to correct position -->
 						<p class="text-gray-400 mt-2">Drinks waiting to be prepared</p>
 						<button
 							on:click={() => {
@@ -4444,13 +4564,27 @@
 					Close
 				</button>
 				
-				{#if selectedTableDetails && selectedTableDetails.status === 'ready'}
+				{#if selectedTableDetails && selectedTableDetails.status === 'ready' && selectedTableDetails.table}
 					<button
 						on:click={() => {
+							console.log('🔧 Process Payment clicked');
+							console.log('📋 selectedTableDetails:', selectedTableDetails);
+							
+							if (!selectedTableDetails?.table?.id) {
+								console.error('❌ selectedTableDetails.table is null');
+								return;
+							}
+							
+							console.log('🍽️ Table ID:', selectedTableDetails.table.id);
 							const orderStatus = getTableOrderStatus(selectedTableDetails.table.id);
+							console.log('📊 Order Status:', orderStatus);
+							
 							if (orderStatus) {
+								console.log('✅ Opening payment modal');
 								closeTableDetailsModal();
 								openPaymentModal(selectedTableDetails.table, orderStatus);
+							} else {
+								console.error('❌ No order status found - cannot process payment');
 							}
 						}}
 						class="px-6 py-2 bg-green-600 hover:bg-green-700 rounded-lg text-white font-medium flex items-center space-x-2"
