@@ -3,6 +3,7 @@
 	import { goto } from '$app/navigation';
 	import { get } from 'svelte/store';
 	import { authStore } from '$lib/auth.js';
+	import pb from '$lib/pocketbase.js';
 	import { collections, shifts, menuItems, sections, tables, tickets, ticketItems, loading } from '$lib/stores/collections.js';
 
 	let activeTab = 'today';
@@ -10,6 +11,7 @@
 	let completedOrders = []; // Store completed order history
 	let showHistoryModal = false;
 	let user = null;
+	let forcePaymentEnabled = false; // Server override for payment when items aren't ready
 
 	// Shift timer state
 	let shiftTimers = new Map(); // Map of shiftId -> timer data
@@ -62,6 +64,18 @@
 			
 			// Wait for auth to finish loading
 			if (auth.isLoading) {
+				return;
+			}
+			
+			// Check if PocketBase has auth but store doesn't - force sync
+			if (!auth.isLoggedIn && pb.authStore.isValid && !hasHandledAuth) {
+				console.log('🔄 Auth mismatch detected - forcing store sync...');
+				authStore.update(() => ({
+					isLoggedIn: pb.authStore.isValid,
+					user: pb.authStore.model,
+					role: pb.authStore.model?.role || null,
+					isLoading: false
+				}));
 				return;
 			}
 			
@@ -556,6 +570,10 @@
 	
 	// Calculate totals from current ticket items (reactive)
 	$: calculatedSubtotal = currentTicketItems.reduce((sum, item) => sum + (item.total_price || 0), 0);
+	
+	// Determine if payment should be allowed
+	$: allItemsReady = currentTicketItems.every(item => item.status === 'ready' || item.status === 'preparing');
+	$: paymentAllowed = allItemsReady || forcePaymentEnabled;
 	$: calculatedTax = calculatedSubtotal * 0.08875; // NYC tax rate
 	$: calculatedTotal = calculatedSubtotal + calculatedTax;
 	
@@ -1796,11 +1814,13 @@
 						
 						// After a brief delay, mark as paid
 						setTimeout(async () => {
-							await collections.updateTicket(currentTicket.id, {
-								status: 'paid'
-							});
-							console.log('✅ Ticket marked as paid');
-						}, 2000);
+						if (ticketToSave?.id) {
+						await collections.updateTicket(ticketToSave.id, {
+						  status: 'paid'
+						 });
+						  console.log('✅ Ticket marked as paid');
+						}
+					}, 2000);
 					}
 					
 					// Set table to cleaning state for bussers
@@ -1851,8 +1871,25 @@
 				
 				await collections.createCompletedOrder(orderData);
 				console.log('✅ Order saved to database');
+				
+				// Create payment record
+				const paymentData = {
+					ticket_id: ticketToSave?.id,
+					amount: authorizedAmount, // Subtotal without tip
+					payment_method: 'card',
+					tip_amount: tipAmount,
+					processed_by: user?.id,
+					transaction_id: result.payment_intent_id,
+					status: 'completed',
+					notes: `Payment captured successfully - Table ${tableToUse?.table_name}`,
+					processed_at: new Date().toISOString(),
+					stripe_id: authorizedPaymentIntent.id
+				};
+				
+				await collections.createPayment(paymentData);
+				console.log('💳 Payment record created in database');
 			} catch (error) {
-				console.error('❌ Failed to save order to database:', error.message, error);
+				console.error('❌ Failed to save order/payment to database:', error.message, error);
 				// Continue anyway - don't block the payment flow
 			}
 			
@@ -3729,7 +3766,7 @@
 
 						<div class="space-y-2">
 							{#if currentTicketItems.length > 0}
-								{#if currentTicketItems.some(item => !item.status || item.status === 'pending')}
+								{#if currentTicketItems.some(item => !item.status || item.status === 'pending' || item.status === 'ordered')}
 									<button
 										on:click={sendToKitchen}
 										class="w-full px-4 py-3 bg-blue-600 hover:bg-blue-700 rounded-lg text-white font-bold"
@@ -3738,7 +3775,40 @@
 									</button>
 								{/if}
 								
-								{#if currentTicketItems.every(item => item.status === 'ready' || item.status === 'preparing') && currentTicketItems.length > 0}
+								<!-- Payment Override Checkbox (when items aren't ready) - Manager/Admin only -->
+								{#if !allItemsReady && currentTicketItems.length > 0 && (user?.role === 'manager' || user?.role === 'admin' || user?.role === 'owner')}
+									<div class="p-3 bg-yellow-800/20 border border-yellow-600 rounded-lg">
+										<label class="flex items-center space-x-2 text-yellow-300">
+											<input 
+												type="checkbox" 
+												bind:checked={forcePaymentEnabled}
+												on:change={async () => {
+													if (forcePaymentEnabled) {
+														// Update all non-ready items to 'ready' status
+														console.log('🔧 FORCE READY: Updating item statuses to ready');
+														for (const item of currentTicketItems) {
+															if (item.status !== 'ready') {
+																try {
+																	await collections.updateTicketItem(item.id, { status: 'ready' });
+																	console.log(`✅ Updated ${item.id} to ready status`);
+																} catch (error) {
+																	console.error('Failed to update item status:', error);
+																}
+															}
+														}
+														// Refresh current items to show updated statuses
+														currentTicketItems = await collections.getTicketItems(currentTicket.id);
+													}
+												}}
+												class="rounded bg-gray-700 border-yellow-600 text-yellow-500 focus:ring-yellow-500"
+											>
+											<span class="text-sm">⚠️ Force ready & enable payment</span>
+										</label>
+										<p class="text-xs text-yellow-400 mt-1">Updates items to 'ready' status when kitchen forgets</p>
+									</div>
+								{/if}
+								
+								{#if paymentAllowed && currentTicketItems.length > 0}
 									<div class="space-y-2">
 										{#if paymentWorkflowStep === 'completed'}
 							<!-- Payment Completed - Show Summary -->

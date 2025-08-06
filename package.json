@@ -30,6 +30,7 @@
 	},
 	"dependencies": {
 		"@libsql/client": "^0.14.0",
+		"@stripe/stripe-js": "^7.8.0",
 		"csv-parse": "^6.1.0",
 		"csv-parser": "^3.2.0",
 		"csv-writer": "^1.6.0",
@@ -37,6 +38,7 @@
 		"lucide-svelte": "^0.534.0",
 		"node-fetch": "^3.3.2",
 		"pocketbase": "^0.26.2",
+		"stripe": "^18.4.0",
 		"sveltekit-superforms": "^2.27.1",
 		"zod": "^4.0.14"
 	},

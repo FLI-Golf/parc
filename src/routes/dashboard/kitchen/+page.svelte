@@ -26,8 +26,11 @@
 
 	// Auto-refresh every 30 seconds
 	onMount(() => {
+		// Track if we've already handled this auth state to prevent loops
+		let hasHandledAuth = false;
+		
 		const unsubscribe = authStore.subscribe(async (auth) => {
-			console.log('🔐 Kitchen Auth State:', auth);
+			console.log('🔐 Kitchen Auth State:', { isLoading: auth.isLoading, isLoggedIn: auth.isLoggedIn, role: auth.role, hasHandledAuth });
 			
 			// Wait for auth to finish loading
 			if (auth.isLoading) {
@@ -35,16 +38,23 @@
 				return;
 			}
 			
+			// Prevent infinite loops
+			if (hasHandledAuth) {
+				return;
+			}
+			
 			// Redirect if not logged in
 			if (!auth.isLoggedIn) {
 				console.log('❌ Not logged in, redirecting...');
+				hasHandledAuth = true;
 				goto('/');
 				return;
 			}
 			
 			// Set user and load data only when auth is ready
 			if (auth.isLoggedIn && auth.user) {
-				console.log('✅ Auth ready, loading data for user:', auth.user.email);
+				console.log('✅ Kitchen dashboard access granted for:', auth.user.email);
+				hasHandledAuth = true;
 				user = auth.user;
 				
 				try {

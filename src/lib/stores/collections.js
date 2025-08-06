@@ -19,6 +19,7 @@ export const tableUpdates = writable([]);
 export const tickets = writable([]);
 export const ticketItems = writable([]);
 export const payments = writable([]);
+export const completedOrders = writable([]);
 
 // Loading states
 export const loading = writable({
@@ -38,7 +39,8 @@ export const loading = writable({
 	tableUpdates: false,
 	tickets: false,
 	ticketItems: false,
-	payments: false
+	payments: false,
+	completedOrders: false
 });
 
 // Collection service functions
@@ -903,6 +905,46 @@ export const collections = {
 			});
 		} catch (error) {
 			console.error('Error recalculating ticket totals:', error);
+			throw error;
+		}
+	},
+
+	// Completed Orders
+	async getCompletedOrders() {
+		try {
+			loading.update(state => ({ ...state, completedOrders: true }));
+			const records = await pb.collection('completed_orders').getFullList({
+				sort: '-completed_at',
+				expand: 'table_id,server_id'
+			});
+			completedOrders.set(records);
+			return records;
+		} catch (error) {
+			console.error('Error fetching completed orders:', error);
+			throw error;
+		} finally {
+			loading.update(state => ({ ...state, completedOrders: false }));
+		}
+	},
+
+	async createCompletedOrder(data) {
+		try {
+			const record = await pb.collection('completed_orders').create(data);
+			completedOrders.update(items => [record, ...items]);
+			return record;
+		} catch (error) {
+			console.error('Error creating completed order:', error);
+			throw error;
+		}
+	},
+
+	async createPayment(data) {
+		try {
+			const record = await pb.collection('payments').create(data);
+			console.log('Payment record created:', record);
+			return record;
+		} catch (error) {
+			console.error('Error creating payment record:', error);
 			throw error;
 		}
 	}
