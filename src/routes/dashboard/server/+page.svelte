@@ -1,10 +1,14 @@
 <script>
 	import { onMount, onDestroy } from 'svelte';
 	import { goto } from '$app/navigation';
+	import { get } from 'svelte/store';
 	import { authStore } from '$lib/auth.js';
 	import { collections, shifts, menuItems, sections, tables, tickets, ticketItems, loading } from '$lib/stores/collections.js';
 
 	let activeTab = 'today';
+	let orderTab = 'current'; // 'current' or 'history'
+	let completedOrders = []; // Store completed order history
+	let showHistoryModal = false;
 	let user = null;
 
 	// Shift timer state
@@ -49,14 +53,26 @@
 			currentTime = new Date();
 		}, 1000);
 
+		// Track if we've already handled this auth state to prevent loops
+		let hasHandledAuth = false;
+		
 		// Check authentication and role
 		const unsubscribe = authStore.subscribe(async (auth) => {
+			console.log('🔐 Server Auth State:', { isLoading: auth.isLoading, isLoggedIn: auth.isLoggedIn, role: auth.role, hasHandledAuth });
+			
 			// Wait for auth to finish loading
 			if (auth.isLoading) {
 				return;
 			}
 			
+			// Prevent infinite loops
+			if (hasHandledAuth) {
+				return;
+			}
+			
 			if (!auth.isLoggedIn) {
+				console.log('❌ Not logged in, redirecting to login...');
+				hasHandledAuth = true;
 				goto('/');
 				return;
 			}
@@ -65,17 +81,23 @@
 			
 			// Redirect kitchen staff to kitchen dashboard
 			if (auth.isLoggedIn && ['chef', 'kitchen_prep', 'dishwasher'].includes(userRole)) {
+				console.log('🍳 Kitchen staff detected, redirecting to kitchen dashboard...');
+				hasHandledAuth = true;
 				goto('/dashboard/kitchen');
 				return;
 			}
 			
 			// Only allow front-of-house staff to access server dashboard
 			if (auth.isLoggedIn && !['server', 'host', 'bartender', 'busser'].includes(userRole)) {
+				console.log('👔 Manager/other role detected, redirecting to main dashboard...');
+				hasHandledAuth = true;
 				goto('/dashboard');
 				return;
 			}
 
 			if (auth.isLoggedIn && auth.user) {
+				console.log('✅ Server dashboard access granted for:', auth.user.email);
+				hasHandledAuth = true;
 				user = auth.user;
 				// Load relevant data for servers
 				try {
@@ -87,12 +109,8 @@
 						collections.getTickets()
 					]);
 					
-					// Try to load table updates (optional - collection may not exist yet)
-					try {
-						await collections.getTableUpdates();
-					} catch (tableUpdateError) {
-						console.warn('Table updates collection not available:', tableUpdateError.message);
-					}
+					// Table updates collection is optional for server dashboard
+					// Skipping to avoid console errors - not needed for core functionality
 					
 					// Load any existing shift timers
 					loadShiftTimers();
@@ -137,7 +155,7 @@
 				stopShiftTimer(shiftId);
 			}
 			
-			await collections.updateShift(shiftId, { status });
+			await collections.updateShift(shiftId, { status_field: status });
 		} catch (error) {
 			console.error('Error updating shift status:', error);
 			alert('Failed to update shift status');
@@ -464,6 +482,11 @@
 	// Update table status
 	async function updateTableStatus(tableId, status, notes = '') {
 		try {
+			const table = $tables.find(t => t.id === tableId);
+			const tableName = table?.table_name || table?.table_number_field || `Table ${tableId}`;
+			
+			console.log(`🏢 TABLE UPDATE: ${tableName} • ${table?.status_field || 'unknown'} → ${status}${notes ? ` • Notes: ${notes}` : ''}`);
+			
 			// Try to create table update record (optional - collection may not exist yet)
 			try {
 				const updateData = {
@@ -536,9 +559,14 @@
 	$: calculatedTax = calculatedSubtotal * 0.08875; // NYC tax rate
 	$: calculatedTotal = calculatedSubtotal + calculatedTax;
 	
-	// Reactive: Update bar orders when ticket items change
+	// Reactive: Update bar orders when ticket items change (debounced)
+	let barOrdersUpdateTimeout;
 	$: if ($ticketItems && user?.role?.toLowerCase() === 'bartender') {
-		loadBarOrders();
+		// Debounce to prevent excessive updates
+		clearTimeout(barOrdersUpdateTimeout);
+		barOrdersUpdateTimeout = setTimeout(() => {
+			loadBarOrders();
+		}, 100);
 	}
 	
 	// Menu modifiers (will be loaded from CSV later)
@@ -621,22 +649,27 @@
 	}
 
 	async function createNewTicket(customerCount = 2) {
-		if (!selectedTable || !user) return;
-		
-		try {
-			const ticketData = {
-				table_id: selectedTable.id,
-				server_id: user.id,
-				customer_count: customerCount
-			};
-			
-			currentTicket = await collections.createTicket(ticketData);
-			currentTicketItems = [];
-			
-			// Update table status to occupied
-			await updateTableStatus(selectedTable.id, 'occupied');
+	if (!selectedTable || !user) return;
+	
+	try {
+	const tableName = selectedTable?.table_name || selectedTable?.table_number_field || 'Unknown Table';
+	console.log(`🎫 CREATING TICKET: ${tableName} • ${customerCount} guests • Server: ${user.email}`);
+	
+	const ticketData = {
+	 table_id: selectedTable.id,
+	 server_id: user.id,
+	 customer_count: customerCount
+	};
+	
+	currentTicket = await collections.createTicket(ticketData);
+	currentTicketItems = [];
+	 
+	console.log(`✅ TICKET CREATED: #${currentTicket.ticket_number} • ${tableName} • Ready for orders`);
+	
+	 // Update table status to occupied
+	  await updateTableStatus(selectedTable.id, 'occupied');
 		} catch (error) {
-			console.error('Error creating ticket:', error);
+			console.error('❌ ERROR creating ticket:', error);
 			alert('Failed to create ticket');
 		}
 	}
@@ -1198,6 +1231,31 @@
 	
 	// Bar orders for bartenders
 	let barOrders = [];
+	
+	// Payment processing
+	let showPaymentModal = false;
+	let selectedTableForPayment = null;
+	let paymentAmount = 0;
+	let paymentMethod = 'card';
+	let stripe = null;
+	let cardElement = null;
+	let stripeElements = null;
+	
+	// Tip handling
+	let tipAmount = 0;
+	
+	// Reactive statement to ensure UI updates when tip changes
+	$: totalWithTip = paymentAmount + tipAmount;
+	let tipPercentage = 18; // Default 18%
+	let customTipAmount = '';
+	let tipMethod = 'percentage'; // 'percentage', 'custom', 'none', 'guest_signed'
+	let guestSignedTip = '';
+	let showGuestTipEntry = false;
+	
+	// Payment workflow state
+	let paymentWorkflowStep = 'initial'; // 'initial', 'card_authorized', 'awaiting_tip', 'finalizing'
+	let authorizedPaymentIntent = null;
+	let authorizedAmount = 0;
 
 	function showTableOrderDetails(table) {
 		const orderStatus = getTableOrderStatus(table.id);
@@ -1242,7 +1300,7 @@
 
 		try {
 			// Get all active ticket items that are bar orders
-			const allItems = $ticketItems || [];
+			const allItems = get(ticketItems) || [];
 			
 			const activeBarItems = allItems.filter(item => 
 				item.kitchen_station === 'bar' &&
@@ -1327,6 +1385,1034 @@
 			
 		} catch (error) {
 			console.error('Error sending drink reminder:', error);
+		}
+	}
+
+	// Payment processing functions
+	async function openPaymentModal(table, orderStatus) {
+		selectedTableForPayment = table;
+		paymentAmount = orderStatus.ticket.total_amount || 0;
+		
+		// Reset tip values
+		tipAmount = 0;
+		tipPercentage = 18;
+		customTipAmount = '';
+		guestSignedTip = '';
+		tipMethod = 'percentage';
+		showGuestTipEntry = false;
+		calculateTip();
+		
+		showPaymentModal = true;
+		
+		// Initialize Stripe Elements when modal opens
+		await setupStripeElements();
+	}
+
+	function closePaymentModal() {
+		showPaymentModal = false;
+		selectedTableForPayment = null;
+		paymentAmount = 0;
+		paymentMethod = 'card';
+		
+		// Reset tip values
+		tipAmount = 0;
+		tipPercentage = 18;
+		customTipAmount = '';
+		guestSignedTip = '';
+		tipMethod = 'percentage';
+		showGuestTipEntry = false;
+		
+		// Clean up Stripe Elements
+		if (cardElement) {
+			cardElement.unmount();
+			cardElement = null;
+		}
+		stripeElements = null;
+	}
+
+	function calculateTip() {
+		console.log('🔍 calculateTip debug:', { tipMethod, guestSignedTip, customTipAmount, tipPercentage, paymentAmount });
+		if (tipMethod === 'percentage') {
+			tipAmount = Math.round((paymentAmount * tipPercentage / 100) * 100) / 100;
+		} else if (tipMethod === 'custom') {
+			tipAmount = parseFloat(customTipAmount) || 0;
+		} else if (tipMethod === 'guest_signed') {
+			tipAmount = parseFloat(guestSignedTip) || 0;
+		} else {
+			tipAmount = 0;
+		}
+		console.log('🔍 calculateTip result:', { tipAmount });
+	}
+
+	function selectTipPercentage(percentage) {
+		tipMethod = 'percentage';
+		tipPercentage = percentage;
+		calculateTip();
+	}
+
+	function selectCustomTip() {
+		tipMethod = 'custom';
+		calculateTip();
+	}
+
+	function selectNoTip() {
+		tipMethod = 'none';
+		tipAmount = 0;
+		showGuestTipEntry = false;
+	}
+
+	function selectGuestSignedTip() {
+		tipMethod = 'guest_signed';
+		showGuestTipEntry = true;
+		calculateTip();
+	}
+
+	function getTotalAmount() {
+		console.log('🔍 getTotalAmount debug:', { paymentAmount, tipAmount, total: paymentAmount + tipAmount });
+		return paymentAmount + tipAmount;
+	}
+
+	// Step 1: Swipe card and authorize payment
+	// Simulate swiping a test card (for development)
+	async function simulateCardSwipe() {
+		if (!currentTicket || !currentTicketItems.length) {
+			console.error('❌ Missing currentTicket or currentTicketItems');
+			return;
+		}
+		
+		// Ensure selectedTableForPayment is set for the payment workflow
+		if (!selectedTableForPayment && selectedTable) {
+			selectedTableForPayment = selectedTable;
+		}
+		
+		try {
+			console.log('🧪 Simulating card swipe with test data...');
+			
+			// Import Stripe dynamically
+			const { loadStripe } = await import('@stripe/stripe-js');
+			const stripe = await loadStripe(import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY);
+			
+			if (!stripe) {
+				throw new Error('Stripe failed to load - check your publishable key');
+			}
+
+			const baseAmount = currentTicket?.total_amount || 0;
+			// Authorize 30% more to allow for tips (common restaurant practice)
+			const authAmount = Math.round(baseAmount * 1.3 * 100) / 100;
+			authorizedAmount = baseAmount; // Keep track of original amount for display
+			
+			const tableToUse = selectedTableForPayment || selectedTable;
+		const paymentData = {
+			amount: Math.round(authAmount * 100), // Stripe uses cents - authorize with tip buffer
+				currency: 'usd',
+				table_id: tableToUse.id,
+				ticket_id: currentTicket.id,
+				description: `Authorization for Table ${selectedTable?.table_name || selectedTable?.table_number_field}`,
+				capture_method: 'manual' // Authorize only, capture later with tip
+			};
+
+			console.log('🔍 Debug: Payment data being sent:', paymentData);
+
+			// Create payment intent for authorization
+			const response = await fetch('/api/create-payment-intent', {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify(paymentData)
+			});
+
+			console.log('🔍 Debug: Response status:', response.status);
+
+			if (!response.ok) {
+				throw new Error('Failed to create payment intent');
+			}
+
+			const { client_secret } = await response.json();
+			
+			// Use test payment method token for simulation
+			const { error, paymentIntent } = await stripe.confirmCardPayment(client_secret, {
+				payment_method: 'pm_card_visa' // Stripe test payment method
+			});
+
+			if (error) {
+				throw new Error(error.message);
+			}
+
+			if (paymentIntent.status === 'requires_capture') {
+				console.log('✅ Test card authorized successfully');
+				authorizedPaymentIntent = paymentIntent;
+				paymentWorkflowStep = 'card_authorized';
+				
+				// Auto-advance to print slip step
+				setTimeout(() => {
+					printTipSlip();
+				}, 1000);
+			}
+		} catch (error) {
+			console.error('❌ Test card authorization failed:', error);
+			alert(`Test card authorization failed: ${error.message}`);
+		}
+	}
+
+	async function swipeCard() {
+		if (!currentTicket || !currentTicketItems.length) {
+			console.error('❌ Missing currentTicket or currentTicketItems');
+			return;
+		}
+		
+		try {
+			console.log('💳 Step 1: Swiping card and authorizing payment...');
+			console.log('🎯 Current workflow step:', paymentWorkflowStep);
+			console.log('🔍 Debug: Current ticket:', currentTicket);
+			console.log('🔍 Debug: Selected table:', selectedTable);
+			console.log('🔍 Debug: Environment check:', {
+				publishable_key: import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY ? 'EXISTS' : 'MISSING',
+				pocketbase_url: import.meta.env.VITE_POCKETBASE_URL
+			});
+			
+			// Import Stripe dynamically
+			const { loadStripe } = await import('@stripe/stripe-js');
+			const stripe = await loadStripe(import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY);
+			
+			if (!stripe) {
+				throw new Error('Stripe failed to load - check your publishable key');
+			}
+
+			const baseAmount = currentTicket?.total_amount || 0;
+			authorizedAmount = baseAmount;
+			
+			const paymentData = {
+				amount: Math.round(baseAmount * 100), // Stripe uses cents
+				currency: 'usd',
+				table_id: selectedTable.id,
+				ticket_id: currentTicket.id,
+				description: `Authorization for Table ${selectedTable?.table_name || selectedTable?.table_number_field}`,
+				capture_method: 'manual' // Authorize only, capture later with tip
+			};
+
+			console.log('🔍 Debug: Payment data being sent:', paymentData);
+
+			// Create payment intent for authorization
+			const response = await fetch('/api/create-payment-intent', {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify(paymentData)
+			});
+
+			console.log('🔍 Debug: Response status:', response.status);
+			console.log('🔍 Debug: Response headers:', Object.fromEntries(response.headers.entries()));
+
+			if (!response.ok) {
+				throw new Error('Failed to create payment intent');
+			}
+
+			const { client_secret } = await response.json();
+			
+			// Setup Stripe Elements if not already done
+			await setupStripeElements();
+			
+			// Confirm payment (authorize only)
+			const { error, paymentIntent } = await stripe.confirmCardPayment(client_secret, {
+				payment_method: {
+					card: cardElement,
+					billing_details: {
+						name: 'Restaurant Customer'
+					}
+				}
+			});
+
+			if (error) {
+				throw new Error(error.message);
+			}
+
+			if (paymentIntent.status === 'requires_capture') {
+				console.log('✅ Card authorized successfully');
+				authorizedPaymentIntent = paymentIntent;
+				paymentWorkflowStep = 'card_authorized';
+				
+				// Auto-advance to print slip step
+				setTimeout(() => {
+					printTipSlip();
+				}, 1000);
+			}
+		} catch (error) {
+			console.error('❌ Card authorization failed:', error);
+			alert(`Card authorization failed: ${error.message}`);
+		}
+	}
+
+	// Step 2: Print receipt slip for guest to add tip
+	function printTipSlip() {
+		if (!currentTicket || !currentTicketItems.length) return;
+		
+		const slipContent = generateTipSlipContent();
+		const printWindow = window.open('', '_blank');
+		printWindow.document.write(slipContent);
+		printWindow.document.close();
+		printWindow.print();
+		printWindow.close();
+		
+		// Move to next step
+		paymentWorkflowStep = 'awaiting_tip';
+	}
+
+	// Capture payment with tip (after card is already authorized)
+	async function capturePaymentWithTip() {
+		if (!authorizedPaymentIntent) {
+			console.error('❌ No authorized payment intent found');
+			return;
+		}
+
+		try {
+			const finalAmount = Math.round(totalWithTip * 100); // Convert to cents
+			const tableToUse = selectedTableForPayment || selectedTable;
+			
+			// Clear status logging
+			console.log(`💳 PAYMENT CAPTURE: Attempting to finalize payment for $${totalWithTip.toFixed(2)}`);
+			console.log(`📋 ORDER STATE: Table=${selectedTable?.table_name || 'none'} • Items=${currentTicketItems.length} • Ticket=${currentTicket?.ticket_number || 'none'}`);
+			
+			if (currentTicket) {
+				console.log(`🎫 TICKET INFO: #${currentTicket.ticket_number} • Status=${currentTicket.status || 'unknown'} • Server=${user?.email}`);
+			}
+			
+			if (currentTicketItems.length === 0) {
+				// Debug the authorized payment intent structure
+				console.log('🔍 DEBUG authorizedPaymentIntent:', authorizedPaymentIntent);
+				console.log('🔍 DEBUG authorizedPaymentIntent keys:', Object.keys(authorizedPaymentIntent || {}));
+				
+				// Try to find the order by looking for active tickets
+				console.log(`🔍 RECOVERY: Searching for active tickets to match payment of $${(authorizedPaymentIntent.amount / 100).toFixed(2)}`);
+				
+				try {
+					// Find tickets that are ready for payment (sent_to_kitchen with items ready/preparing)
+					const matchingTickets = $tickets.filter(ticket => {
+						return ticket.status === 'sent_to_kitchen' || ticket.status === 'payment_processing';
+					});
+					
+					console.log(`🔍 RECOVERY: Found ${matchingTickets.length} active tickets`);
+					
+					if (matchingTickets.length === 1) {
+						// If only one active ticket, use it
+						const ticket = matchingTickets[0];
+						const table = $tables.find(t => t.id === ticket.table_id);
+						
+						console.log(`✅ RECOVERY SUCCESS: Using active ticket #${ticket.ticket_number} for table ${table?.table_name}`);
+						
+						// Restore the order context
+						selectedTable = table;
+						currentTicket = ticket;
+						currentTicketItems = await collections.getTicketItems(ticket.id);
+						
+						console.log(`📋 RESTORED ORDER: Table=${selectedTable?.table_name} • Items=${currentTicketItems.length} • Ticket=#${currentTicket.ticket_number}`);
+					} else if (matchingTickets.length > 1) {
+						// Multiple active tickets - show them for selection
+						const ticketOptions = matchingTickets.map(ticket => {
+							const table = $tables.find(t => t.id === ticket.table_id);
+							return `• Table ${table?.table_name || table?.table_number_field} - Ticket #${ticket.ticket_number}`;
+						}).join('\n');
+						
+						const choice = confirm(`Found ${matchingTickets.length} active tickets:\n\n${ticketOptions}\n\nWould you like to:\n• OK = Use first ticket (Table ${$tables.find(t => t.id === matchingTickets[0].table_id)?.table_name})\n• Cancel = Manually select table first`);
+						
+						if (choice) {
+							// Use first ticket
+							const ticket = matchingTickets[0];
+							const table = $tables.find(t => t.id === ticket.table_id);
+							
+							console.log(`✅ USER CHOICE: Using ticket #${ticket.ticket_number} for table ${table?.table_name}`);
+							
+							// Restore the order context
+							selectedTable = table;
+							currentTicket = ticket;
+							currentTicketItems = await collections.getTicketItems(ticket.id);
+							
+							console.log(`📋 RESTORED ORDER: Table=${selectedTable?.table_name} • Items=${currentTicketItems.length} • Ticket=#${currentTicket.ticket_number}`);
+						} else {
+							throw new Error('Please select the correct table first, then retry payment');
+						}
+					} else {
+						// No active tickets found
+						throw new Error('No active tickets found to match this payment');
+					}
+				} catch (recoveryError) {
+					console.error('❌ RECOVERY FAILED:', recoveryError);
+					alert(`❌ Cannot find order data for payment.\n\nError: ${recoveryError.message}\n\nPlease:\n1. Cancel this payment\n2. Select the correct table\n3. Try payment again`);
+					
+					authorizedPaymentIntent = null;
+					paymentWorkflowStep = 'initial';
+					showPaymentModal = false;
+					return;
+				}
+			}
+			
+			// Create ticket if none exists (for cases where items were added without creating a ticket)
+			if (!currentTicket?.id && currentTicketItems.length > 0) {
+				console.log('🎫 Creating ticket for payment processing...');
+				try {
+					await createNewTicket(2); // Default customer count
+					console.log('🎫 Ticket created:', currentTicket);
+				} catch (error) {
+					console.error('❌ Failed to create ticket:', error);
+					throw new Error(`Failed to create ticket: ${error.message}`);
+				}
+			}
+			
+			// Validate required data before processing payment
+			if (!currentTicket?.id || !currentTicket?.ticket_number) {
+				throw new Error('No ticket found - please create a ticket with items before processing payment');
+			}
+			
+			// Save ticket data BEFORE any async operations that might clear it
+			const ticketToSave = { ...currentTicket };
+			const itemsToSave = [...currentTicketItems];
+			
+			const response = await fetch('/api/capture-payment', {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({
+					payment_intent_id: authorizedPaymentIntent.id,
+					final_amount: totalWithTip,
+					tip_amount: Math.round(tipAmount * 100),
+					table_id: tableToUse?.id,
+					ticket_id: currentTicket?.id
+				})
+			});
+
+			if (!response.ok) {
+				throw new Error('Failed to capture payment');
+			}
+
+			const result = await response.json();
+			console.log('✅ Payment captured successfully:', result);
+			
+			// Update ticket and table status for restaurant workflow
+			if (tableToUse) {
+				try {
+					// Update ticket to payment processing, then paid
+					if (currentTicket) {
+						await collections.updateTicket(currentTicket.id, {
+							status: 'payment_processing',
+							tip_amount: tipAmount,
+							total_amount: totalWithTip
+						});
+						
+						// After a brief delay, mark as paid
+						setTimeout(async () => {
+							await collections.updateTicket(currentTicket.id, {
+								status: 'paid'
+							});
+							console.log('✅ Ticket marked as paid');
+						}, 2000);
+					}
+					
+					// Set table to cleaning state for bussers
+					await collections.updateTable(tableToUse.id, { 
+						status_field: 'cleaning',
+						current_party_size: 0
+					});
+					
+					// After a brief cleaning period, set to available
+					setTimeout(async () => {
+						await collections.updateTable(tableToUse.id, { 
+							status_field: 'available'
+						});
+						console.log('✅ Table marked as available for new guests');
+					}, 5000); // 5 seconds cleaning time
+					
+					console.log('✅ Table set to cleaning - ready for bussers');
+				} catch (error) {
+					console.error('❌ Error updating table/ticket status:', error);
+				}
+			}
+			
+			// Save to database for persistence FIRST (before clearing data)
+			try {
+				console.log('🔍 Debug objects before saving:', {
+					tableToUse: tableToUse,
+					ticketToSave: ticketToSave,
+					user: user,
+					tableToUse_id: tableToUse?.id,
+					ticketToSave_id: ticketToSave?.id,
+					user_id: user?.id
+				});
+				
+				const orderData = {
+					table_id: tableToUse?.id,
+					ticket_id: ticketToSave?.id,
+					server_id: user?.id,
+					ticket_number: ticketToSave?.ticket_number,
+					table_name: tableToUse?.table_name || tableToUse?.table_number_field,
+					subtotal_amount: authorizedAmount,
+					tip_amount: tipAmount,
+					total_amount: totalWithTip,
+					payment_method: 'card',
+					items_json: JSON.stringify(itemsToSave),
+					completed_at: new Date().toISOString()
+				};
+				console.log('🔍 Attempting to save order data:', orderData);
+				
+				await collections.createCompletedOrder(orderData);
+				console.log('✅ Order saved to database');
+			} catch (error) {
+				console.error('❌ Failed to save order to database:', error.message, error);
+				// Continue anyway - don't block the payment flow
+			}
+			
+			// Save completed order to local history
+			const completedOrder = {
+				id: ticketToSave?.id || Date.now().toString(),
+				ticket_number: ticketToSave?.ticket_number,
+				table_name: tableToUse?.table_name || tableToUse?.table_number_field,
+				items: [...itemsToSave],
+				subtotal: authorizedAmount,
+				tip: tipAmount,
+				total: totalWithTip,
+				timestamp: new Date().toISOString(),
+				status: 'paid'
+			};
+			
+			completedOrders = [completedOrder, ...completedOrders]; // Add to beginning of array
+			
+			// Reset for new order
+			showPaymentModal = false;
+			authorizedPaymentIntent = null;
+			paymentWorkflowStep = 'initial';
+			showGuestTipEntry = false;
+			
+			// Clear current order for new ticket
+			console.log('🧹 Clearing current order data...');
+			currentTicket = null;
+			currentTicketItems = [];
+			orderTab = 'current'; // Switch back to current order tab
+			
+			// Also clear any cached ticket data
+			tickets.update(items => items.filter(ticket => ticket.id !== currentTicket?.id));
+			ticketItems.update(items => items.filter(item => item.ticket_id !== currentTicket?.id));
+			
+			console.log('✅ Order data cleared. currentTicket:', currentTicket, 'currentTicketItems:', currentTicketItems);
+			
+			alert(`Payment successful! Total charged: $${totalWithTip.toFixed(2)}\nTable ready for cleaning.`);
+			
+		} catch (error) {
+			console.error('❌ Payment capture failed:', error);
+			console.error('❌ Error details:', {
+				message: error.message,
+				stack: error.stack,
+				cause: error.cause
+			});
+			alert(`Payment capture failed: ${error.message}`);
+		}
+	}
+
+	// Step 3: Enter tip and finalize payment
+	async function finalizePaymentWithTip() {
+		closeTicketModal();
+		const tableToUse = selectedTableForPayment || selectedTable;
+		if (!tableToUse) {
+			console.error('❌ No table selected for payment');
+			return;
+		}
+		const orderStatus = getTableOrderStatus(tableToUse.id);
+		if (orderStatus) {
+			// Set flag to indicate we're in tip entry mode
+			paymentAmount = authorizedAmount;
+			showGuestTipEntry = true;
+			tipMethod = 'guest_signed';
+			calculateTip(); // Update tip calculation
+			showPaymentModal = true;
+		}
+	}
+
+	// Generate tip slip content (for after card authorization)
+	function generateTipSlipContent() {
+		const restaurantName = "PARC Bistro";
+		const tableNumber = selectedTable?.table_name || selectedTable?.table_number_field || 'N/A';
+		const ticketNumber = currentTicket?.ticket_number || 'N/A';
+		const serverName = user?.name || 'Server';
+		const timestamp = new Date().toLocaleString('en-US', {
+			year: 'numeric',
+			month: '2-digit',
+			day: '2-digit',
+			hour: '2-digit',
+			minute: '2-digit'
+		});
+
+		const total = authorizedAmount;
+
+		return `
+			<!DOCTYPE html>
+			<html>
+			<head>
+				<title>Customer Receipt - ${restaurantName}</title>
+				<style>
+					body { 
+						font-family: monospace; 
+						font-size: 14px; 
+						line-height: 1.4; 
+						margin: 20px;
+						width: 300px;
+					}
+					.header { text-align: center; margin-bottom: 15px; }
+					.restaurant-name { font-size: 18px; font-weight: bold; }
+					.details { margin-bottom: 15px; }
+					.amount-line { display: flex; justify-content: space-between; margin: 8px 0; font-size: 16px; }
+					.tip-section { margin: 25px 0; border-top: 2px solid #000; padding-top: 15px; }
+					.tip-line { display: flex; justify-content: space-between; align-items: center; margin: 12px 0; }
+					.write-line { border-bottom: 2px solid #000; width: 120px; height: 25px; display: inline-block; }
+					.signature-section { margin-top: 25px; border-top: 1px solid #000; padding-top: 15px; }
+					.signature-line { margin: 15px 0; border-bottom: 2px solid #000; height: 25px; }
+					.total-box { border: 2px solid #000; padding: 10px; margin: 15px 0; text-align: center; }
+					.footer { text-align: center; margin-top: 20px; font-size: 12px; }
+					@media print {
+						body { margin: 0; }
+					}
+				</style>
+			</head>
+			<body>
+				<div class="header">
+					<div class="restaurant-name">${restaurantName}</div>
+					<div>Customer Copy</div>
+				</div>
+				
+				<div class="details">
+					<div>Table: ${tableNumber} | Check: ${ticketNumber}</div>
+					<div>Server: ${serverName}</div>
+					<div>Date: ${timestamp}</div>
+				</div>
+				
+				<div class="amount-line">
+					<span><strong>Subtotal:</strong></span>
+					<span><strong>$${total.toFixed(2)}</strong></span>
+				</div>
+				
+				<div class="tip-section">
+					<div style="text-align: center; margin-bottom: 15px; font-weight: bold;">
+						ADD TIP & TOTAL BELOW
+					</div>
+					
+					<div class="tip-line">
+						<span>Tip: $</span>
+						<div class="write-line"></div>
+					</div>
+					
+					<div class="total-box">
+						<div style="font-size: 12px; margin-bottom: 5px;">TOTAL AMOUNT</div>
+						<div style="font-size: 18px; font-weight: bold;">
+							$ <span class="write-line" style="width: 150px;"></span>
+						</div>
+					</div>
+				</div>
+				
+				<div class="signature-section">
+					<div style="margin-bottom: 10px;">Signature:</div>
+					<div class="signature-line"></div>
+					
+					<div style="font-size: 12px; margin-top: 15px;">
+						□ I agree to pay the above total amount according to my card issuer agreement.
+					</div>
+				</div>
+				
+				<div class="footer">
+					<div><strong>Thank you for dining with us!</strong></div>
+					<div>Card ending in ****${authorizedPaymentIntent?.payment_method?.card?.last4 || '****'}</div>
+					<div style="margin-top: 10px; font-size: 11px;">
+						Please add tip and sign above.<br>
+						Return to server when complete.
+					</div>
+				</div>
+			</body>
+			</html>
+		`;
+	}
+
+	// Generate guest check content
+	function generateGuestCheckContent() {
+		const restaurantName = "PARC Bistro";
+		const tableNumber = selectedTable?.table_name || selectedTable?.table_number_field || 'N/A';
+		const ticketNumber = currentTicket?.ticket_number || 'N/A';
+		const serverName = user?.name || 'Server';
+		const timestamp = new Date().toLocaleString('en-US', {
+			year: 'numeric',
+			month: '2-digit',
+			day: '2-digit',
+			hour: '2-digit',
+			minute: '2-digit'
+		});
+
+		const subtotal = currentTicket?.subtotal_amount || 0;
+		const tax = currentTicket?.tax_amount || 0;
+		const total = currentTicket?.total_amount || 0;
+
+		return `
+			<!DOCTYPE html>
+			<html>
+			<head>
+				<title>Guest Check - ${restaurantName}</title>
+				<style>
+					body { 
+						font-family: monospace; 
+						font-size: 12px; 
+						line-height: 1.4; 
+						margin: 20px;
+						width: 300px;
+					}
+					.header { text-align: center; margin-bottom: 20px; }
+					.restaurant-name { font-size: 16px; font-weight: bold; }
+					.details { margin-bottom: 10px; }
+					.items { margin: 20px 0; }
+					.item { display: flex; justify-content: space-between; margin: 5px 0; }
+					.totals { margin-top: 20px; border-top: 1px solid #000; padding-top: 10px; }
+					.total-line { display: flex; justify-content: space-between; margin: 3px 0; }
+					.signature-section { margin-top: 30px; border-top: 1px solid #000; padding-top: 20px; }
+					.signature-line { margin: 15px 0; border-bottom: 1px solid #000; height: 20px; }
+					.tip-section { margin-top: 20px; }
+					.final-total { font-weight: bold; font-size: 14px; }
+					@media print {
+						body { margin: 0; }
+					}
+				</style>
+			</head>
+			<body>
+				<div class="header">
+					<div class="restaurant-name">${restaurantName}</div>
+					<div>Authentic French Cuisine</div>
+				</div>
+				
+				<div class="details">
+					<div>Table: ${tableNumber}</div>
+					<div>Check #: ${ticketNumber}</div>
+					<div>Server: ${serverName}</div>
+					<div>Date: ${timestamp}</div>
+					<div>Guests: ${currentTicket?.customer_count || 1}</div>
+				</div>
+				
+				<div class="items">
+					${currentTicketItems.map(item => {
+						const menuItem = $menuItems.find(m => m.id === item.menu_item_id);
+						const itemName = menuItem?.name_field || item.item_name || 'Item';
+						const modifications = item.modifications ? ` (${item.modifications})` : '';
+						const seatInfo = item.seat_number ? ` - Seat ${item.seat_number}` : '';
+						
+						return `
+							<div class="item">
+								<span>${item.quantity}x ${itemName}${modifications}${seatInfo}</span>
+								<span>$${(item.unit_price * item.quantity).toFixed(2)}</span>
+							</div>
+						`;
+					}).join('')}
+				</div>
+				
+				<div class="totals">
+					<div class="total-line">
+						<span>Subtotal:</span>
+						<span>$${subtotal.toFixed(2)}</span>
+					</div>
+					<div class="total-line">
+						<span>Tax (8.875%):</span>
+						<span>$${tax.toFixed(2)}</span>
+					</div>
+					<div class="total-line final-total">
+						<span>Total:</span>
+						<span>$${total.toFixed(2)}</span>
+					</div>
+				</div>
+				
+				<div class="signature-section">
+					<div class="tip-section">
+						<div class="total-line">
+							<span>Subtotal:</span>
+							<span>$${total.toFixed(2)}</span>
+						</div>
+						<div style="margin: 10px 0;">
+							<span>Tip: $</span>
+							<div class="signature-line" style="display: inline-block; width: 100px; margin-left: 10px;"></div>
+						</div>
+						<div class="total-line final-total" style="border-top: 1px solid #000; padding-top: 5px;">
+							<span>Total: $</span>
+							<div class="signature-line" style="display: inline-block; width: 100px; margin-left: 10px;"></div>
+						</div>
+					</div>
+					
+					<div style="margin-top: 20px;">
+						<div>Signature:</div>
+						<div class="signature-line"></div>
+					</div>
+					
+					<div style="text-align: center; margin-top: 20px; font-size: 10px;">
+						<div>Thank you for dining with us!</div>
+						<div>Gratuity not included</div>
+					</div>
+				</div>
+			</body>
+			</html>
+		`;
+	}
+
+	async function setupStripeElements() {
+		try {
+			const { loadStripe } = await import('@stripe/stripe-js');
+			stripe = await loadStripe(import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY);
+			
+			if (!stripe) {
+				console.error('Failed to load Stripe');
+				return;
+			}
+
+			// Create Stripe Elements instance
+			stripeElements = stripe.elements({
+				appearance: {
+					theme: 'night',
+					variables: {
+						colorPrimary: '#3b82f6',
+						colorBackground: '#374151',
+						colorText: '#ffffff',
+						colorDanger: '#ef4444',
+						fontFamily: 'Inter, system-ui, sans-serif',
+						spacingUnit: '4px',
+						borderRadius: '8px'
+					}
+				}
+			});
+
+			// Create card element
+			cardElement = stripeElements.create('card', {
+				style: {
+					base: {
+						color: '#ffffff',
+						fontFamily: 'Inter, system-ui, sans-serif',
+						fontSize: '16px',
+						'::placeholder': {
+							color: '#9ca3af'
+						}
+					}
+				}
+			});
+
+			// Mount card element
+			setTimeout(() => {
+				const cardContainer = document.getElementById('stripe-card-element');
+				if (cardContainer && cardElement) {
+					cardElement.mount('#stripe-card-element');
+				}
+			}, 100);
+		} catch (error) {
+			console.error('Error setting up Stripe Elements:', error);
+		}
+	}
+
+	async function processPayment() {
+		if (!selectedTableForPayment) return;
+
+		try {
+			console.log('💳 Processing payment:', {
+				table: selectedTableForPayment,
+				amount: paymentAmount,
+				method: paymentMethod
+			});
+
+			if (paymentMethod === 'card') {
+				// Integrate with Stripe here
+				await processStripePayment();
+			} else if (paymentMethod === 'cash') {
+				await processCashPayment();
+			} else if (paymentMethod === 'split') {
+				await processSplitPayment();
+			}
+
+		} catch (error) {
+			console.error('Error processing payment:', error);
+			alert('Payment processing failed. Please try again.');
+		}
+	}
+
+	async function processStripePayment() {
+		console.log('🔄 Processing Stripe payment...');
+		
+		// Update ticket status to payment_processing at start of payment
+		if (currentTicket?.id) {
+			try {
+				await collections.updateTicket(currentTicket.id, { status: 'payment_processing' });
+				console.log(`🎫 TICKET STATUS: Updated #${currentTicket.ticket_number} to payment_processing`);
+			} catch (error) {
+				console.warn('Failed to update ticket status to payment_processing:', error);
+			}
+		}
+		
+		try {
+			// Import Stripe dynamically
+			const { loadStripe } = await import('@stripe/stripe-js');
+			const stripe = await loadStripe(import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY);
+			
+			if (!stripe) {
+				throw new Error('Stripe failed to load - check your publishable key');
+			}
+
+			const totalAmount = getTotalAmount();
+			const paymentData = {
+				amount: Math.round(totalAmount * 100), // Stripe uses cents
+				currency: 'usd',
+				table_id: selectedTableForPayment.id,
+				ticket_id: selectedTableForPayment.ticketId,
+				description: `Payment for Table ${selectedTableForPayment.number}`,
+				subtotal: paymentAmount,
+				tip_amount: tipAmount,
+				tip_percentage: tipMethod === 'percentage' ? tipPercentage : null
+			};
+
+			// Create payment intent
+			const response = await fetch('/api/create-payment-intent', {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify(paymentData)
+			});
+
+			if (!response.ok) {
+				throw new Error('Failed to create payment intent');
+			}
+
+			const { client_secret } = await response.json();
+			
+			// Confirm payment with Stripe Elements
+			const { error, paymentIntent } = await stripe.confirmCardPayment(client_secret, {
+				payment_method: {
+					card: cardElement,
+					billing_details: {
+						name: 'Restaurant Customer'
+					}
+				}
+			});
+
+			if (error) {
+				throw new Error(error.message);
+			}
+
+			if (paymentIntent.status === 'succeeded') {
+				console.log('✅ Stripe payment processed successfully');
+				
+				// Finalize table closure with Stripe data
+				await finalizeTableClosure('card', {
+					...paymentData,
+					stripe_payment_intent_id: paymentIntent.id,
+					amount: paymentAmount // Convert back to dollars for display
+				});
+			} else if (paymentIntent.status === 'requires_capture' && authorizedPaymentIntent) {
+				// This is a tip addition to an existing authorization
+				console.log('✅ Capturing payment with tip...');
+				
+				const finalAmount = getTotalAmount();
+				const captureResponse = await fetch('/api/capture-payment', {
+					method: 'POST',
+					headers: { 'Content-Type': 'application/json' },
+					body: JSON.stringify({
+						payment_intent_id: authorizedPaymentIntent.id,
+						tip_amount: tipAmount,
+						final_amount: finalAmount
+					})
+				});
+
+				if (!captureResponse.ok) {
+					throw new Error('Failed to capture payment with tip');
+				}
+
+				const { payment_intent: capturedPayment } = await captureResponse.json();
+				
+				console.log('✅ Payment captured with tip successfully');
+				
+				// Finalize table closure
+				await finalizeTableClosure('card', {
+					amount: finalAmount,
+					subtotal: paymentAmount,
+					tip_amount: tipAmount,
+					stripe_payment_intent_id: capturedPayment.id,
+					currency: 'usd',
+					table_id: selectedTableForPayment.id,
+					ticket_id: selectedTableForPayment.ticketId
+				});
+			}
+		} catch (error) {
+			console.error('❌ Stripe payment failed:', error);
+			alert(`Payment failed: ${error.message}`);
+			throw error;
+		}
+	}
+
+	async function processCashPayment() {
+		console.log('💵 Processing cash payment...');
+		
+		const totalAmount = getTotalAmount();
+		const paymentData = {
+			amount: totalAmount,
+			currency: 'usd',
+			table_id: selectedTableForPayment.id,
+			method: 'cash',
+			subtotal: paymentAmount,
+			tip_amount: tipAmount,
+			tip_percentage: tipMethod === 'percentage' ? tipPercentage : null
+		};
+
+		await finalizeTableClosure('cash', paymentData);
+	}
+
+	async function processSplitPayment() {
+		console.log('🔄 Processing split payment...');
+		// Split payment logic would go here
+		alert('Split payment feature coming soon!');
+	}
+
+	async function finalizeTableClosure(method, paymentData) {
+		try {
+			// 1. Update ticket status to 'paid'
+			const orderStatus = getTableOrderStatus(selectedTableForPayment.id);
+			if (orderStatus && orderStatus.ticket) {
+				await collections.updateTicket(orderStatus.ticket.id, {
+					status: 'paid',
+					payment_method: method,
+					payment_amount: paymentAmount,
+					payment_timestamp: new Date().toISOString()
+				});
+			}
+
+			// 2. Update all ticket items to 'completed'
+			const currentTicketItems = get(ticketItems).filter(item => 
+				item.ticket_id === orderStatus.ticket.id
+			);
+			
+			for (const item of currentTicketItems) {
+				await collections.updateTicketItem(item.id, {
+					status: 'completed'
+				});
+			}
+
+			// 3. Update table status to 'cleaning' then 'available'
+			await collections.updateTable(selectedTableForPayment.id, {
+				status_field: 'cleaning'
+			});
+
+			// 4. Auto-mark as available after 5 seconds (simulate cleaning)
+			setTimeout(async () => {
+				await collections.updateTable(selectedTableForPayment.id, {
+					status_field: 'available'
+				});
+				
+				// Refresh data
+				await Promise.all([
+					collections.getTickets(),
+					collections.getTables()
+				]);
+				
+			}, 5000);
+
+			// 5. Close modal and show success
+			closePaymentModal();
+			alert(`✅ Payment successful! Table ${selectedTableForPayment.table_name || selectedTableForPayment.table_number_field} will be available in 5 seconds.`);
+
+			// 6. Refresh data immediately
+			await Promise.all([
+				collections.getTickets(),
+				collections.getTables()
+			]);
+
+		} catch (error) {
+			console.error('Error finalizing table closure:', error);
+			alert('Error closing table. Please try again.');
 		}
 	}
 
@@ -2358,6 +3444,14 @@
 							📊 Order Status
 						</button>
 					{/if}
+					{#if completedOrders.length > 0}
+						<button
+							on:click={() => showHistoryModal = true}
+							class="px-3 py-2 bg-gray-600 hover:bg-gray-700 rounded-lg text-white text-sm transition-colors"
+						>
+							📋 Order History ({completedOrders.length})
+						</button>
+					{/if}
 					<div>
 						<h1 class="text-xl font-bold text-white">
 							{selectedTable.table_name || selectedTable.table_number_field}
@@ -2635,12 +3729,101 @@
 
 						<div class="space-y-2">
 							{#if currentTicketItems.length > 0}
+								{#if currentTicketItems.some(item => !item.status || item.status === 'pending')}
+									<button
+										on:click={sendToKitchen}
+										class="w-full px-4 py-3 bg-blue-600 hover:bg-blue-700 rounded-lg text-white font-bold"
+									>
+										📋 Send Orders
+									</button>
+								{/if}
+								
+								{#if currentTicketItems.every(item => item.status === 'ready' || item.status === 'preparing') && currentTicketItems.length > 0}
+									<div class="space-y-2">
+										{#if paymentWorkflowStep === 'completed'}
+							<!-- Payment Completed - Show Summary -->
+							<div class="p-4 bg-green-800/20 border border-green-600 rounded-lg text-green-300">
+								<div class="flex justify-between items-center mb-2">
+									<h4 class="font-semibold">✅ Payment Completed</h4>
+									<button
+										on:click={() => paymentWorkflowStep = 'initial'}
+										class="text-xs px-2 py-1 bg-gray-700 hover:bg-gray-600 rounded"
+									>
+										New Payment
+									</button>
+								</div>
+								<div class="text-sm space-y-1">
+									<div>Subtotal: ${authorizedAmount.toFixed(2)}</div>
+									<div>Tip: ${tipAmount.toFixed(2)}</div>
+									<div class="font-bold">Total Charged: ${totalWithTip.toFixed(2)}</div>
+									<div class="text-xs text-green-400 mt-2">Table ready for cleaning by bussers</div>
+								</div>
 								<button
-									on:click={sendToKitchen}
-									class="w-full px-4 py-3 bg-blue-600 hover:bg-blue-700 rounded-lg text-white font-bold"
+									on:click={() => {
+										// Allow tip adjustment
+										paymentWorkflowStep = 'initial';
+										// Reset for new transaction but keep history
+									}}
+									class="w-full mt-3 px-3 py-2 bg-blue-600 hover:bg-blue-700 rounded text-sm"
 								>
-									📋 Send Orders
+									Adjust Tip (if needed)
 								</button>
+							</div>
+						{:else if paymentWorkflowStep === 'initial'}
+											<!-- Step 1: Swipe Card (Authorize) -->
+											<button
+												on:click={() => swipeCard()}
+												class="w-full px-4 py-3 bg-blue-600 hover:bg-blue-700 rounded-lg text-white font-bold flex items-center justify-center"
+											>
+												💳 Swipe Customer Card - ${(currentTicket?.total_amount || currentTicketItems.reduce((sum, item) => sum + (item.unit_price * item.quantity), 0) * 1.08875).toFixed(2)}
+											</button>
+											
+											<!-- Test Card Simulation (Development) -->
+											<button
+												on:click={() => simulateCardSwipe()}
+												class="w-full px-4 py-3 bg-purple-600 hover:bg-purple-700 rounded-lg text-white font-bold flex items-center justify-center"
+											>
+												🧪 Simulate Test Card - ${(currentTicket?.total_amount || currentTicketItems.reduce((sum, item) => sum + (item.unit_price * item.quantity), 0) * 1.08875).toFixed(2)}
+											</button>
+											
+											<!-- Cash Option -->
+											<button
+												on:click={() => {
+													const orderStatus = getTableOrderStatus(selectedTable.id);
+													if (orderStatus) {
+														closeTicketModal();
+														openPaymentModal(selectedTable, orderStatus);
+													}
+												}}
+												class="w-full px-4 py-3 bg-green-600 hover:bg-green-700 rounded-lg text-white font-bold flex items-center justify-center"
+											>
+												💵 Cash Payment
+											</button>
+										{:else if paymentWorkflowStep === 'card_authorized'}
+											<!-- Step 2: Print Slip for Guest -->
+											<div class="bg-blue-900/20 border border-blue-600 rounded-lg p-3 mb-2">
+												<div class="text-sm text-blue-300 mb-2">✅ Card Authorized - Print slip for guest</div>
+											</div>
+											<button
+												on:click={() => printTipSlip()}
+												class="w-full px-4 py-3 bg-yellow-600 hover:bg-yellow-700 rounded-lg text-white font-bold flex items-center justify-center"
+											>
+												🖨️ Print Receipt for Guest Tip
+											</button>
+										{:else if paymentWorkflowStep === 'awaiting_tip'}
+											<!-- Step 3: Enter Tip and Finalize -->
+											<div class="bg-yellow-900/20 border border-yellow-600 rounded-lg p-3 mb-2">
+												<div class="text-sm text-yellow-300 mb-2">📝 Guest signed receipt - Enter tip amount</div>
+											</div>
+											<button
+												on:click={() => finalizePaymentWithTip()}
+												class="w-full px-4 py-3 bg-green-600 hover:bg-green-700 rounded-lg text-white font-bold flex items-center justify-center"
+											>
+												✅ Add Tip & Finalize Payment
+											</button>
+										{/if}
+									</div>
+								{/if}
 							{/if}
 							<button
 								on:click={closeTicketModal}
@@ -3174,13 +4357,365 @@
 			</div>
 
 			<!-- Footer -->
-			<div class="p-6 border-t border-gray-700 flex justify-end">
+			<div class="p-6 border-t border-gray-700 flex justify-between">
 				<button
 					on:click={closeTableDetailsModal}
 					class="px-4 py-2 bg-gray-600 hover:bg-gray-500 rounded-lg text-white font-medium"
 				>
 					Close
 				</button>
+				
+				{#if selectedTableDetails && selectedTableDetails.status === 'ready'}
+					<button
+						on:click={() => {
+							const orderStatus = getTableOrderStatus(selectedTableDetails.table.id);
+							if (orderStatus) {
+								closeTableDetailsModal();
+								openPaymentModal(selectedTableDetails.table, orderStatus);
+							}
+						}}
+						class="px-6 py-2 bg-green-600 hover:bg-green-700 rounded-lg text-white font-medium flex items-center space-x-2"
+					>
+						<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+							<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v2a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z"></path>
+						</svg>
+						<span>Process Payment</span>
+					</button>
+				{/if}
+			</div>
+		</div>
+	</div>
+{/if}
+
+<!-- Payment Processing Modal -->
+{#if showPaymentModal && selectedTableForPayment}
+	<div class="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
+		<div class="bg-gray-800 rounded-lg border border-gray-700 w-full max-w-md">
+			<!-- Header -->
+			<div class="flex justify-between items-center p-6 border-b border-gray-700">
+				<div>
+					<h2 class="text-xl font-bold">Process Payment</h2>
+					<p class="text-gray-400">
+						{selectedTableForPayment.table_name || selectedTableForPayment.table_number_field}
+					</p>
+				</div>
+				<button
+					on:click={closePaymentModal}
+					class="text-gray-400 hover:text-white p-2"
+				>
+					✕
+				</button>
+			</div>
+
+			<!-- Content -->
+			<div class="p-6 space-y-6">
+				<!-- Amount Breakdown -->
+				<div class="space-y-3">
+					<div class="flex justify-between items-center">
+						<label class="text-sm font-medium text-gray-300">Subtotal</label>
+						<div class="text-lg text-gray-100">${paymentAmount.toFixed(2)}</div>
+					</div>
+					
+					<!-- Tip Section -->
+					<div class="border-t border-gray-600 pt-3">
+						<label class="block text-sm font-medium text-gray-300 mb-3">Add Tip</label>
+						
+						<!-- Guest Signed Tip (Primary Option) -->
+						<div class="bg-blue-900/20 border border-blue-600 rounded-lg p-3 mb-3">
+							<button
+								on:click={selectGuestSignedTip}
+								class="w-full flex items-center justify-between p-2 text-sm rounded-lg font-medium transition-colors {
+									tipMethod === 'guest_signed'
+										? 'bg-blue-600 text-white'
+										: 'bg-gray-700 hover:bg-gray-600 text-gray-300'
+								}"
+							>
+								<div class="flex items-center">
+									<svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+										<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"></path>
+									</svg>
+									Guest Signed Tip
+								</div>
+								<span class="text-xs opacity-75">Recommended</span>
+							</button>
+							
+							{#if showGuestTipEntry}
+								<div class="mt-3">
+									<label class="block text-xs text-blue-300 mb-2">Enter amount guest wrote:</label>
+									<input
+										type="number"
+										placeholder="0.00"
+										step="0.01"
+										min="0"
+										bind:value={guestSignedTip}
+										on:input={calculateTip}
+										class="w-full p-2 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400 text-lg font-medium"
+										autofocus
+									/>
+								</div>
+							{/if}
+						</div>
+						
+						<!-- Quick Tip Options (Fallback) -->
+						<details class="group">
+							<summary class="cursor-pointer text-sm text-gray-400 hover:text-gray-300 mb-2">
+								Or select suggested tip amounts
+							</summary>
+							
+							<!-- Tip Percentage Buttons -->
+							<div class="grid grid-cols-4 gap-2 mb-3">
+								{#each [15, 18, 20, 25] as percentage}
+									<button
+										on:click={() => selectTipPercentage(percentage)}
+										class="p-2 text-sm rounded-lg font-medium transition-colors {
+											tipMethod === 'percentage' && tipPercentage === percentage
+												? 'bg-blue-600 text-white'
+												: 'bg-gray-700 hover:bg-gray-600 text-gray-300'
+										}"
+									>
+										{percentage}%
+									</button>
+								{/each}
+							</div>
+							
+							<!-- Custom Tip Input -->
+							<div class="flex space-x-2 mb-3">
+								<button
+									on:click={selectCustomTip}
+									class="px-3 py-2 text-sm rounded-lg font-medium transition-colors {
+										tipMethod === 'custom'
+											? 'bg-blue-600 text-white'
+											: 'bg-gray-700 hover:bg-gray-600 text-gray-300'
+									}"
+								>
+									Custom
+								</button>
+								<input
+									type="number"
+									placeholder="0.00"
+									step="0.01"
+									min="0"
+									bind:value={customTipAmount}
+									on:input={() => { tipMethod = 'custom'; calculateTip(); }}
+									class="flex-1 p-2 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400"
+								/>
+							</div>
+						</details>
+						
+						<!-- No Tip Button -->
+						<button
+							on:click={selectNoTip}
+							class="w-full p-2 text-sm rounded-lg font-medium transition-colors {
+								tipMethod === 'none'
+									? 'bg-gray-500 text-white'
+									: 'bg-gray-700 hover:bg-gray-600 text-gray-300'
+							}"
+						>
+							No Tip
+						</button>
+						
+						<!-- Tip Amount Display -->
+						{#if tipAmount > 0}
+							<div class="flex justify-between items-center mt-3 pt-2 border-t border-gray-600">
+								<span class="text-sm text-gray-300">Tip Amount</span>
+								<span class="text-lg text-blue-400">${tipAmount.toFixed(2)}</span>
+							</div>
+						{/if}
+					</div>
+					
+					<!-- Total -->
+					<div class="border-t border-gray-600 pt-3">
+						<div class="flex justify-between items-center">
+							<label class="text-lg font-medium text-gray-300">Total</label>
+							<div class="text-3xl font-bold text-green-400">${totalWithTip.toFixed(2)}</div>
+						</div>
+					</div>
+				</div>
+
+				<!-- Payment Method -->
+				<div>
+					<label class="block text-sm font-medium text-gray-300 mb-3">Payment Method</label>
+					<div class="space-y-2">
+						<label class="flex items-center p-3 bg-gray-700 hover:bg-gray-600 rounded-lg cursor-pointer transition-colors">
+							<input
+								type="radio"
+								bind:group={paymentMethod}
+								value="card"
+								class="mr-3 text-blue-600"
+							>
+							<div class="flex items-center">
+								<svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+									<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"></path>
+								</svg>
+								<span>Credit/Debit Card (Stripe)</span>
+							</div>
+						</label>
+						
+						<label class="flex items-center p-3 bg-gray-700 hover:bg-gray-600 rounded-lg cursor-pointer transition-colors">
+							<input
+								type="radio"
+								bind:group={paymentMethod}
+								value="cash"
+								class="mr-3 text-blue-600"
+							>
+							<div class="flex items-center">
+								<svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+									<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v2a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z"></path>
+								</svg>
+								<span>Cash</span>
+							</div>
+						</label>
+						
+						<label class="flex items-center p-3 bg-gray-700 hover:bg-gray-600 rounded-lg cursor-pointer transition-colors opacity-50">
+							<input
+								type="radio"
+								bind:group={paymentMethod}
+								value="split"
+								class="mr-3 text-blue-600"
+								disabled
+							>
+							<div class="flex items-center">
+								<svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+									<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4"></path>
+								</svg>
+								<span>Split Payment (Coming Soon)</span>
+							</div>
+						</label>
+					</div>
+				</div>
+
+				{#if paymentMethod === "card"}
+					<div class="space-y-4">
+						<div class="p-4 bg-blue-900/20 border border-blue-700 rounded-lg">
+							<p class="text-sm text-blue-300 mb-3">
+								{#if !authorizedPaymentIntent}
+								💳 Enter card details below:
+							{:else}
+								✅ Card Already Authorized - Ready to Complete:
+							{/if}
+							</p>
+							{#if !authorizedPaymentIntent}
+								<!-- Stripe Card Element -->
+								<div 
+									id="stripe-card-element" 
+									class="p-3 bg-gray-700 border border-gray-600 rounded-lg min-h-[50px] flex items-center"
+								>
+									<!-- Stripe Elements will mount here -->
+								</div>
+							{:else}
+								<!-- Card Already Authorized Display -->
+								<div class="p-4 bg-green-800/30 rounded-lg border border-green-600 text-green-300">
+									✅ Card authorized for ${authorizedAmount.toFixed(2)}
+									<br>Adding tip of ${tipAmount.toFixed(2)}
+									<br><strong>Final total: ${totalWithTip.toFixed(2)}</strong>
+								</div>
+							{/if}
+						</div>
+					</div>
+				{:else if paymentMethod === "cash"}
+					<div class="p-4 bg-green-900/20 border border-green-700 rounded-lg">
+						<p class="text-sm text-green-300">
+							💵 Confirm cash payment received from customer.
+						</p>
+					</div>
+				{/if}
+			</div>
+
+			<!-- Footer -->
+			<div class="p-6 border-t border-gray-700 flex space-x-3">
+				<button
+					on:click={closePaymentModal}
+					class="flex-1 px-4 py-2 bg-gray-600 hover:bg-gray-500 rounded-lg text-white font-medium"
+				>
+					Cancel
+				</button>
+				<button
+					on:click={authorizedPaymentIntent ? capturePaymentWithTip : processPayment}
+					class="flex-1 px-4 py-2 bg-green-600 hover:bg-green-700 rounded-lg text-white font-medium"
+				>
+					{#if authorizedPaymentIntent}
+						✅ Complete Transaction - ${totalWithTip.toFixed(2)}
+					{:else}
+						{paymentMethod === "card" ? "Process Card" : paymentMethod === "cash" ? "Confirm Cash" : "Process Payment"}
+					{/if}
+				</button>
+			</div>
+		</div>
+	</div>
+{/if}
+
+
+<!-- Order History Modal -->
+{#if showHistoryModal}
+	<div class="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
+		<div class="bg-gray-800 rounded-lg border border-gray-700 w-full max-w-4xl max-h-[90vh] overflow-y-auto">
+			<!-- Header -->
+			<div class="flex justify-between items-center p-6 border-b border-gray-700">
+				<h2 class="text-2xl font-bold text-white">Order History - Today's Shift</h2>
+				<button
+					on:click={() => showHistoryModal = false}
+					class="text-gray-400 hover:text-white p-2"
+				>
+					✕
+				</button>
+			</div>
+
+			<!-- History Content -->
+			<div class="p-6 space-y-4">
+				{#if completedOrders.length > 0}
+					{#each completedOrders as order}
+						<div class="bg-gray-900/50 rounded-lg border border-gray-600 p-4">
+							<div class="flex justify-between items-start mb-3">
+								<div>
+									<h3 class="text-lg font-semibold text-white">
+										{order.table_name} - #{order.ticket_number}
+									</h3>
+									<p class="text-sm text-gray-400">
+										{new Date(order.timestamp).toLocaleString()}
+									</p>
+								</div>
+								<div class="text-right">
+									<p class="text-xl font-bold text-green-400">${order.total.toFixed(2)}</p>
+									<p class="text-sm text-gray-400">
+										Subtotal: ${order.subtotal.toFixed(2)} • Tip: ${order.tip.toFixed(2)}
+									</p>
+								</div>
+							</div>
+							
+							<!-- Order Items -->
+							<div class="space-y-2">
+								<h4 class="text-sm font-medium text-gray-300">Items:</h4>
+								{#each order.items as item}
+									<div class="flex justify-between text-sm bg-gray-800/50 p-2 rounded">
+										<span class="text-gray-300">
+											{item.quantity}x {item.expand?.menu_item?.name || 'Unknown Item'}
+											{#if item.customization_details}
+												<span class="text-xs text-blue-400">
+													• {item.customization_details}
+												</span>
+											{/if}
+										</span>
+										<span class="text-white font-medium">
+											${(item.unit_price * item.quantity).toFixed(2)}
+										</span>
+									</div>
+								{/each}
+							</div>
+						</div>
+					{/each}
+				{:else}
+					<div class="text-center py-8 text-gray-400">
+						<p>No completed orders yet</p>
+					</div>
+				{/if}
+			</div>
+
+			<!-- Footer -->
+			<div class="p-6 border-t border-gray-700 text-center">
+				<p class="text-sm text-gray-400">
+					Total Orders: {completedOrders.length} • 
+					Total Revenue: ${completedOrders.reduce((sum, order) => sum + order.total, 0).toFixed(2)}
+				</p>
 			</div>
 		</div>
 	</div>
