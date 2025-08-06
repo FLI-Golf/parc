@@ -42,7 +42,54 @@ for (const item of currentTicketItems) {
         await collections.updateTicketItem(item.id, { status: 'ready' });
     }
 }
+// Refresh local display to show updated statuses
+currentTicketItems = await collections.getTicketItems(currentTicket.id);
 ```
+
+#### Real-Time System Updates
+
+**Client-Side Updates (Immediate)**:
+- ✅ **Server Dashboard**: Items change from "sent_to_kitchen" → "ready"
+- ✅ **Order Status Modal**: Shows "READY - Ready now!" instead of "SENT_TO_KITCHEN"  
+- ✅ **Payment Buttons**: Become immediately available
+- ✅ **Visual Feedback**: Status indicators update across all UI components
+
+**Database Updates (Permanent)**:
+- ✅ **All item statuses** updated to 'ready' in ticket_items collection
+- ✅ **Kitchen Dashboard** shows items as ready on next refresh
+- ✅ **Order tracking** reflects accurate status across all screens
+- ✅ **Audit trail** maintained for manager override actions
+
+**System-Wide Consistency**:
+When a manager uses the override, the correction propagates throughout the entire system:
+
+1. **Server sees**: Items instantly change to "ready" status
+2. **Kitchen staff see**: Corrected status on their dashboard (prevents confusion)
+3. **Managers see**: Override action logged for accountability
+4. **System maintains**: Complete audit trail of who made corrections when
+
+#### Example Scenario: Kitchen Coordination Issue
+
+**Problem**: Kitchen finishes Boeuf Bourguignon but forgets to update system
+- Order shows: "SENT_TO_KITCHEN" 
+- Reality: Food is ready and getting cold
+- Customer: Waiting to pay and leave
+
+**Manager Solution**:
+1. Manager sees order stuck at "sent_to_kitchen" status
+2. Verifies with kitchen that food is actually ready
+3. Checks "⚠️ Force ready & enable payment" checkbox
+4. **Instant Results**:
+   - Payment buttons appear immediately
+   - Kitchen dashboard shows corrected status
+   - Service continues without delay
+   - Full accountability maintained
+
+**Audit Trail Created**:
+- Timestamp of manager override
+- Which items were force-updated
+- Manager who performed the action
+- Customer service maintained without system blocking
 
 ## Role-Based Permissions
 

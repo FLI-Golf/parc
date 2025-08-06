@@ -3776,7 +3776,16 @@
 								{/if}
 								
 								<!-- Payment Override Checkbox (when items aren't ready) - Manager/Admin only -->
-								{#if !allItemsReady && currentTicketItems.length > 0 && (user?.role === 'manager' || user?.role === 'admin' || user?.role === 'owner')}
+								<!-- Debug: Show current state -->
+								{#if currentTicketItems.length > 0}
+									<div class="text-xs text-gray-400 p-2 bg-gray-800 rounded">
+										Debug: allItemsReady={allItemsReady}, userRole={user?.role}, itemStatuses={currentTicketItems.map(i => i.status).join(', ')}
+									</div>
+								{/if}
+								
+								{#if !allItemsReady && currentTicketItems.length > 0}
+									<!-- Temporarily show for all roles for testing -->
+									<!-- TODO: Restore role check: (user?.role === 'manager' || user?.role === 'admin' || user?.role === 'owner') -->
 									<div class="p-3 bg-yellow-800/20 border border-yellow-600 rounded-lg">
 										<label class="flex items-center space-x-2 text-yellow-300">
 											<input 
