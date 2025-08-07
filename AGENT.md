@@ -166,6 +166,39 @@ Servers can help other sections by clicking "Help Here" on any section:
 - Provides seamless management of all assigned and helping tables
 - Visual distinction: assigned section tables (green), helping sections (blue)
 - Reduces clicks and scrolling for efficient service
+- Preferences persist across page refreshes via localStorage
+
+### Enhanced Table Workflow Indicators
+Comprehensive dot color system shows table status at a glance:
+- 🟢 **Green**: Available for new orders
+- 🟠 **Orange**: Order in progress (open)
+- 🔵 **Blue**: Sent to kitchen / Being prepared
+- 🔵 **Blue (slow pulse)**: Ready for pickup (items ready)
+- 🟣 **Purple**: Served to guests
+- 🟡 **Yellow**: Processing payment
+- ⚫ **Gray**: Table being cleaned
+
+### Table Click Behavior Preferences
+Customizable click behavior to optimize workflow:
+- **Direct Access (fewer clicks)**: Goes straight to order interface
+- **Show Details First (more control)**: Shows table details modal first if orders exist
+- Setting applies to both condensed and expanded views
+- Preference saved in localStorage and persists across sessions
+
+### Payment Flow Optimization
+Streamlined payment processing:
+- **Condensed View**: Direct payment processing with full interface
+- **Expanded View**: Respects click behavior preference
+- **Process Payment Button**: Takes user to detailed order interface (not modal)
+- **Direct Payment Functions**: Handle cash/card payments in table details view
+- All payment flows end in same detailed interface for consistency
+
+### View Mode Persistence
+User interface preferences are automatically saved:
+- **Section Expansion**: Remembers collapsed/expanded state
+- **Helping Sections**: Maintains list of sections user is helping
+- **Click Behavior**: Saves Direct Access vs Show Details First preference
+- All settings restored on page refresh for seamless experience
 
 ### Bar Orders Integration
 For bartenders, Bar Orders section appears prominently after Today's Shifts:

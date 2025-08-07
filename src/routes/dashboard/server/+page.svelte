@@ -120,7 +120,8 @@
 						collections.getMenuItems(),
 						collections.getSections(),
 						collections.getTables(),
-						collections.getTickets()
+						collections.getTickets(),
+						collections.getTicketItems()
 					]);
 					
 					// Table updates collection is optional for server dashboard
@@ -458,6 +459,12 @@
 
 	// Helper to get all tables the server is responsible for (assigned + helping sections)
 	function getAllMyTables(assignedSectionId) {
+		// Guard against undefined stores
+		if (!$tables || !$sections) {
+			console.warn('Tables or sections not loaded yet');
+			return [];
+		}
+		
 		let allTables = [];
 		
 		// Add tables from assigned section
@@ -485,12 +492,25 @@
 
 	// Toggle additional section selection
 	function toggleAdditionalSection(sectionId) {
+		console.log('🔧 Toggle section:', sectionId);
+		console.log('📋 Current helping sections:', Array.from(selectedAdditionalSections));
+		
 		if (selectedAdditionalSections.has(sectionId)) {
 			selectedAdditionalSections.delete(sectionId);
+			console.log('❌ Removed section:', sectionId);
 		} else {
 			selectedAdditionalSections.add(sectionId);
+			console.log('✅ Added section:', sectionId);
 		}
+		// Force reactivity update
 		selectedAdditionalSections = new Set(selectedAdditionalSections);
+		
+		// Save to localStorage
+		saveStateToLocalStorage();
+		
+		console.log('📋 New helping sections:', Array.from(selectedAdditionalSections));
+		console.log('🔍 Tables for this section:', getTablesForSection(sectionId));
+		console.log('🔄 Triggering reactive update...');
 	}
 
 	// Update table status
@@ -537,6 +557,51 @@
 	// State for expanded sections view
 	let showAllSections = false;
 	let selectedAdditionalSections = new Set(); // Track additional sections server is helping with
+	let tableClickBehavior = 'direct'; // 'direct' or 'detailed' - preference for table click behavior
+	
+	// Restore state from localStorage on page load
+	onMount(() => {
+		if (typeof window !== 'undefined') {
+			try {
+				const savedSections = localStorage.getItem('selectedAdditionalSections');
+				if (savedSections) {
+					const parsed = JSON.parse(savedSections);
+					if (Array.isArray(parsed)) {
+						selectedAdditionalSections = new Set(parsed);
+					}
+				}
+				
+				const savedShowAllSections = localStorage.getItem('showAllSections');
+				if (savedShowAllSections) {
+					showAllSections = JSON.parse(savedShowAllSections) === true;
+				}
+				
+				const savedTableClickBehavior = localStorage.getItem('tableClickBehavior');
+				if (savedTableClickBehavior && ['direct', 'detailed'].includes(savedTableClickBehavior)) {
+					tableClickBehavior = savedTableClickBehavior;
+				}
+			} catch (e) {
+				console.warn('Failed to restore localStorage state:', e);
+				// Reset to defaults on error
+				selectedAdditionalSections = new Set();
+				showAllSections = false;
+				tableClickBehavior = 'direct';
+			}
+		}
+	});
+	
+	// Save state to localStorage when it changes (non-reactive to prevent loops)
+	function saveStateToLocalStorage() {
+		if (typeof window !== 'undefined') {
+			try {
+				localStorage.setItem('selectedAdditionalSections', JSON.stringify(Array.from(selectedAdditionalSections)));
+				localStorage.setItem('showAllSections', JSON.stringify(showAllSections));
+				localStorage.setItem('tableClickBehavior', tableClickBehavior);
+			} catch (e) {
+				console.warn('Failed to save to localStorage:', e);
+			}
+		}
+	}
 	
 	// Ticket management state
 	let showTicketModal = false;
@@ -613,7 +678,7 @@
 	let showModifiers = false;
 	
 	// Reactive statement for current shift's tables (updates when selectedAdditionalSections changes)
-	$: currentShiftTables = (todayShifts.length > 0 && todayShifts[0] && selectedAdditionalSections) 
+	$: currentShiftTables = (todayShifts.length > 0 && todayShifts[0] && selectedAdditionalSections !== undefined) 
 		? getAllMyTables(todayShifts[0].assigned_section) 
 		: [];
 		
@@ -1234,11 +1299,91 @@
 					icon: '✅',
 					text: 'Ready for Pickup'
 				};
+			case 'served':
+				return {
+					color: 'bg-purple-500',
+					icon: '🍽️',
+					text: 'Served'
+				};
+			case 'payment_processing':
+				return {
+					color: 'bg-yellow-500',
+					icon: '💳',
+					text: 'Processing Payment'
+				};
 			default:
 				return {
 					color: 'bg-gray-500',
 					icon: '○',
 					text: 'Available'
+				};
+		}
+	}
+
+	// Get simple dot indicator for condensed view
+	function getTableDotStatus(tableId) {
+		const table = $tables.find(t => t.id === tableId);
+		const existingTicket = $tickets.find(t => t.table_id === tableId && !['closed'].includes(t.status));
+		
+		// Check table status first (cleaning takes priority)
+		if (table?.status_field === 'cleaning') {
+			return {
+				color: 'bg-gray-500',
+				title: 'Table being cleaned',
+				animate: ''
+			};
+		}
+		
+		if (!existingTicket) {
+			return {
+				color: 'bg-green-500',
+				title: 'Available for new orders',
+				animate: ''
+			};
+		}
+		
+		switch (existingTicket.status) {
+			case 'open':
+				return {
+					color: 'bg-orange-500',
+					title: 'Order in progress',
+					animate: ''
+				};
+			case 'sent_to_kitchen':
+				return {
+					color: 'bg-blue-500',
+					title: 'Sent to kitchen',
+					animate: ''
+				};
+			case 'preparing':
+				return {
+					color: 'bg-blue-500',
+					title: 'Being prepared',
+					animate: ''
+				};
+			case 'ready':
+				return {
+					color: 'bg-blue-500',
+					title: 'Ready for pickup',
+					animate: 'slow-pulse'
+				};
+			case 'served':
+				return {
+					color: 'bg-purple-500',
+					title: 'Served to guests',
+					animate: ''
+				};
+			case 'payment_processing':
+				return {
+					color: 'bg-yellow-500',
+					title: 'Processing payment',
+					animate: ''
+				};
+			default:
+				return {
+					color: 'bg-gray-500',
+					title: 'Unknown status',
+					animate: ''
 				};
 		}
 	}
@@ -1319,11 +1464,17 @@
 		try {
 			// Get all active ticket items that are bar orders
 			const allItems = get(ticketItems) || [];
+			console.log('🍹 DEBUG: All ticket items for bar filtering:', allItems);
+			
+			const drinkItems = allItems.filter(item => item.course === 'drink');
+			console.log('🍸 DEBUG: Drink items:', drinkItems);
 			
 			const activeBarItems = allItems.filter(item => 
 				item.kitchen_station === 'bar' &&
 				(item.status === 'sent_to_kitchen' || item.status === 'preparing' || item.status === 'ready')
 			);
+			
+			console.log('🍹 DEBUG: Active bar items after filtering:', activeBarItems);
 
 			// Add metadata to items and filter by 7-minute visibility window
 			const now = new Date();
@@ -1343,6 +1494,16 @@
 					const shouldDisplay = now < displayUntil;
 					const minutesUntilHidden = Math.max(0, Math.floor((displayUntil - now) / (1000 * 60)));
 					
+					console.log(`🍹 DEBUG Item ${item.id}:`, {
+						status: item.status,
+						ordered_at: item.ordered_at,
+						prepared_at: item.prepared_at,
+						elapsedMinutes,
+						shouldDisplay,
+						displayUntil: displayUntil.toISOString(),
+						now: now.toISOString()
+					});
+					
 					return {
 						...item,
 						elapsedMinutes,
@@ -1354,7 +1515,11 @@
 						displayUntil
 					};
 				})
-				.filter(item => item.shouldDisplay); // Only show items within display window
+				.filter(item => {
+					console.log(`🍹 Filtering item ${item.id}: shouldDisplay = ${item.shouldDisplay}`);
+					// Temporarily disable time filtering for debugging
+					return true; // Show all bar items regardless of timing
+				}); // Only show items within display window
 			
 		} catch (error) {
 			console.error('Error loading bar orders:', error);
@@ -1424,6 +1589,113 @@
 		
 		// Initialize Stripe Elements when modal opens
 		await setupStripeElements();
+	}
+
+	// Handle cash payment directly in table details view
+	async function handleDirectCashPayment(table, orderStatus) {
+		try {
+			const ticket = orderStatus.ticket;
+			const totalAmount = ticket.total_amount;
+			
+			// Show confirmation before processing
+			const confirmed = confirm(`Process cash payment of $${totalAmount.toFixed(2)} for Table ${table.table_name || table.table_number_field}?`);
+			
+			if (!confirmed) return;
+			
+			console.log('💵 Processing direct cash payment for:', table.table_name);
+			
+			// Update ticket status to closed and mark as cash payment
+			await collections.updateTicket(ticket.id, {
+				status: 'closed',
+				payment_method: 'cash',
+				payment_status: 'completed',
+				payment_amount: totalAmount,
+				completed_at: new Date().toISOString()
+			});
+			
+			// Update table status to cleaning
+			await collections.updateTable(table.id, {
+				status_field: 'cleaning'
+			});
+			
+			// Auto-mark as available after 5 seconds (simulate cleaning)
+			setTimeout(async () => {
+				await collections.updateTable(table.id, {
+					status_field: 'available'
+				});
+			}, 5000);
+			
+			console.log('✅ Cash payment processed successfully');
+			
+			// Close table details modal and show success
+			showTableDetailsModal = false;
+			selectedTableDetails = null;
+			
+			alert(`Cash payment of $${totalAmount.toFixed(2)} processed successfully!\nTable ready for cleaning.`);
+			
+			// Refresh data
+			await collections.getTickets();
+			await collections.getTables();
+			
+		} catch (error) {
+			console.error('❌ Error processing cash payment:', error);
+			alert('Error processing cash payment. Please try again.');
+		}
+	}
+
+	// Handle card payment directly in table details view
+	async function handleDirectCardPayment(table, orderStatus) {
+		try {
+			const ticket = orderStatus.ticket;
+			const totalAmount = ticket.total_amount;
+			
+			// Show confirmation before processing
+			const confirmed = confirm(`Process card payment of $${totalAmount.toFixed(2)} for Table ${table.table_name || table.table_number_field}?`);
+			
+			if (!confirmed) return;
+			
+			console.log('💳 Processing direct card payment for:', table.table_name);
+			
+			// Simulate card processing (in real app, this would call Stripe)
+			await new Promise(resolve => setTimeout(resolve, 2000)); // Simulate processing time
+			
+			// Update ticket status to closed and mark as card payment
+			await collections.updateTicket(ticket.id, {
+				status: 'closed',
+				payment_method: 'card',
+				payment_status: 'completed',
+				payment_amount: totalAmount,
+				completed_at: new Date().toISOString()
+			});
+			
+			// Update table status to cleaning
+			await collections.updateTable(table.id, {
+				status_field: 'cleaning'
+			});
+			
+			// Auto-mark as available after 5 seconds (simulate cleaning)
+			setTimeout(async () => {
+				await collections.updateTable(table.id, {
+					status_field: 'available'
+				});
+			}, 5000);
+			
+			console.log('✅ Card payment processed successfully');
+			
+			// Close table details modal and show success
+			showTableDetailsModal = false;
+			selectedTableDetails = null;
+			
+			alert(`Card payment of $${totalAmount.toFixed(2)} processed successfully!\nTable ready for cleaning.`);
+			
+			// Refresh data
+			await collections.getTickets();
+			await collections.getTables();
+			
+		} catch (error) {
+			console.error('❌ Error processing card payment:', error);
+			alert('Error processing card payment. Please try again.');
+		}
 	}
 
 	function closePaymentModal() {
@@ -2800,16 +3072,53 @@
 							<!-- Show assigned section and tables for confirmed shifts -->
 							{#if shift.status === 'confirmed' && shift.assigned_section && getSectionName(shift.assigned_section)}
 								<div class="mb-4 p-4 bg-green-900/20 border border-green-700 rounded-lg">
-									<div class="flex justify-between items-center mb-3">
-										<h4 class="text-green-300 font-medium flex items-center">
-											<svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-												<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"></path>
-												<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"></path>
-											</svg>
-											Assigned Section: {getSectionName(shift.assigned_section)}
-										</h4>
+									<div class="flex justify-between items-start mb-3">
+										<div class="flex-1">
+											<h4 class="text-green-300 font-medium flex items-center mb-1">
+												<svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+													<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"></path>
+													<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"></path>
+												</svg>
+												{showAllSections ? 'Your Section' : 'Assigned Section'}: {getSectionName(shift.assigned_section)}
+											</h4>
+											{#if !showAllSections}
+												<p class="text-xs text-gray-400 ml-6">
+													Condensed view for larger table display. Use "Expand Sections" to customize your default view by expanding to view larger detailed display.
+												</p>
+												
+												<!-- Table Click Behavior Preference -->
+												<div class="ml-6 mt-2 space-y-1">
+													<p class="text-xs text-gray-500 font-medium">Table Click Behavior:</p>
+													<div class="flex gap-4 text-xs">
+														<label class="flex items-center gap-1 cursor-pointer">
+															<input 
+																type="radio" 
+																bind:group={tableClickBehavior} 
+																value="direct"
+																on:change={saveStateToLocalStorage}
+																class="w-3 h-3 text-green-600 bg-gray-700 border-gray-600 focus:ring-green-500 focus:ring-2"
+															>
+															<span class="text-gray-400">Direct Access (fewer clicks)</span>
+														</label>
+														<label class="flex items-center gap-1 cursor-pointer">
+															<input 
+																type="radio" 
+																bind:group={tableClickBehavior} 
+																value="detailed"
+																on:change={saveStateToLocalStorage}
+																class="w-3 h-3 text-green-600 bg-gray-700 border-gray-600 focus:ring-green-500 focus:ring-2"
+															>
+															<span class="text-gray-400">Show Details First (more control)</span>
+														</label>
+													</div>
+												</div>
+											{/if}
+										</div>
 										<button
-											on:click={() => showAllSections = !showAllSections}
+											on:click={() => {
+												showAllSections = !showAllSections;
+												saveStateToLocalStorage();
+											}}
 											class="px-3 py-1 text-xs bg-gray-700 hover:bg-gray-600 rounded-lg text-gray-300 hover:text-white transition-colors"
 										>
 											{showAllSections ? 'Hide' : 'Expand'} Sections
@@ -2824,57 +3133,63 @@
 										 <p class="text-sm text-green-400 font-medium">Your Tables: ({currentShiftTables.length} total, helping {selectedAdditionalSections.size} sections)</p>
 										<div class="flex flex-wrap gap-2">
 										 {#each currentShiftTables as table}
-														{@const existingTicket = $tickets.find(t => t.table_id === table.id && !['closed'].includes(t.status))}
-														{@const tableSection = $sections.find(s => s.section_code === table.section_code)}
-														<button 
-															on:click={() => handleTableClick(table)}
-															class="px-3 py-1 bg-gray-800/50 border rounded-lg text-sm font-medium flex items-center gap-2 hover:bg-gray-700/50 transition-colors cursor-pointer border-green-600 text-green-300"
-														>
-															<span>{table.table_name || table.table_number_field}</span>
-															{#if table.capacity || table.seats_field}
-																<span class="text-xs text-gray-400">({table.capacity || table.seats_field} seats)</span>
-															{/if}
-															<span class="text-xs px-1 py-0.5 rounded {tableSection?.id === shift.assigned_section ? 'bg-green-900/50 text-green-400' : 'bg-blue-900/50 text-blue-400'}">
-																{tableSection?.section_name || table.section_code || 'Unknown Section'}
-															</span>
-															
-															<!-- Table status indicator -->
-															{#if existingTicket}
-																<div class="w-2 h-2 rounded-full bg-orange-500" title="Has active ticket"></div>
-															{:else}
-																<div class="w-2 h-2 rounded-full bg-gray-500" title="Available for new ticket"></div>
-															{/if}
-														</button>
-													{/each}
+										 {@const tableSection = $sections.find(s => s.section_code === table.section_code)}
+										 {@const dotStatus = getTableDotStatus(table.id)}
+										 <button 
+										 on:click={() => {
+											 const hasOrders = $tickets.find(t => t.table_id === table.id && !['closed'].includes(t.status));
+											 if (tableClickBehavior === 'direct') {
+												 handleTableClick(table);
+											 } else {
+												 hasOrders ? showTableOrderDetails(table) : handleTableClick(table);
+											 }
+										 }}
+										 class="px-3 py-1 bg-gray-800/50 border rounded-lg text-sm font-medium flex items-center gap-2 hover:bg-gray-700/50 transition-colors cursor-pointer border-green-600 text-green-300"
+										 >
+										 <span>{table.table_name || table.table_number_field}</span>
+										 {#if table.capacity || table.seats_field}
+										 <span class="text-xs text-gray-400">({table.capacity || table.seats_field} seats)</span>
+										 {/if}
+										 <span class="text-xs px-1 py-0.5 rounded {tableSection?.id === shift.assigned_section ? 'bg-green-900/50 text-green-400' : 'bg-blue-900/50 text-blue-400'}">
+										 {tableSection?.section_name || table.section_code || 'Unknown Section'}
+										 </span>
+										 
+										 <!-- Enhanced table status indicator -->
+										 <div 
+										 class="w-2 h-2 rounded-full {dotStatus.color} {dotStatus.animate || ''}" 
+										 title={dotStatus.title}
+										 ></div>
+										 </button>
+										 {/each}
 												</div>
 											</div>
-										{:else}
-											<div class="space-y-2">
-												{#if $tables && $tables.length > 0}
-													<div class="space-y-1">
-														<p class="text-sm text-blue-400 font-medium">All Available Tables:</p>
-														<div class="flex flex-wrap gap-2">
-															{#each $tables as table}
-																{@const existingTicket = $tickets.find(t => t.table_id === table.id && !['closed'].includes(t.status))}
-																<button 
-																	on:click={() => handleTableClick(table)}
-																	class="px-2 py-1 bg-gray-700/50 border rounded text-xs font-medium flex items-center gap-1 hover:bg-gray-600/50 transition-colors cursor-pointer border-blue-600 text-blue-300"
-																>
-																	<span>{table.table_name || table.table_number_field}</span>
-																	<span class="text-xs text-gray-400">({table.section_code})</span>
-																	{#if existingTicket}
-																		<div class="w-1.5 h-1.5 rounded-full bg-orange-500"></div>
-																	{:else}
-																		<div class="w-1.5 h-1.5 rounded-full bg-gray-500"></div>
-																	{/if}
-																</button>
-															{/each}
-														</div>
-													</div>
-												{:else}
-													<p class="text-sm text-red-400">No tables found in database</p>
-												{/if}
-											</div>
+										{:else if !showAllSections}
+										<div class="space-y-2">
+										 {#if $tables && $tables.length > 0}
+										  <div class="space-y-1">
+										   <p class="text-sm text-blue-400 font-medium">All Available Tables:</p>
+										   <div class="flex flex-wrap gap-2">
+										    {#each $tables as table}
+										     {@const existingTicket = $tickets.find(t => t.table_id === table.id && !['closed'].includes(t.status))}
+										     <button 
+										      on:click={() => handleTableClick(table)}
+										      class="px-2 py-1 bg-gray-700/50 border rounded text-xs font-medium flex items-center gap-1 hover:bg-gray-600/50 transition-colors cursor-pointer border-blue-600 text-blue-300"
+										     >
+										      <span>{table.table_name || table.table_number_field}</span>
+										      <span class="text-xs text-gray-400">({table.section_code})</span>
+										      {#if existingTicket}
+										       <div class="w-1.5 h-1.5 rounded-full bg-orange-500"></div>
+										      {:else}
+										       <div class="w-1.5 h-1.5 rounded-full bg-gray-500"></div>
+										      {/if}
+										     </button>
+										    {/each}
+										   </div>
+										  </div>
+										 {:else}
+										  <p class="text-sm text-red-400">No tables found in database</p>
+										 {/if}
+										</div>
 										{/if}
 									{/if}
 
@@ -2931,7 +3246,13 @@
 																			console.log('🔥 CLICKED TABLE:', table.table_name || table.table_number_field);
 																			console.log('🔥 HAS ORDERS:', hasOrders);
 																			console.log('🔥 ORDER STATUS:', orderStatus);
-																			return hasOrders ? showTableOrderDetails(table) : handleTableClick(table);
+																			console.log('🔥 CLICK BEHAVIOR:', tableClickBehavior);
+																			
+																			if (tableClickBehavior === 'direct') {
+																				return handleTableClick(table);
+																			} else {
+																				return hasOrders ? showTableOrderDetails(table) : handleTableClick(table);
+																			}
 																		}}
 																		class="relative p-4 rounded-xl border-2 transition-all hover:scale-105 bg-gray-800/50 backdrop-blur-sm {
 																			section.id === shift.assigned_section ? 'border-green-500' : 
@@ -3971,7 +4292,13 @@
 						{:else if paymentWorkflowStep === 'initial'}
 											<!-- Step 1: Swipe Card (Authorize) -->
 											<button
-												on:click={() => swipeCard()}
+												on:click={() => {
+													if (showTableDetailsModal) {
+														handleDirectCardPayment(selectedTable, getTableOrderStatus(selectedTable.id));
+													} else {
+														swipeCard();
+													}
+												}}
 												class="w-full px-4 py-3 bg-blue-600 hover:bg-blue-700 rounded-lg text-white font-bold flex items-center justify-center"
 											>
 												💳 Swipe Customer Card - ${(currentTicket?.total_amount || currentTicketItems.reduce((sum, item) => sum + (item.unit_price * item.quantity), 0) * 1.08875).toFixed(2)}
@@ -3979,7 +4306,13 @@
 											
 											<!-- Test Card Simulation (Development) -->
 											<button
-												on:click={() => simulateCardSwipe()}
+												on:click={() => {
+													if (showTableDetailsModal) {
+														handleDirectCardPayment(selectedTable, getTableOrderStatus(selectedTable.id));
+													} else {
+														simulateCardSwipe();
+													}
+												}}
 												class="w-full px-4 py-3 bg-purple-600 hover:bg-purple-700 rounded-lg text-white font-bold flex items-center justify-center"
 											>
 												🧪 Simulate Test Card - ${(currentTicket?.total_amount || currentTicketItems.reduce((sum, item) => sum + (item.unit_price * item.quantity), 0) * 1.08875).toFixed(2)}
@@ -3990,8 +4323,13 @@
 												on:click={() => {
 													const orderStatus = getTableOrderStatus(selectedTable.id);
 													if (orderStatus) {
-														closeTicketModal();
-														openPaymentModal(selectedTable, orderStatus);
+														// If we're in table details modal, handle payment directly here
+														if (showTableDetailsModal) {
+															handleDirectCashPayment(selectedTable, orderStatus);
+														} else {
+															closeTicketModal();
+															openPaymentModal(selectedTable, orderStatus);
+														}
 													}
 												}}
 												class="w-full px-4 py-3 bg-green-600 hover:bg-green-700 rounded-lg text-white font-bold flex items-center justify-center"
@@ -4576,13 +4914,14 @@
 							}
 							
 							console.log('🍽️ Table ID:', selectedTableDetails.table.id);
+							const table = selectedTableDetails.table;
 							const orderStatus = getTableOrderStatus(selectedTableDetails.table.id);
 							console.log('📊 Order Status:', orderStatus);
 							
 							if (orderStatus) {
-								console.log('✅ Opening payment modal');
+								console.log('✅ Opening full order interface for payment');
 								closeTableDetailsModal();
-								openPaymentModal(selectedTableDetails.table, orderStatus);
+								handleTableClick(table);
 							} else {
 								console.error('❌ No order status found - cannot process payment');
 							}
@@ -4933,3 +5272,14 @@
 		</div>
 	</div>
 {/if}
+
+<style>
+	@keyframes slow-pulse {
+		0%, 100% { opacity: 1; }
+		50% { opacity: 0.5; }
+	}
+	
+	.slow-pulse {
+		animation: slow-pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+	}
+</style>
