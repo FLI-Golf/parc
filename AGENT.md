@@ -216,6 +216,17 @@ For bartenders, Bar Orders section appears prominently after Today's Shifts:
 - Integrates with kitchen workflow for drink preparation
 - Real-time updates when orders are sent to bar
 
+### Voice Search Integration
+Advanced speech recognition for efficient menu searching:
+- **Voice Search Button**: Microphone icon appears in menu search bar when speech recognition is supported
+- **Visual Feedback**: Button turns red with pulsing animation during recording
+- **Cross-Browser Support**: Works with Web Speech API (Chrome, Edge, Safari)
+- **Real-time Results**: Spoken queries instantly filter menu items
+- **Hands-Free Operation**: Ideal for busy service environments
+- **Debug Logging**: Comprehensive console logging for troubleshooting speech recognition issues
+- **Usage**: Click microphone → speak search term → results appear automatically
+- **Fallback**: Standard keyboard input always available as backup
+
 ## Common Patterns
 
 ### Authentication Check

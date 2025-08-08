@@ -518,6 +518,17 @@
 		showFilters = !showFilters;
 		saveStateToLocalStorage();
 	}
+	
+	// Handle quick filter change
+	function handleQuickFilterChange() {
+		// If selected category is not in defaults anymore, switch to 'all'
+		if (quickFilter !== 'all' && !selectedCategories[quickFilter]) {
+			quickFilter = 'all';
+		}
+		saveStateToLocalStorage();
+	}
+	
+
 
 	// Update table status
 	async function updateTableStatus(tableId, status, notes = '') {
@@ -591,6 +602,13 @@
 				if (savedShowFilters) {
 					showFilters = JSON.parse(savedShowFilters) === true;
 				}
+				
+				const savedQuickFilter = localStorage.getItem('quickFilter');
+				if (savedQuickFilter && quickFilterCategories.some(cat => cat.id === savedQuickFilter)) {
+					quickFilter = savedQuickFilter;
+				}
+				
+
 			} catch (e) {
 				console.warn('Failed to restore localStorage state:', e);
 				// Reset to defaults on error
@@ -609,6 +627,7 @@
 				localStorage.setItem('showAllSections', JSON.stringify(showAllSections));
 				localStorage.setItem('tableClickBehavior', tableClickBehavior);
 				localStorage.setItem('showFilters', JSON.stringify(showFilters));
+				localStorage.setItem('quickFilter', quickFilter);
 			} catch (e) {
 				console.warn('Failed to save to localStorage:', e);
 			}
@@ -644,6 +663,7 @@
 	let recognition = null;
 	let speechSupported = false;
 	let isRecordingEdit = false;
+	let isRecordingSearch = false;
 	
 	// Calculate totals from current ticket items (reactive)
 	$: calculatedSubtotal = currentTicketItems.reduce((sum, item) => sum + (item.total_price || 0), 0);
@@ -700,10 +720,32 @@
 	let showModifiers = false;
 	let showFilters = false; // Collapsed by default to save space
 	
+	// New separate quick filter system (single-select radio buttons)
+	let quickFilter = 'all'; // Default to show all categories
+	
+	// Quick filter categories
+	const quickFilterCategories = [
+		{ id: 'all', label: 'All Defaults', icon: '📋' },
+		{ id: 'brunch', label: 'Brunch', icon: '🥐' },
+		{ id: 'lunch', label: 'Lunch', icon: '🥗' },
+		{ id: 'dinner', label: 'Dinner', icon: '🍽️' },
+		{ id: 'wine', label: 'Wine', icon: '🍷' },
+		{ id: 'cocktails', label: 'Cocktails', icon: '🍸' },
+		{ id: 'happy_hour', label: 'Happy Hour', icon: '🍻' },
+		{ id: 'beer', label: 'Beer', icon: '🍺' },
+		{ id: 'desserts', label: 'Desserts', icon: '🍰' }
+	];
+	
 	// Reactive statement for current shift's tables (updates when selectedAdditionalSections changes)
 	$: currentShiftTables = (todayShifts.length > 0 && todayShifts[0] && selectedAdditionalSections !== undefined) 
 		? getAllMyTables(todayShifts[0].assigned_section) 
 		: [];
+		
+	// Auto-switch to 'all' if current quick filter is not in selected defaults
+	$: if (quickFilter !== 'all' && !selectedCategories[quickFilter]) {
+		quickFilter = 'all';
+		handleQuickFilterChange();
+	}
 		
 
 
@@ -1090,6 +1132,8 @@
 			default: return '🍴';
 		}
 	}
+	
+
 
 	function closeTicketModal() {
 		showTicketModal = false;
@@ -1098,18 +1142,45 @@
 		currentTicketItems = [];
 		selectedMenuItem = null;
 		guestCount = 2; // Reset to default
-		selectedCategory = 'appetizer';
 		searchQuery = '';
 		showModifiers = false;
 		selectedModifiers = [];
 	}
 
-	// Filter menu items based on selected categories and search
+	// Filter menu items based on quick filter, selected categories, and search
 	$: filteredMenuItems = $menuItems.filter(item => {
-		// Check if any selected category matches the item
+		// First apply quick filter
+		let matchesQuickFilter = false;
+		
+		if (quickFilter === 'all') {
+			matchesQuickFilter = true;
+		} else if (quickFilter === 'brunch') {
+			matchesQuickFilter = item.category === 'brunch';
+		} else if (quickFilter === 'lunch') {
+			matchesQuickFilter = item.category === 'lunch';
+		} else if (quickFilter === 'dinner') {
+			matchesQuickFilter = item.category === 'dinner';
+		} else if (quickFilter === 'wine') {
+			matchesQuickFilter = ['wine_red', 'wine_white', 'wine_sparkling'].includes(item.subcategory);
+		} else if (quickFilter === 'cocktails') {
+			matchesQuickFilter = ['cocktail_classic', 'cocktail_signature'].includes(item.subcategory);
+		} else if (quickFilter === 'happy_hour') {
+			matchesQuickFilter = item.category === 'happy_hour';
+		} else if (quickFilter === 'beer') {
+			matchesQuickFilter = ['beer_draft', 'beer_bottle'].includes(item.subcategory);
+		} else if (quickFilter === 'desserts') {
+			matchesQuickFilter = item.category === 'desserts' || ['dessert_cake', 'dessert_ice_cream'].includes(item.subcategory);
+		}
+		
+		// If quick filter doesn't match, exclude item
+		if (!matchesQuickFilter) {
+			return false;
+		}
+		
+		// Then apply multi-select category filters (within quick filter results)
 		const anySelectedCategories = Object.values(selectedCategories).some(checked => checked);
 		
-		// If no categories are selected, show all items
+		// If no categories are selected in multi-select, show all items that passed quick filter
 		if (!anySelectedCategories) {
 			const matchesSearch = !searchQuery || 
 				item.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -1120,7 +1191,7 @@
 		
 		let matchesCategory = false;
 		
-		// Check each selected category
+		// Check each selected category in multi-select
 		if (selectedCategories.brunch && item.category === 'brunch') {
 			matchesCategory = true;
 		}
@@ -1527,19 +1598,7 @@
 		selectedTableDetails = null;
 	}
 
-	// DEBUG: Helper function to check table data
-	function debugTableData() {
-		console.log('🔍 DEBUG ALL TABLE DATA:');
-		console.log('🏢 Tables:', $tables);
-		console.log('📋 Tickets:', $tickets);
-		console.log('🍽️ Ticket Items:', $ticketItems);
-		
-		// Check each table for status
-		$tables.forEach(table => {
-			const status = getTableOrderStatus(table.id);
-			console.log(`🎯 Table ${table.table_name || table.table_number_field} (ID: ${table.id}) →`, status ? 'HAS ORDERS' : 'NO ORDERS');
-		});
-	}
+
 
 	// Load bar orders for bartenders
 	async function loadBarOrders() {
@@ -2833,6 +2892,9 @@
 					} else if (isRecordingEdit) {
 						editSpecialInstructions = (editSpecialInstructions + ' ' + transcript).trim();
 						isRecordingEdit = false;
+					} else if (isRecordingSearch) {
+						searchQuery = transcript;
+						isRecordingSearch = false;
 					}
 				};
 				
@@ -2840,11 +2902,13 @@
 					console.error('Speech recognition error:', event.error);
 					isRecording = false;
 					isRecordingEdit = false;
+					isRecordingSearch = false;
 				};
 				
 				recognition.onend = () => {
 					isRecording = false;
 					isRecordingEdit = false;
+					isRecordingSearch = false;
 				};
 			} else {
 				speechSupported = false;
@@ -2853,15 +2917,21 @@
 		}
 	}
 
-	function startVoiceRecording(isEdit = false) {
+	function startVoiceRecording(isEdit = false, isSearch = false) {
 		if (!recognition || !speechSupported) return;
 		
-		if (isEdit) {
+		if (isSearch) {
+			isRecordingSearch = true;
+			isRecording = false;
+			isRecordingEdit = false;
+		} else if (isEdit) {
 			isRecordingEdit = true;
 			isRecording = false;
+			isRecordingSearch = false;
 		} else {
 			isRecording = true;
 			isRecordingEdit = false;
+			isRecordingSearch = false;
 		}
 		
 		try {
@@ -2870,6 +2940,7 @@
 			console.error('Error starting speech recognition:', error);
 			isRecording = false;
 			isRecordingEdit = false;
+			isRecordingSearch = false;
 		}
 	}
 
@@ -2908,12 +2979,7 @@
 							</div>
 						</div>
 					{/if}
-					<button
-						on:click={debugTableData}
-						class="px-3 py-2 bg-purple-600 hover:bg-purple-700 rounded-lg transition-colors text-xs font-medium"
-					>
-						🔍 Debug Tables
-					</button>
+
 					{#if todayShifts.length > 0 && todayShifts.some(s => s.status === 'in_progress')}
 						<button
 							on:click={() => {
@@ -2932,7 +2998,7 @@
 					{/if}
 					<button
 						on:click={logout}
-						class="px-4 py-2 bg-gray-700 hover:bg-gray-600 rounded-lg transition-colors text-sm font-medium"
+						class="px-4 py-2 bg-red-600 hover:bg-red-700 rounded-lg transition-colors text-sm font-medium text-white"
 					>
 						Logout
 					</button>
@@ -4067,13 +4133,16 @@
 						<!-- Filter Toggle Header -->
 						<button
 							on:click={toggleFilters}
-							class="w-full flex items-center justify-between p-2 rounded-lg hover:bg-gray-700 transition-colors mb-2"
+							class="w-full flex items-center justify-between p-2 rounded-lg hover:bg-gray-700 transition-colors mb-4"
 						>
 							<div class="flex items-center space-x-2">
-								<span class="text-lg">🏷️</span>
-								<h3 class="text-sm font-medium text-gray-300">Filter Categories</h3>
-								<span class="text-xs text-gray-400">
-									({Object.values(selectedCategories).filter(Boolean).length} selected)
+								<span class="text-lg">⚙️</span>
+								<div>
+									<h3 class="text-sm font-medium text-gray-300">Default Items</h3>
+									<p class="text-xs text-gray-400">Expand to set the current defaults • Example: if not Dinner uncheck and use Lunch</p>
+								</div>
+								<span class="text-xs text-gray-500">
+									({Object.values(selectedCategories).filter(Boolean).length} active)
 								</span>
 								{#if Object.values(selectedCategories).filter(Boolean).length > 0}
 									<div class="flex items-center space-x-1 ml-2">
@@ -4123,7 +4192,7 @@
 						{/if}
 						
 						<!-- Search Bar -->
-						<div class="relative">
+						<div class="relative mb-4">
 							<svg class="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 								<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
 							</svg>
@@ -4131,8 +4200,73 @@
 								type="text"
 								placeholder="Search menu items..."
 								bind:value={searchQuery}
-								class="w-full pl-10 pr-4 py-3 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400"
+								class="w-full pl-10 pr-12 py-3 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400"
 							>
+							{#if speechSupported}
+								<button
+									type="button"
+									on:click={() => startVoiceRecording(false, true)}
+									class="absolute right-3 top-1/2 transform -translate-y-1/2 p-1 rounded-full transition-colors duration-200
+										{isRecordingSearch ? 'bg-red-600 text-white animate-pulse' : 'text-gray-400 hover:text-white hover:bg-gray-600'}"
+									title="Voice search"
+								>
+									<svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+										<path fill-rule="evenodd" d="M7 4a3 3 0 016 0v4a3 3 0 11-6 0V4zm4 10.93A7.001 7.001 0 0017 8a1 1 0 10-2 0A5 5 0 015 8a1 1 0 00-2 0 7.001 7.001 0 006 6.93V17H6a1 1 0 100 2h8a1 1 0 100-2h-3v-2.07z" clip-rule="evenodd"></path>
+									</svg>
+								</button>
+							{/if}
+						</div>
+						
+						<!-- Menu Category Section -->
+						<div class="mb-4">
+							<div class="flex items-center justify-between mb-3">
+								{#if quickFilterCategories}
+									{@const enabledCategories = quickFilterCategories.filter(cat => cat.id === 'all' || selectedCategories[cat.id])}
+									{@const disabledCount = quickFilterCategories.length - enabledCategories.length}
+									<p class="text-xs text-gray-400">
+										{#if disabledCount > 0}
+											{enabledCategories.length - 1} of {quickFilterCategories.length - 1} categories enabled • {disabledCount} greyed out (not in defaults)
+										{:else}
+											All categories enabled • Change defaults above to limit options
+										{/if}
+									</p>
+								{/if}
+								{#if quickFilter !== 'all'}
+									{@const currentQuickFilter = quickFilterCategories.find(cat => cat.id === quickFilter)}
+									{#if currentQuickFilter}
+										<span class="text-xs bg-blue-900/50 text-blue-300 px-2 py-1 rounded">
+											{currentQuickFilter.icon} {currentQuickFilter.label}
+										</span>
+									{/if}
+								{/if}
+							</div>
+							<div class="flex flex-wrap gap-2">
+								{#each quickFilterCategories as category}
+									{@const isInDefaults = category.id === 'all' || selectedCategories[category.id]}
+									{@const isDisabled = !isInDefaults}
+									<label class="flex items-center space-x-2 px-3 py-2 rounded-lg transition-colors relative group {
+										isDisabled 
+											? 'bg-gray-800 text-gray-500 cursor-not-allowed' 
+											: quickFilter === category.id 
+												? 'bg-blue-600 text-white cursor-pointer' 
+												: 'bg-gray-700 hover:bg-gray-600 text-gray-300 cursor-pointer'
+									}" title={isDisabled ? `Not in defaults - enable in Default Items above` : ''}>
+										<input
+											type="radio"
+											bind:group={quickFilter}
+											value={category.id}
+											on:change={handleQuickFilterChange}
+											disabled={isDisabled}
+											class="sr-only"
+										/>
+										<span class="text-sm">{category.icon}</span>
+										<span class="text-xs font-medium">{category.label}</span>
+										{#if isDisabled}
+											<span class="text-xs text-gray-600">•</span>
+										{/if}
+									</label>
+								{/each}
+							</div>
 						</div>
 					</div>
 
