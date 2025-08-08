@@ -1,7 +1,9 @@
 name,icon,color,sort_order,active,description
-"Entrées",🥗,#10B981,1,true,"Elegant appetizers and starters"
-"Plats Principaux",🍽️,#F59E0B,2,true,"Main courses featuring classic French cuisine"
-"Vins & Cocktails",🍷,#8B5CF6,3,true,"Fine French wines and signature cocktails"
-"Fromages",🧀,#F97316,4,true,"Artisanal cheese selection"
-"Desserts",🍰,#EC4899,5,true,"Decadent French pastries and desserts"
-"Spécialités",⭐,#EF4444,6,true,"Chef's seasonal specialties"
+Brunch,🥐,#f59e0b,1,true,Weekend brunch favorites and breakfast items
+Lunch,🥗,#10b981,2,true,Light midday meals and fresh options
+Dinner,🍽️,#3b82f6,3,true,Evening dining and main courses
+Wine,🍷,#7c3aed,4,true,Curated wine selection
+Cocktails,🍸,#ec4899,5,true,Handcrafted cocktails and mixed drinks
+Happy Hour Menu,🍻,#f97316,6,true,Special deals and appetizers
+Beer,🍺,#eab308,7,true,Draft and bottled beer selection
+Desserts,🍰,#ef4444,8,true,Sweet endings and treats

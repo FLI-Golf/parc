@@ -47,6 +47,18 @@
 	let maintenanceFilter = "all"; // For maintenance task filtering
 	let floorPlanFilter = "all"; // For floor plan filtering
 	let filteredSections = []; // Filtered sections based on floor plan filter
+	let showDetailedMenuView = false; // For detailed menu items view
+	let selectedMenuCategory = "all"; // Filter for menu categories
+
+	// Menu view navigation functions
+	function showMenuDetails() {
+		showDetailedMenuView = true;
+	}
+	
+	function backToOverview() {
+		showDetailedMenuView = false;
+		selectedMenuCategory = "all";
+	}
 
 	// Get today's date in local timezone
 	function getTodayString() {
@@ -708,7 +720,7 @@
 					</button>
 					<button
 						on:click={logout}
-						class="px-4 py-2 bg-gray-700 hover:bg-gray-600 rounded-lg transition-colors text-sm font-medium"
+						class="px-4 py-2 bg-red-600 hover:bg-red-700 rounded-lg transition-colors text-sm font-medium"
 					>
 						Logout
 					</button>
@@ -739,7 +751,7 @@
 
 	<!-- Main Content -->
 	<main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-		{#if activeTab === "overview"}
+		{#if activeTab === "overview" && !showDetailedMenuView}
 			<!-- Overview Dashboard -->
 			<div class="mb-8 flex justify-between items-center">
 				<div>
@@ -879,8 +891,9 @@
 				</div>
 
 				<!-- Menu Status -->
-				<div
-					class="bg-gradient-to-br from-teal-900/50 to-teal-800/30 backdrop-blur-sm rounded-xl border border-teal-700/50 p-6"
+				<button
+					on:click={showMenuDetails}
+					class="bg-gradient-to-br from-teal-900/50 to-teal-800/30 backdrop-blur-sm rounded-xl border border-teal-700/50 p-6 hover:from-teal-800/60 hover:to-teal-700/40 transition-all duration-200 w-full text-left"
 				>
 					<div class="flex items-center justify-between">
 						<div>
@@ -900,7 +913,7 @@
 							<span class="text-2xl">🍽️</span>
 						</div>
 					</div>
-				</div>
+				</button>
 
 				<!-- Upcoming Events -->
 				<div
@@ -1186,6 +1199,155 @@
 					{/if}
 				</div>
 			</div>
+		{:else if activeTab === "overview" && showDetailedMenuView}
+			<!-- Detailed Menu Items View -->
+			<div class="mb-8 flex justify-between items-center">
+				<div>
+					<h2 class="text-3xl font-bold">Menu Items</h2>
+					<p class="text-gray-400 mt-2">Detailed view of all menu items organized by category</p>
+				</div>
+				<!-- Actions -->
+				<div class="flex space-x-3">
+					<button
+						on:click={backToOverview}
+						class="px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded-lg text-sm font-medium transition-colors flex items-center gap-2"
+					>
+						← Back to Overview
+					</button>
+					<button
+						on:click={() => openMenuModal()}
+						class="px-4 py-2 bg-green-600 hover:bg-green-700 rounded-lg text-sm font-medium transition-colors"
+					>
+						+ Add Item
+					</button>
+				</div>
+			</div>
+
+			<!-- Category Filter -->
+			<div class="mb-6">
+				<div class="flex flex-wrap gap-2">
+					{#each ["all", "appetizer", "main_course", "side_dish", "beverage", "dessert", "special"] as category}
+						<button
+							on:click={() => selectedMenuCategory = category}
+							class="px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center gap-2 {
+								selectedMenuCategory === category
+									? 'bg-teal-600 text-white'
+									: 'bg-gray-700 text-gray-300 hover:bg-gray-600'
+							}"
+						>
+							<span>
+								{category === "all" ? "🍴" : 
+								 category === "appetizer" ? "🥗" :
+								 category === "main_course" ? "🍽️" :
+								 category === "side_dish" ? "🍟" :
+								 category === "beverage" ? "🍷" :
+								 category === "dessert" ? "🍰" :
+								 category === "special" ? "⭐" : "🍴"}
+							</span>
+							<span>
+								{category === "all" ? "All Categories" : 
+								 category === "main_course" ? "Main Course" :
+								 category === "side_dish" ? "Side Dish" :
+								 category.charAt(0).toUpperCase() + category.slice(1)}
+							</span>
+						</button>
+					{/each}
+				</div>
+			</div>
+
+			<!-- Menu Items Grid -->
+			<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+				{#each $menuItems.filter(item => selectedMenuCategory === "all" || item.category === selectedMenuCategory) as item}
+					<div class="bg-gray-800/50 rounded-xl border border-gray-700/50 p-6 hover:border-gray-600/50 transition-all">
+						<div class="flex justify-between items-start mb-4">
+							<div class="flex-1">
+								<h3 class="text-lg font-semibold text-white mb-1">{item.name}</h3>
+								<p class="text-sm text-gray-400 mb-2">{item.description || 'No description available'}</p>
+								<div class="flex items-center gap-2 mb-2">
+									<span class="px-2 py-1 rounded text-xs font-medium flex items-center gap-1 {
+										item.category === 'appetizer' ? 'bg-orange-900/50 text-orange-300' :
+										item.category === 'main_course' ? 'bg-red-900/50 text-red-300' :
+										item.category === 'side_dish' ? 'bg-green-900/50 text-green-300' :
+										item.category === 'beverage' ? 'bg-blue-900/50 text-blue-300' :
+										item.category === 'dessert' ? 'bg-purple-900/50 text-purple-300' :
+										item.category === 'special' ? 'bg-yellow-900/50 text-yellow-300' :
+										'bg-gray-900/50 text-gray-300'
+									}">
+										<span>
+											{item.category === 'appetizer' ? '🥗' :
+											 item.category === 'main_course' ? '🍽️' :
+											 item.category === 'side_dish' ? '🍟' :
+											 item.category === 'beverage' ? '🍷' :
+											 item.category === 'dessert' ? '🍰' :
+											 item.category === 'special' ? '⭐' : '🍴'}
+										</span>
+										<span>
+											{item.category === 'main_course' ? 'Main Course' :
+											 item.category === 'side_dish' ? 'Side Dish' :
+											 item.category || 'uncategorized'}
+										</span>
+									</span>
+									<span class="px-2 py-1 rounded text-xs font-medium {
+										item.available ? 'bg-green-900/50 text-green-300' : 'bg-red-900/50 text-red-300'
+									}">
+										{item.available ? 'Available' : 'Unavailable'}
+									</span>
+								</div>
+								<p class="text-xl font-bold text-green-400">${item.price?.toFixed(2) || '0.00'}</p>
+							</div>
+							<div class="flex flex-col gap-2 ml-4">
+								<button
+									on:click={() => openMenuModal(item)}
+									class="px-3 py-1 bg-blue-600 hover:bg-blue-700 rounded text-xs font-medium transition-colors"
+								>
+									Edit
+								</button>
+								<button
+									on:click={() => {
+										if (confirm(`Toggle availability for ${item.name}?`)) {
+											collections.updateMenuItem(item.id, { available: !item.available });
+										}
+									}}
+									class="px-3 py-1 {item.available ? 'bg-red-600 hover:bg-red-700' : 'bg-green-600 hover:bg-green-700'} rounded text-xs font-medium transition-colors"
+								>
+									{item.available ? 'Disable' : 'Enable'}
+								</button>
+							</div>
+						</div>
+						
+						{#if item.allergens && item.allergens.length > 0}
+							<div class="mt-3 pt-3 border-t border-gray-700">
+								<p class="text-xs text-gray-500 mb-1">Allergens:</p>
+								<div class="flex flex-wrap gap-1">
+									{#each item.allergens as allergen}
+										<span class="px-2 py-1 bg-orange-900/30 text-orange-300 rounded text-xs">
+											{allergen}
+										</span>
+									{/each}
+								</div>
+							</div>
+						{/if}
+					</div>
+				{/each}
+			</div>
+
+			{#if $menuItems.filter(item => selectedMenuCategory === "all" || item.category === selectedMenuCategory).length === 0}
+				<div class="text-center py-12">
+					<div class="w-24 h-24 mx-auto mb-4 rounded-full bg-gray-800/50 flex items-center justify-center">
+						<span class="text-4xl">🍽️</span>
+					</div>
+					<h3 class="text-xl font-semibold text-gray-300 mb-2">No Menu Items</h3>
+					<p class="text-gray-500 mb-4">
+						{selectedMenuCategory === "all" ? "No menu items found." : `No ${selectedMenuCategory} items found.`}
+					</p>
+					<button
+						on:click={() => openMenuModal()}
+						class="px-4 py-2 bg-green-600 hover:bg-green-700 rounded-lg text-sm font-medium transition-colors"
+					>
+						Add First Item
+					</button>
+				</div>
+			{/if}
 		{:else if activeTab === "floor-plan"}
 			<!-- Floor Plan -->
 			<div class="mb-8 flex justify-between items-center">

@@ -1,0 +1,113 @@
+name,description,category,subcategory,price,available
+Brut Albert Bichot Cremant de Bourgogne Glass,Burgundy FR,wine,wine_sparkling,16.00,true
+Brut Albert Bichot Cremant de Bourgogne Bottle,Burgundy FR,wine,wine_sparkling,76.00,true
+Champagne Piper Heidsieck Brut Glass,FR,wine,wine_sparkling,23.00,true
+Champagne Piper Heidsieck Brut Bottle,FR,wine,wine_sparkling,110.00,true
+Sparkling Rose Gerard Bertrand Cremant de Limoux Glass,FR,wine,wine_sparkling,18.00,true
+Sparkling Rose Gerard Bertrand Cremant de Limoux Bottle,FR,wine,wine_sparkling,85.00,true
+Chablis Albert Bichot Glass,FR,wine,wine_white,19.00,true
+Chablis Albert Bichot Bottle,FR,wine,wine_white,72.00,true
+Chardonnay Domaine Bernier Loire Glass,FR,wine,wine_white,13.00,true
+Chardonnay Domaine Bernier Loire Bottle,FR,wine,wine_white,48.00,true
+Chardonnay Nielson Monterey Glass,California,wine,wine_white,14.00,true
+Chardonnay Nielson Monterey Bottle,California,wine,wine_white,56.00,true
+Chardonnay Frank Family Napa Glass,California,wine,wine_white,18.00,true
+Chardonnay Frank Family Napa Bottle,California,wine,wine_white,68.00,true
+Pinot Blanc Pierre Sparr Alsace Glass,FR,wine,wine_white,13.00,true
+Pinot Blanc Pierre Sparr Alsace Bottle,FR,wine,wine_white,48.00,true
+Pinot Grigio Caposoldo Venezie Glass,IT,wine,wine_white,13.00,true
+Pinot Grigio Caposoldo Venezie Bottle,IT,wine,wine_white,48.00,true
+Rose Roseblood Provence Glass,FR,wine,wine_white,14.00,true
+Rose Roseblood Provence Bottle,FR,wine,wine_white,52.00,true
+Sauvignon Blanc Frenzy Glass,New Zealand,wine,wine_white,14.00,true
+Sauvignon Blanc Frenzy Bottle,New Zealand,wine,wine_white,52.00,true
+Sauvignon Blanc Sancerre Glass,FR,wine,wine_white,19.00,true
+Sauvignon Blanc Sancerre Bottle,FR,wine,wine_white,76.00,true
+Reisling Dr Loosen Glass,Germany,wine,wine_white,13.00,true
+Reisling Dr Loosen Bottle,Germany,wine,wine_white,48.00,true
+Gruner Vetliner Laurenz V Glass,Austria,wine,wine_white,13.00,true
+Gruner Vetliner Laurenz V Bottle,Austria,wine,wine_white,48.00,true
+Cotes Du Rhone Glass,FR,wine,wine_red,14.00,true
+Cotes Du Rhone Bottle,FR,wine,wine_red,52.00,true
+Bordeaux Chateau du Parc St Emilion Glass,FR,wine,wine_red,14.00,true
+Bordeaux Chateau du Parc St Emilion Bottle,FR,wine,wine_red,52.00,true
+Bordeaux Chateau Tour Bayard Glass,FR,wine,wine_red,19.00,true
+Bordeaux Chateau Tour Bayard Bottle,FR,wine,wine_red,72.00,true
+Cabernet Sauvignon Robert Hall Paso Robles Glass,California,wine,wine_red,14.00,true
+Cabernet Sauvignon Robert Hall Paso Robles Bottle,California,wine,wine_red,52.00,true
+Cabernet Sauvignon Post & Beam Napa Glass,California,wine,wine_red,20.00,true
+Cabernet Sauvignon Post & Beam Napa Bottle,California,wine,wine_red,76.00,true
+Red Blend Pessimist by DAOU Paso Robles Glass,California,wine,wine_red,15.00,true
+Red Blend Pessimist by DAOU Paso Robles Bottle,California,wine,wine_red,56.00,true
+Malbec Amalaya Salta Glass,ARG,wine,wine_red,13.00,true
+Malbec Amalaya Salta Bottle,ARG,wine,wine_red,48.00,true
+Pinot Noir Laird Napa Glass,California,wine,wine_red,16.00,true
+Pinot Noir Laird Napa Bottle,California,wine,wine_red,60.00,true
+Pinot Noir Bouchard Aines & Flis Burgundy Glass,FR,wine,wine_red,20.00,true
+Pinot Noir Bouchard Aines & Flis Burgundy Bottle,FR,wine,wine_red,76.00,true
+Schramsberg Blanc De Blancs Napa,375ml,wine,wine_sparkling,50.00,true
+Taittinger Comtes de Champagne Blanc de Blancs,FR,wine,wine_sparkling,275.00,true
+Moet & Chandon Dom Perignon Epernay,FR,wine,wine_sparkling,375.00,true
+Veuve Clicquot Reims,FR,wine,wine_sparkling,175.00,true
+Billecart Salmon Rose Brut Champagne,FR,wine,wine_sparkling,195.00,true
+Bollinger Rose Brut Champagne,FR,wine,wine_sparkling,210.00,true
+Hanzell Chardonnay Sonoma,California,wine,wine_white,90.00,true
+Pahlmeyer Chardonnay Napa,California,wine,wine_white,150.00,true
+Domaine Ferret Pouilly Fuisse,FR,wine,wine_white,99.00,true
+Fevre Fevre Chablis 1er Cru Fourchaume,FR,wine,wine_white,195.00,true
+Philippe Colin Puligny Montrachet,FR,wine,wine_white,199.00,true
+Louis Latour Meursault,FR,wine,wine_white,180.00,true
+Philippe Colin Chassagne Montrachet 1er Cru,FR,wine,wine_white,225.00,true
+Grand Regnard Chablis,FR,wine,wine_white,99.00,true
+Beringer Private Reserve Napa,California,wine,wine_white,75.00,true
+Ramey Woolsey Road Russian River,California,wine,wine_white,115.00,true
+Cakebread Napa,California,wine,wine_white,99.00,true
+Chateau Montelena Napa,California,wine,wine_white,130.00,true
+Dumol Wester Reach Russian River,California,wine,wine_white,110.00,true
+Peter Michael La Carriere Napa,California,wine,wine_white,220.00,true
+Keenan Spring Mountain Napa,California,wine,wine_white,82.00,true
+Rombauer Sonoma,California,wine,wine_white,82.00,true
+Hess Panthera Russian River,California,wine,wine_white,55.00,true
+ZD Carneros,California,wine,wine_white,79.00,true
+Santa Margherita Pinot Grigio,IT,wine,wine_white,54.00,true
+Zind Humbrecht Pinot Blanc Alsace,FR,wine,wine_white,59.00,true
+St Supery Sauvignon Blanc Napa,California,wine,wine_white,59.00,true
+Chateau La Freynelle Sauvignon Blanc Semillon,FR,wine,wine_white,37.00,true
+Darioush Viognier Napa,California,wine,wine_white,120.00,true
+Trimbach Riesling Alsace,FR,wine,wine_white,49.00,true
+Louis Jadot Gevrey Chambertin,FR,wine,wine_red,179.00,true
+Louis Jadot Pommard Burgundy,FR,wine,wine_red,170.00,true
+Albert Bichot Domaine du Clos Frantin Vosne Romanee,FR,wine,wine_red,195.00,true
+Domaine Faiveley Gevrey Chambertin,FR,wine,wine_red,172.00,true
+Louis Latour Nuits St George,FR,wine,wine_red,175.00,true
+Bouchard Pere & Flis Le Corton Grand Cru,FR,wine,wine_red,265.00,true
+Twomey by Silver Oak Russian River,California,wine,wine_red,110.00,true
+Dumol Wester Reach Russian River,California,wine,wine_red,155.00,true
+Kosta Browne Russian River,California,wine,wine_red,195.00,true
+Kosta Browne Gaps Crown Sonoma,California,wine,wine_red,210.00,true
+Enroute Russian River,California,wine,wine_red,75.00,true
+J Davies by Schramsberg Nobles Vineyard Sonoma Coast,California,wine,wine_red,145.00,true
+Ponzi Laurelwood Willamette,OR,wine,wine_red,99.00,true
+Willakenzie Willamette,OR,wine,wine_red,80.00,true
+Penner Ash Shea Vineyard Willamette,OR,wine,wine_red,145.00,true
+King Estate Willamette,OR,wine,wine_red,65.00,true
+Clos du Val Napa,California,wine,wine_red,85.00,true
+Chateau Montelena Napa,California,wine,wine_red,145.00,true
+Stags Leap Fay Napa,California,wine,wine_red,325.00,true
+St Supery Napa,California,wine,wine_red,89.00,true
+Peter Michael Les Pavots Napa,California,wine,wine_red,395.00,true
+Silverado Napa,California,wine,wine_red,99.00,true
+La Jota Howell Mountain Napa,California,wine,wine_red,275.00,true
+BV Georges de Latour Napa,California,wine,wine_red,250.00,true
+DAOU Reserve Paso Robles,California,wine,wine_red,82.00,true
+Dominus Napa,California,wine,wine_red,495.00,true
+Frank Family Napa,California,wine,wine_red,95.00,true
+Darioush Napa,California,wine,wine_red,225.00,true
+Heitz Cellars Napa,California,wine,wine_red,135.00,true
+Silver Oak Alexander Valley,California,wine,wine_red,150.00,true
+Keenan Spring Mountain Napa,California,wine,wine_red,105.00,true
+Quintessa Rutherford Napa,California,wine,wine_red,450.00,true
+ZD Napa,California,wine,wine_red,120.00,true
+Mt Brave Mt Veeder Napa,California,wine,wine_red,169.00,true
+Cardinale Napa,California,wine,wine_red,475.00,true
+Austin Hope Paso Robles,California,wine,wine_red,95.00,true

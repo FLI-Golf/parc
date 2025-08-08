@@ -1,0 +1,44 @@
+name,description,category,subcategory,price,available
+Jumbo Shrimp Cocktail,Home-made cocktail sauce,dinner,appetizer,25.00,true
+Fresh Oysters on the Half Shell (6),"Home-made mignonette, fresh horseradish, cocktail sauce",dinner,appetizer,26.00,true
+Parc Ceviche,"Fresh fish, shrimp, citrus, avocado, jalapeño, wonton chips",dinner,appetizer,21.00,true
+Seafood Tower - Petite,"6 oysters, 4 mussels, 4 shrimp, Parc ceviche",dinner,appetizer,69.00,true
+Seafood Tower - Deluxe,"12 oysters, 12 mussels, 6 shrimp, Parc ceviche",dinner,appetizer,139.00,true
+Seafood Tower - Royal,"18 oysters, 12 mussels, 8 shrimp, ceviche, snow crab claws, Ossetra caviar",dinner,appetizer,280.00,true
+Smoked Salmon Blini,"Smoked salmon, blini, creme fraiche, caviar, chives",dinner,appetizer,22.00,true
+Artisan Cheese Board,Chef's selection with seasonal jam & accoutrements,dinner,appetizer,23.00,true
+Charcuterie Board,Chef's Selection with Crostini & Dijon Mustard,dinner,appetizer,30.00,true
+Calamari Fritti,Spicy aioli,dinner,appetizer,17.00,true
+Lobster Arancini,"Lobster risotto croquettes, spicy harissa aioli",dinner,appetizer,19.00,true
+Escargots De Bourgogne,"Garlic, parsley, butter, Pernod",dinner,appetizer,18.00,true
+Roasted Cauliflower (Vegan),"Dijon, paprika, parsley, garlic, olive oil",dinner,appetizer,16.00,true
+Petrossian Caviar Service,"Royal Ossetra served with blinis, shallots, chives, shaved hard boiled egg, creme fraiche",dinner,appetizer,130.00,true
+Fresh Burrata,"Organic cherry tomatoes, pesto, 18yr aged balsamic, focaccia croutons",dinner,appetizer,18.00,true
+Pate Maison,"House made pate, served with cornichons, dijon mustard, crostini",dinner,appetizer,18.00,true
+Wagyu Beef Tartare,"Wagyu beef, capers, shallots, Dijon, cornichons, crostini",dinner,appetizer,29.00,true
+Ahi Tuna Tartare,"Fresh avocado, sesame seeds, green onion, chili-garlic emulsion, wonton chips",dinner,appetizer,25.00,true
+Brussels Sprouts,"Oven roasted with crispy pancetta, aged balsamic & parmesan",dinner,appetizer,16.00,true
+Dungeness Lump Crab Cake,"Our specialty! Served with house-made remoulade",dinner,appetizer,28.00,true
+Soup Du Jour,Chef's Daily Selection,dinner,soup,10.00,true
+French Onion Soup Gratinée,"Caramelized onions, beef broth, Emmental cheese",dinner,soup,15.00,true
+Artisan Baby Greens,"Artisan greens, tomatoes, shaved fennel, house vinaigrette",dinner,salad,16.00,true
+Baby Roasted Beet Salad,"Brûléed goat cheese, Anjou pear, arugula",dinner,salad,17.00,true
+Kale Salad,"Crispy quinoa, smoked feta, roasted tomatoes, kalamata olives, shallot vinaigrette",dinner,salad,16.00,true
+Classic Caesar,"Home-made croutons, shaved parmesan",dinner,salad,16.00,true
+Steak Frites,"Flat iron steak, spinach, shoestring fries, peppercorn sauce",dinner,steak,36.00,true
+Duck Ménage À Deux,"Gratin Dauphinois, haricot verts, green peppercorn sauce",dinner,entree,42.00,true
+Petite Filet Medallions,"Pancetta mashed potatoes, shaved brussel sprouts, Bearnaise sauce",dinner,steak,45.00,true
+Boeuf Bourguignon,"18 hr braised beef short ribs, cremini mushrooms, carrots, cipollini onions, mashed potatoes",dinner,entree,39.00,true
+Oven Roasted Rack of Lamb,"Tomato provencale, haricot verts, mint chutney",dinner,entree,46.00,true
+Poulet A L'Estragon,"Chicken breast, shallots, tarragon beurre blanc, mashed potatoes, roasted brussels sprouts, crispy onions",dinner,chicken,29.00,true
+Coq-Au-Vin,"Braised chicken legs, cremini mushrooms, cipollini onions, carrots, roasted potatoes",dinner,chicken,29.00,true
+Ballotine De Poulet Farcie,"Stuffed chicken breast, comte cheese, spinach, red bell peppers, mashed potatoes, thyme béchamel",dinner,chicken,29.00,true
+Wild Mushroom Ravioli,"Organic wild mushrooms, ricotta cheese, tarragon cream sauce",dinner,pasta,29.00,true
+Pan Roasted Alaskan Salmon,"Garlic mashed potatoes, sauteed spinach, lemon-champagne beurre blanc",dinner,seafood,29.00,true
+Trout Almondine,"Pan seared trout, sautéed with almonds and butter, haricot verts",dinner,seafood,29.00,true
+Seared Ahi Tuna,"Coriander dusted, wasabi mashed potatoes, haricot verts, wasabi lime butter",dinner,seafood,39.00,true
+Lobster Risotto,"Fresh Maine lobster, arborio rice, red peppers, English peas, parmesan",dinner,seafood,46.00,true
+Mussels & Frites,"White wine, shallots, garlic, herbs, shoestring fries",dinner,seafood,32.00,true
+Seared Scallops & Shrimp Duo,"Haricot verts, lobster mashed potatoes, lobster beurre blanc",dinner,seafood,45.00,true
+Butternut Squash Risotto,"Arborio rice, sage, onions, garlic, rosemary, sage • Add Chicken +$12.00 | Shrimp $15.00 | Steak $15.00 | Salmon $12.00",dinner,pasta,25.00,true
+Roasted Vegetables (GF Vegan),"Millet, buckwheat, quinoa, brussel sprouts, mushrooms, kabocha squash, cipollini onions, cilantro pesto",dinner,entree,24.00,true

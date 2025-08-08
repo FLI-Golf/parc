@@ -1,0 +1,47 @@
+name,description,category,subcategory,price,available
+Fresh Seafood Tower,"6 oysters, 6 mussles, 4 shrimp, Parc ceviche",lunch,appetizer,69.00,true
+Fresh Oysters on Half Shell (6),"Home-made mignonette, fresh horseradish, cocktail sauce",lunch,appetizer,26.00,true
+Cocktail Fruits De Mer,"Fresh avocado, Octopus, Shrimp, Crab Claw",lunch,appetizer,25.00,true
+Petrossian Caviar Service,"Royal Ossetra served with blinis, shallots, chives, shaved hard boiled egg, creme fraiche",lunch,appetizer,130.00,true
+Dungeness Lump Crab Cake,"Our Specialty! Served with house-made remoulade",lunch,appetizer,28.00,true
+Calamari Fritti,Spicy aioli,lunch,appetizer,17.00,true
+Roasted Cauliflower (Vegan),"Olives, Capers, Shallots, Olive oil",lunch,appetizer,16.00,true
+Jumbo Shrimp Cocktail,Home-made cocktail sauce,lunch,appetizer,25.00,true
+Escargots de Bourgogne,"Garlic, parsley, butter, Pernod",lunch,appetizer,18.00,true
+Parc Ceviche,"Fresh fish, shrimp, citrus, avocado, jalapeno, wonton chips",lunch,appetizer,21.00,true
+Lobster Arancini,"Lobster risotto croquettes, spicy harissa aioli",lunch,appetizer,19.00,true
+Fresh Burrata,"Organic cherry tomatoes, pesto, 18yr aged balsamic, focaccia croutons",lunch,appetizer,18.00,true
+Hericot Verts Almondine,"Butter Sautéed French Green Beans, Shallots, Roasted Shaved Almonds",lunch,appetizer,16.00,true
+Spicy Shrimp Provençal,"Roasted Garlic, Parsley, Butter, Chili Flakes, Fresh Squeezed Lemon",lunch,appetizer,21.00,true
+Soup Du Jour,Chef's daily selection,lunch,soup,10.00,true
+French Onion Soup Gratinee,"Caramelized onions, beef broth, Emmental cheese",lunch,soup,15.00,true
+Quiche of the Day,Served with artisan baby greens,lunch,entree,25.00,true
+Classic Caesar,"Home-made croutons, shaved parmesan • Add Chicken +$12.00 | Shrimp +$15.00 | Steak +$15.00 | Salmon +$12.00",lunch,salad,16.00,true
+Artisan Baby Green Salad,"Organic greens, shaved fennel, tomatoes, house vinaigrette",lunch,salad,16.00,true
+Baby Roasted Beet Salad,"Bruleed goat cheese, Anjou pear, arugula • Add Chicken +$12.00 ǀ Shrimp +$15.00 ǀ Steak +$15.00 ǀ Salmon +$12.00",lunch,salad,17.00,true
+Tuna Niçoise Salad,"Fresh seared Ahi tuna, mixed greens, niçoise olives, fingerling potatoes, green beans, tomatoes, hard boiled egg, shallot vinaigrette",lunch,salad,26.00,true
+Fresh Seafood Cobb Salad,"Fresh crab, shrimp, smoked salmon, avocado, hard boiled eggs, tomatoes, green beans, home-made tarragon dressing",lunch,salad,26.00,true
+Salade De Canard,"Duck confit with orange sherry vinaigrette, toasted pecans, bacon, seasonal organic greens",lunch,salad,22.00,true
+Parc Chopped Chicken Salad,"Grilled chicken, artisan baby greens, apples, cranberries, blue cheese, Dijon vinaigrette",lunch,salad,22.00,true
+Mediterranean Shrimp Salad,"Herb marinated prawns, baby kale, crispy quinoa, tomatoes, cucumber, smoked feta, shallot vinaigrette, kalamata olives",lunch,salad,26.00,true
+Octopus Salad,"Grilled Octopus, Celery, Cherry Tomatoes, Red Onions, Boiled Potatoes, Lemon, Olive Oil, Chili Peppers",lunch,salad,22.00,true
+Beer Battered Cod Sandwich,"Coleslaw, Remulade, Brioche bun",lunch,sandwich,20.00,true
+Steak Schnitzel Sandwich,"Pounded flat iron steak, Jalapeno aioli, shredded lettuce, tomatoes, red onion, avocado, ciabatta",lunch,sandwich,20.00,true
+Blackened Salmon Sandwich,"Salmon, sriracha aioli, lettuce, tomato, onion, cucumber, ciabatta",lunch,sandwich,18.00,true
+Croque Monsieur,"Bayonne ham, Emmental cheese, béchamel. Served on sourdough toasted bread | Add fried egg +$3.00",lunch,sandwich,18.00,true
+Parc Burger,"Emmental cheese, bacon, sautéed mushrooms & onions, lettuce, tomato, truffle aioli, brioche bun | Add fried egg +$3.00",lunch,sandwich,22.00,true
+Parc Chicken Club Sandwich,"Wheat bread, avocado, Emmental cheese, lettuce, tomato, bacon, home-made aioli",lunch,sandwich,18.00,true
+Grilled Steak Sandwich,"Served open-faced with melted Emmental cheese, caramelized onions, arugula, home-made chimichurri, ciabatta",lunch,sandwich,29.00,true
+B.L.T.A,"Bacon, lettuce, tomatoes, avocado, Dijon aioli, toasted bread",lunch,sandwich,18.00,true
+Bengy's Famous Fried Chicken Sandwich,"House pickles, arugula, remoulade, tomato, ciabatta",lunch,sandwich,20.00,true
+Baguette Jambon et Beurre,"Classic French ham & butter on baguette served with fries",lunch,sandwich,16.00,true
+Burger Végétarien,"Meatless Impossible burger, melted Emmental cheese, avocado, lettuce, tomatoes, onions, sriracha aioli",lunch,sandwich,18.00,true
+Steak Frites,"Sliced flat iron steak, sautéed spinach, shoestring fries, peppercorn sauce",lunch,steak,36.00,true
+Salmon Paillard,Fresh pan seared salmon served with an artisan baby green salad,lunch,seafood,25.00,true
+Mussels & Frites,"White wine reduction, shallots, garlic, herbs, shoestring fries",lunch,seafood,32.00,true
+Chicken Paillard,"Herb marinated chicken, thinly pounded & pan seared, served with an artisan baby greens salad",lunch,chicken,22.00,true
+Wild Mushroom Ravioli,"Organic wild mushrooms, ricotta cheese, tarragon cream sauce",lunch,pasta,29.00,true
+Asparagus Risotto,"Arborio rice, Asparagus, Parmesan Cheese, Lemon Zest • Add Chicken +$12.00 | Shrimp $15.00 | Steak $15.00 | Salmon $12.00",lunch,entree,25.00,true
+Roasted Vegetables (GF Vegan),"Zucchini, Summer Squash, Potatoes, Corn, Tomatoes, Cilantro Pesto",lunch,entree,24.00,true
+Cajun Mussels,"White Wine Reduction, Shallots, Garlic, Chorizo, Cream & Crostini",lunch,seafood,32.00,true
+Trout Almondine,"Pan Seared Trout, Butter Sautéed with Roasted Shaved Almonds",lunch,seafood,29.00,true

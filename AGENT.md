@@ -178,6 +178,16 @@ Comprehensive dot color system shows table status at a glance:
 - 🟡 **Yellow**: Processing payment
 - ⚫ **Gray**: Table being cleaned
 
+### Advanced Menu Filtering System
+Multi-select checkbox filtering with collapsible interface:
+- **Collapsible design**: Saves screen space, collapsed by default
+- **Multi-category selection**: Check multiple categories simultaneously (Dinner + Wine + Cocktails)
+- **Default selections**: Dinner, Wine, Cocktails, Beer pre-selected for efficiency
+- **Visual feedback**: Shows active filters with icons and names in header
+- **Category mapping**: Smart mapping of subcategories to filter groups
+- **Persistent preferences**: Filter state and expanded/collapsed preference saved
+- **8 filter categories**: 🥐 Brunch, 🥗 Lunch, 🍽️ Dinner, 🍷 Wine, 🍸 Cocktails, 🍻 Happy Hour, 🍺 Beer, 🍰 Desserts
+
 ### Table Click Behavior Preferences
 Customizable click behavior to optimize workflow:
 - **Direct Access (fewer clicks)**: Goes straight to order interface

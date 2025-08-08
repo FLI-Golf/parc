@@ -512,6 +512,12 @@
 		console.log('🔍 Tables for this section:', getTablesForSection(sectionId));
 		console.log('🔄 Triggering reactive update...');
 	}
+	
+	// Toggle filter visibility
+	function toggleFilters() {
+		showFilters = !showFilters;
+		saveStateToLocalStorage();
+	}
 
 	// Update table status
 	async function updateTableStatus(tableId, status, notes = '') {
@@ -580,6 +586,11 @@
 				if (savedTableClickBehavior && ['direct', 'detailed'].includes(savedTableClickBehavior)) {
 					tableClickBehavior = savedTableClickBehavior;
 				}
+				
+				const savedShowFilters = localStorage.getItem('showFilters');
+				if (savedShowFilters) {
+					showFilters = JSON.parse(savedShowFilters) === true;
+				}
 			} catch (e) {
 				console.warn('Failed to restore localStorage state:', e);
 				// Reset to defaults on error
@@ -597,6 +608,7 @@
 				localStorage.setItem('selectedAdditionalSections', JSON.stringify(Array.from(selectedAdditionalSections)));
 				localStorage.setItem('showAllSections', JSON.stringify(showAllSections));
 				localStorage.setItem('tableClickBehavior', tableClickBehavior);
+				localStorage.setItem('showFilters', JSON.stringify(showFilters));
 			} catch (e) {
 				console.warn('Failed to save to localStorage:', e);
 			}
@@ -673,9 +685,20 @@
 		);
 	}
 	let guestCount = 2;
-	let selectedCategory = 'appetizer';
+	// Category selection for filtering (multi-select checkboxes)
+	let selectedCategories = {
+		brunch: false,
+		lunch: false,
+		dinner: true,    // Default checked
+		wine: true,      // Default checked
+		cocktails: true, // Default checked
+		happy_hour: false,
+		beer: true,      // Default checked
+		desserts: false
+	};
 	let searchQuery = '';
 	let showModifiers = false;
+	let showFilters = false; // Collapsed by default to save space
 	
 	// Reactive statement for current shift's tables (updates when selectedAdditionalSections changes)
 	$: currentShiftTables = (todayShifts.length > 0 && todayShifts[0] && selectedAdditionalSections !== undefined) 
@@ -1042,6 +1065,31 @@
 			default: return 'main';
 		}
 	}
+	
+	function getCategoryIcon(category) {
+		switch (category) {
+			case 'appetizer': return '🥗';
+			case 'main_course': return '🍽️';
+			case 'beverage': return '🍷';
+			case 'dessert': return '🍰';
+			case 'side_dish': return '🥖';
+			default: return '🍽️';
+		}
+	}
+	
+	function getCategoryCheckboxIcon(category) {
+		switch (category) {
+			case 'brunch': return '🥐';
+			case 'lunch': return '🥗';
+			case 'dinner': return '🍽️';
+			case 'wine': return '🍷';
+			case 'cocktails': return '🍸';
+			case 'happy_hour': return '🍻';
+			case 'beer': return '🍺';
+			case 'desserts': return '🍰';
+			default: return '🍴';
+		}
+	}
 
 	function closeTicketModal() {
 		showTicketModal = false;
@@ -1056,9 +1104,48 @@
 		selectedModifiers = [];
 	}
 
-	// Filter menu items based on category and search
+	// Filter menu items based on selected categories and search
 	$: filteredMenuItems = $menuItems.filter(item => {
-		const matchesCategory = selectedCategory === 'all' || item.category === selectedCategory;
+		// Check if any selected category matches the item
+		const anySelectedCategories = Object.values(selectedCategories).some(checked => checked);
+		
+		// If no categories are selected, show all items
+		if (!anySelectedCategories) {
+			const matchesSearch = !searchQuery || 
+				item.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+				item.description?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+				item.tags?.some(tag => tag.toLowerCase().includes(searchQuery.toLowerCase()));
+			return matchesSearch && item.available;
+		}
+		
+		let matchesCategory = false;
+		
+		// Check each selected category
+		if (selectedCategories.brunch && item.category === 'brunch') {
+			matchesCategory = true;
+		}
+		if (selectedCategories.lunch && item.category === 'lunch') {
+			matchesCategory = true;
+		}
+		if (selectedCategories.dinner && item.category === 'dinner') {
+			matchesCategory = true;
+		}
+		if (selectedCategories.wine && ['wine_red', 'wine_white', 'wine_sparkling'].includes(item.subcategory)) {
+			matchesCategory = true;
+		}
+		if (selectedCategories.cocktails && ['cocktail_classic', 'cocktail_signature'].includes(item.subcategory)) {
+			matchesCategory = true;
+		}
+		if (selectedCategories.happy_hour && item.category === 'happy_hour') {
+			matchesCategory = true;
+		}
+		if (selectedCategories.beer && ['beer_draft', 'beer_bottle'].includes(item.subcategory)) {
+			matchesCategory = true;
+		}
+		if (selectedCategories.desserts && (item.category === 'desserts' || ['dessert_cake', 'dessert_ice_cream'].includes(item.subcategory))) {
+			matchesCategory = true;
+		}
+		
 		const matchesSearch = !searchQuery || 
 			item.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
 			item.description?.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -2725,18 +2812,7 @@
 		}
 	}
 
-	// Get category icon
-	function getCategoryIcon(category) {
-		const icons = {
-			'appetizer': '🥗',
-			'main_course': '🍽️',
-			'dessert': '🍰',
-			'beverage': '🍷',
-			'special': '⭐',
-			'side_dish': '🥘'
-		};
-		return icons[category] || '🍴';
-	}
+
 
 	// Speech Recognition Functions
 	function initSpeechRecognition() {
@@ -3988,31 +4064,63 @@
 				{:else}
 					<!-- Category Navigation -->
 					<div class="p-4 bg-gray-800 border-b border-gray-700">
-						<div class="flex space-x-2 mb-4">
-							<button
-								on:click={() => selectedCategory = 'all'}
-								class="px-4 py-2 rounded-lg font-medium transition-colors {
-									selectedCategory === 'all' 
-										? 'bg-blue-600 text-white' 
-										: 'bg-gray-700 text-gray-300 hover:bg-gray-600'
-								}"
+						<!-- Filter Toggle Header -->
+						<button
+							on:click={toggleFilters}
+							class="w-full flex items-center justify-between p-2 rounded-lg hover:bg-gray-700 transition-colors mb-2"
+						>
+							<div class="flex items-center space-x-2">
+								<span class="text-lg">🏷️</span>
+								<h3 class="text-sm font-medium text-gray-300">Filter Categories</h3>
+								<span class="text-xs text-gray-400">
+									({Object.values(selectedCategories).filter(Boolean).length} selected)
+								</span>
+								{#if Object.values(selectedCategories).filter(Boolean).length > 0}
+									<div class="flex items-center space-x-1 ml-2">
+										{#each Object.entries(selectedCategories) as [category, isSelected], index}
+											{#if isSelected}
+												<span class="text-xs text-gray-300 flex items-center space-x-1">
+													<span>{getCategoryCheckboxIcon(category)}</span>
+													<span class="capitalize">{category.replace('_', ' ')}</span>
+													{#if index < Object.entries(selectedCategories).filter(([c, sel]) => sel).length - 1}
+														<span class="text-gray-500 mx-1">-</span>
+													{/if}
+												</span>
+											{/if}
+										{/each}
+									</div>
+								{/if}
+							</div>
+							<svg 
+								class="w-5 h-5 text-gray-400 transition-transform duration-200 {showFilters ? 'rotate-180' : ''}"
+								fill="none" 
+								stroke="currentColor" 
+								viewBox="0 0 24 24"
 							>
-								🍴 All
-							</button>
-							{#each ['appetizer', 'main_course', 'beverage', 'dessert', 'special'] as category}
-								<button
-									on:click={() => selectedCategory = category}
-									class="px-4 py-2 rounded-lg font-medium transition-colors flex items-center space-x-2 {
-										selectedCategory === category 
-											? 'bg-blue-600 text-white' 
-											: 'bg-gray-700 text-gray-300 hover:bg-gray-600'
-									}"
-								>
-									<span>{getCategoryIcon(category)}</span>
-									<span class="capitalize">{category.replace('_', ' ')}</span>
-								</button>
-							{/each}
-						</div>
+								<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+							</svg>
+						</button>
+						
+						<!-- Collapsible Filter Checkboxes -->
+						{#if showFilters}
+							<div class="mb-4 transition-all duration-200">
+								<div class="grid grid-cols-2 gap-2">
+									{#each Object.keys(selectedCategories) as category}
+										<label class="flex items-center space-x-3 p-2 rounded-lg hover:bg-gray-700 cursor-pointer transition-colors">
+											<input
+												type="checkbox"
+												bind:checked={selectedCategories[category]}
+												class="w-4 h-4 text-blue-600 bg-gray-700 border-gray-600 rounded focus:ring-blue-500 focus:ring-2"
+											/>
+											<span class="text-lg">{getCategoryCheckboxIcon(category)}</span>
+											<span class="text-sm font-medium text-gray-300 capitalize">
+												{category.replace('_', ' ')}
+											</span>
+										</label>
+									{/each}
+								</div>
+							</div>
+						{/if}
 						
 						<!-- Search Bar -->
 						<div class="relative">

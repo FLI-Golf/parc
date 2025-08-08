@@ -300,6 +300,12 @@
 								<span class="font-medium text-sm">{user.name?.charAt(0) || user.email?.charAt(0) || 'K'}</span>
 							</div>
 							<button 
+								on:click={() => window.history.back()}
+								class="text-sm px-3 py-1 bg-blue-600 hover:bg-blue-700 rounded text-white flex items-center gap-1"
+							>
+								← Back
+							</button>
+							<button 
 								on:click={logout}
 								class="text-sm px-3 py-1 bg-red-600 hover:bg-red-700 rounded text-white"
 							>
