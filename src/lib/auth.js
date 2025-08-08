@@ -7,14 +7,11 @@ export const authStore = writable({
 	isLoggedIn: false,
 	user: null,
 	role: null,
-	isLoading: false // Set to false to prevent hydration mismatch
+	isLoading: true // Always start as loading to prevent race conditions
 });
 
 // Initialize auth store from PocketBase
 if (browser) {
-	// Set loading state only on client
-	authStore.update((state) => ({ ...state, isLoading: true }));
-
 	pb.authStore.onChange((auth) => {
 		authStore.update(() => ({
 			isLoggedIn: !!auth,
@@ -24,11 +21,12 @@ if (browser) {
 		}));
 	});
 
-	// Initial load
+	// Initial load - check if PocketBase already has valid auth
+	const initialAuth = pb.authStore.isValid;
 	authStore.update(() => ({
-		isLoggedIn: pb.authStore.isValid,
-		user: pb.authStore.model,
-		role: pb.authStore.model?.role || null,
+		isLoggedIn: initialAuth,
+		user: initialAuth ? pb.authStore.model : null,
+		role: initialAuth ? (pb.authStore.model?.role || null) : null,
 		isLoading: false
 	}));
 }
