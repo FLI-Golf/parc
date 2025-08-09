@@ -607,9 +607,14 @@
 				if (savedQuickFilter && quickFilterCategories.some(cat => cat.id === savedQuickFilter)) {
 					quickFilter = savedQuickFilter;
 				}
-				
 
-			} catch (e) {
+				const savedMenuViewMode = localStorage.getItem('menuViewMode');
+				if (savedMenuViewMode && ['visual', 'minimal'].includes(savedMenuViewMode)) {
+					menuViewMode = savedMenuViewMode;
+				}
+ 				
+ 
+ 			} catch (e) {
 				console.warn('Failed to restore localStorage state:', e);
 				// Reset to defaults on error
 				selectedAdditionalSections = new Set();
@@ -628,6 +633,7 @@
 				localStorage.setItem('tableClickBehavior', tableClickBehavior);
 				localStorage.setItem('showFilters', JSON.stringify(showFilters));
 				localStorage.setItem('quickFilter', quickFilter);
+				localStorage.setItem('menuViewMode', menuViewMode);
 			} catch (e) {
 				console.warn('Failed to save to localStorage:', e);
 			}
@@ -737,6 +743,9 @@
 	{ id: 'beer', label: 'Beer', icon: '🍺' },
 		{ id: 'desserts', label: 'Desserts', icon: '🍰' }
 ];
+
+	// Menu item view preference: 'visual' (images) or 'minimal' (compact list)
+	let menuViewMode = 'visual';
 	
 	// Reactive statement for current shift's tables (updates when selectedAdditionalSections changes)
 	$: currentShiftTables = (todayShifts.length > 0 && todayShifts[0] && selectedAdditionalSections !== undefined) 
@@ -4227,25 +4236,40 @@
 						<!-- Menu Category Section -->
 						<div class="mb-4">
 							<div class="flex items-center justify-between mb-3">
-								{#if quickFilterCategories}
-									{@const enabledCategories = quickFilterCategories.filter(cat => cat.id === 'all' || selectedCategories[cat.id])}
-									{@const disabledCount = quickFilterCategories.length - enabledCategories.length}
-									<p class="text-xs text-gray-400">
-										{#if disabledCount > 0}
-											{enabledCategories.length - 1} of {quickFilterCategories.length - 1} categories enabled • {disabledCount} greyed out (not in defaults)
-										{:else}
-											All categories enabled • Change defaults above to limit options
-										{/if}
-									</p>
-								{/if}
-								{#if quickFilter !== 'all'}
-									{@const currentQuickFilter = quickFilterCategories.find(cat => cat.id === quickFilter)}
-									{#if currentQuickFilter}
-										<span class="text-xs bg-blue-900/50 text-blue-300 px-2 py-1 rounded">
-											{currentQuickFilter.icon} {currentQuickFilter.label}
-										</span>
+								<div class="flex items-center gap-2">
+									{#if quickFilterCategories}
+										{@const enabledCategories = quickFilterCategories.filter(cat => cat.id === 'all' || selectedCategories[cat.id])}
+										{@const disabledCount = quickFilterCategories.length - enabledCategories.length}
+										<p class="text-xs text-gray-400">
+											{#if disabledCount > 0}
+												{enabledCategories.length - 1} of {quickFilterCategories.length - 1} categories enabled • {disabledCount} greyed out (not in defaults)
+											{:else}
+												All categories enabled • Change defaults above to limit options
+											{/if}
+										</p>
 									{/if}
-								{/if}
+									{#if quickFilter !== 'all'}
+										{@const currentQuickFilter = quickFilterCategories.find(cat => cat.id === quickFilter)}
+										{#if currentQuickFilter}
+											<span class="text-xs bg-blue-900/50 text-blue-300 px-2 py-1 rounded">
+												{currentQuickFilter.icon} {currentQuickFilter.label}
+											</span>
+										{/if}
+									{/if}
+								</div>
+								<div class="flex items-center gap-2">
+									<span class="text-xs text-gray-500">View:</span>
+									<div class="inline-flex rounded-md overflow-hidden border border-gray-600">
+										<button type="button"
+											class="px-2 py-1 text-xs {menuViewMode === 'visual' ? 'bg-gray-600 text-white' : 'bg-gray-800 text-gray-300 hover:bg-gray-700'}"
+											on:click={() => { menuViewMode = 'visual'; saveStateToLocalStorage(); }}
+											title="Visual grid with images">▦ Grid</button>
+										<button type="button"
+											class="px-2 py-1 text-xs {menuViewMode === 'minimal' ? 'bg-gray-600 text-white' : 'bg-gray-800 text-gray-300 hover:bg-gray-700'}"
+											on:click={() => { menuViewMode = 'minimal'; saveStateToLocalStorage(); }}
+											title="Minimal list to fit more items">≡ List</button>
+									</div>
+								</div>
 							</div>
 							<div class="flex flex-wrap gap-2">
 								{#each quickFilterCategories as category}
@@ -4279,57 +4303,97 @@
 
 					<!-- Menu Items Grid -->
 					<div class="flex-1 overflow-y-auto p-4">
-						<div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
-							{#each filteredMenuItems as item}
-								<button
-									on:click={() => openItemModal(item)}
-									class="bg-gray-800 hover:bg-gray-700 rounded-xl p-4 transition-colors text-left group"
-								>
-									<div class="aspect-square bg-gray-700 rounded-lg mb-3 flex items-center justify-center overflow-hidden">
-										{#if item.image}
-											<img src={item.image} alt={item.name} class="w-full h-full object-cover">
-										{:else}
-											<span class="text-3xl">{getCategoryIcon(item.category)}</span>
-										{/if}
-									</div>
-									
-									<h3 class="font-bold text-white mb-1 group-hover:text-blue-400 transition-colors">
-										{item.name}
-									</h3>
-									
-									{#if item.description}
-										<p class="text-xs text-gray-400 mb-2 line-clamp-2">{item.description}</p>
-									{/if}
-									
-									<div class="flex justify-between items-center">
-										<span class="text-lg font-bold text-green-400">${item.price}</span>
-										{#if item.featured}
-											<span class="text-xs bg-yellow-600 text-yellow-100 px-2 py-1 rounded">⭐ Featured</span>
-										{/if}
-									</div>
-									
-									{#if item.tags && item.tags.length > 0}
-										<div class="flex flex-wrap gap-1 mt-2">
-											{#each item.tags.slice(0, 2) as tag}
-												<span class="text-xs bg-gray-600 text-gray-300 px-2 py-1 rounded">
-													{tag}
-												</span>
-											{/each}
+						{#if menuViewMode === 'visual'}
+							<div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
+								{#each filteredMenuItems as item}
+									<button
+										on:click={() => openItemModal(item)}
+										class="bg-gray-800 hover:bg-gray-700 rounded-xl p-4 transition-colors text-left group"
+									>
+										<div class="aspect-square bg-gray-700 rounded-lg mb-3 flex items-center justify-center overflow-hidden">
+											{#if item.image}
+												<img src={item.image} alt={item.name} class="w-full h-full object-cover">
+											{:else}
+												<span class="text-3xl">{getCategoryIcon(item.category)}</span>
+											{/if}
 										</div>
-									{/if}
-									
-									{#if item.allergens && item.allergens.length > 0}
-										<div class="flex flex-wrap gap-1 mt-2">
-											{#each item.allergens.slice(0, 3) as allergen}
-												<span class="text-xs bg-red-900/50 text-red-300 px-2 py-1 rounded">
-													{allergen}
-												</span>
-											{/each}
+										
+										<h3 class="font-bold text-white mb-1 group-hover:text-blue-400 transition-colors">
+											{item.name}
+										</h3>
+										
+										{#if item.description}
+											<p class="text-xs text-gray-400 mb-2 line-clamp-2">{item.description}</p>
+										{/if}
+										
+										<div class="flex justify-between items-center">
+											<span class="text-lg font-bold text-green-400">${item.price}</span>
+											{#if item.featured}
+												<span class="text-xs bg-yellow-600 text-yellow-100 px-2 py-1 rounded">⭐ Featured</span>
+											{/if}
 										</div>
-									{/if}
-								</button>
-							{/each}
-						</div>
+										
+										{#if item.tags && item.tags.length > 0}
+											<div class="flex flex-wrap gap-1 mt-2">
+												{#each item.tags.slice(0, 2) as tag}
+													<span class="text-xs bg-gray-600 text-gray-300 px-2 py-1 rounded">
+														{tag}
+													</span>
+												{/each}
+											</div>
+										{/if}
+										
+										{#if item.allergens && item.allergens.length > 0}
+											<div class="flex flex-wrap gap-1 mt-2">
+												{#each item.allergens.slice(0, 3) as allergen}
+													<span class="text-xs bg-red-900/50 text-red-300 px-2 py-1 rounded">
+														{allergen}
+													</span>
+												{/each}
+											</div>
+										{/if}
+									</button>
+								{/each}
+							</div>
+						{:else}
+							<div class="divide-y divide-gray-700">
+								{#each filteredMenuItems as item}
+									<button
+										on:click={() => openItemModal(item)}
+										class="w-full px-3 py-2 hover:bg-gray-700 transition-colors text-left flex items-center justify-between"
+									>
+										<div class="flex items-center gap-3 min-w-0">
+											<div class="w-8 h-8 rounded bg-gray-700 flex items-center justify-center overflow-hidden flex-shrink-0">
+												{#if item.image}
+													<img src={item.image} alt={item.name} class="w-full h-full object-cover">
+												{:else}
+													<span class="text-base">{getCategoryIcon(item.category)}</span>
+												{/if}
+											</div>
+											<div class="min-w-0">
+												<p class="text-sm font-medium text-white truncate">{item.name}</p>
+												{#if item.description}
+													<p class="text-xs text-gray-400 truncate">{item.description}</p>
+												{/if}
+												{#if item.tags && item.tags.length > 0}
+													<div class="flex gap-1 mt-1">
+														{#each item.tags.slice(0, 1) as tag}
+															<span class="text-[10px] bg-gray-600 text-gray-300 px-1.5 py-0.5 rounded">{tag}</span>
+														{/each}
+													</div>
+												{/if}
+											</div>
+										</div>
+										<div class="flex items-center gap-2 flex-shrink-0">
+											<span class="text-sm font-semibold text-green-400">${item.price}</span>
+											{#if item.featured}
+												<span class="text-[10px] bg-yellow-600 text-yellow-100 px-1.5 py-0.5 rounded">⭐</span>
+											{/if}
+										</div>
+									</button>
+								{/each}
+							</div>
+						{/if}
 						
 						{#if filteredMenuItems.length === 0}
 							<div class="text-center py-12">
