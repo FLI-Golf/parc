@@ -712,6 +712,7 @@
 		dinner: true,    // Default checked
 		wine: true,      // Default checked
 		cocktails: true, // Default checked
+		mocktails: true, // Default checked
 		happy_hour: false,
 		beer: true,      // Default checked
 		desserts: false
@@ -725,16 +726,17 @@
 	
 	// Quick filter categories
 	const quickFilterCategories = [
-		{ id: 'all', label: 'All Defaults', icon: '📋' },
-		{ id: 'brunch', label: 'Brunch', icon: '🥐' },
-		{ id: 'lunch', label: 'Lunch', icon: '🥗' },
-		{ id: 'dinner', label: 'Dinner', icon: '🍽️' },
-		{ id: 'wine', label: 'Wine', icon: '🍷' },
-		{ id: 'cocktails', label: 'Cocktails', icon: '🍸' },
-		{ id: 'happy_hour', label: 'Happy Hour', icon: '🍻' },
-		{ id: 'beer', label: 'Beer', icon: '🍺' },
+	{ id: 'all', label: 'All Defaults', icon: '📋' },
+	{ id: 'brunch', label: 'Brunch', icon: '🥐' },
+	{ id: 'lunch', label: 'Lunch', icon: '🥗' },
+	{ id: 'dinner', label: 'Dinner', icon: '🍽️' },
+	{ id: 'wine', label: 'Wine', icon: '🍷' },
+	{ id: 'cocktails', label: 'Cocktails', icon: '🍸' },
+	{ id: 'mocktails', label: 'Mocktails', icon: '🥤' },
+	{ id: 'happy_hour', label: 'Happy Hour', icon: '🍻' },
+	{ id: 'beer', label: 'Beer', icon: '🍺' },
 		{ id: 'desserts', label: 'Desserts', icon: '🍰' }
-	];
+];
 	
 	// Reactive statement for current shift's tables (updates when selectedAdditionalSections changes)
 	$: currentShiftTables = (todayShifts.length > 0 && todayShifts[0] && selectedAdditionalSections !== undefined) 
@@ -1164,6 +1166,8 @@
 			matchesQuickFilter = ['wine_red', 'wine_white', 'wine_sparkling'].includes(item.subcategory);
 		} else if (quickFilter === 'cocktails') {
 			matchesQuickFilter = ['cocktail_classic', 'cocktail_signature'].includes(item.subcategory);
+		} else if (quickFilter === 'mocktails') {
+			matchesQuickFilter = item.subcategory === 'mocktail';
 		} else if (quickFilter === 'happy_hour') {
 			matchesQuickFilter = item.category === 'happy_hour';
 		} else if (quickFilter === 'beer') {
@@ -1205,6 +1209,9 @@
 			matchesCategory = true;
 		}
 		if (selectedCategories.cocktails && ['cocktail_classic', 'cocktail_signature'].includes(item.subcategory)) {
+			matchesCategory = true;
+		}
+		if (selectedCategories.mocktails && item.subcategory === 'mocktail') {
 			matchesCategory = true;
 		}
 		if (selectedCategories.happy_hour && item.category === 'happy_hour') {

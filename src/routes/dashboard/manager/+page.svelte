@@ -56,6 +56,7 @@
 		dinner: true,    // Default checked
 		wine: true,      // Default checked
 		cocktails: true, // Default checked
+		mocktails: true, // Default checked
 		happy_hour: false,
 		beer: true,      // Default checked
 		desserts: false
@@ -130,29 +131,68 @@
 
 	// Menu filter categories
 	const menuFilterCategories = [
-		{ id: 'brunch', label: 'Brunch', icon: '🥐' },
-		{ id: 'lunch', label: 'Lunch', icon: '🥗' },
-		{ id: 'dinner', label: 'Dinner', icon: '🍽️' },
-		{ id: 'wine', label: 'Wine', icon: '🍷' },
-		{ id: 'cocktails', label: 'Cocktails', icon: '🍸' },
-		{ id: 'happy_hour', label: 'Happy Hour', icon: '🍻' },
-		{ id: 'beer', label: 'Beer', icon: '🍺' },
+	{ id: 'brunch', label: 'Brunch', icon: '🥐' },
+	{ id: 'lunch', label: 'Lunch', icon: '🥗' },
+	{ id: 'dinner', label: 'Dinner', icon: '🍽️' },
+	{ id: 'wine', label: 'Wine', icon: '🍷' },
+	{ id: 'cocktails', label: 'Cocktails', icon: '🍸' },
+	{ id: 'mocktails', label: 'Mocktails', icon: '🥤' },
+	{ id: 'happy_hour', label: 'Happy Hour', icon: '🍻' },
+	{ id: 'beer', label: 'Beer', icon: '🍺' },
 		{ id: 'desserts', label: 'Desserts', icon: '🍰' }
-	];
+];
 
 	// Quick filter categories
 	const menuQuickFilterCategories = [
-		{ id: 'all', label: 'All Defaults', icon: '📋' },
-		{ id: 'brunch', label: 'Brunch', icon: '🥐' },
-		{ id: 'lunch', label: 'Lunch', icon: '🥗' },
-		{ id: 'dinner', label: 'Dinner', icon: '🍽️' },
-		{ id: 'wine', label: 'Wine', icon: '🍷' },
-		{ id: 'cocktails', label: 'Cocktails', icon: '🍸' },
-		{ id: 'happy_hour', label: 'Happy Hour', icon: '🍻' },
-		{ id: 'beer', label: 'Beer', icon: '🍺' },
+	{ id: 'all', label: 'All Defaults', icon: '📋' },
+	{ id: 'brunch', label: 'Brunch', icon: '🥐' },
+	{ id: 'lunch', label: 'Lunch', icon: '🥗' },
+	{ id: 'dinner', label: 'Dinner', icon: '🍽️' },
+	{ id: 'wine', label: 'Wine', icon: '🍷' },
+	{ id: 'cocktails', label: 'Cocktails', icon: '🍸' },
+	{ id: 'mocktails', label: 'Mocktails', icon: '🥤' },
+	{ id: 'happy_hour', label: 'Happy Hour', icon: '🍻' },
+	{ id: 'beer', label: 'Beer', icon: '🍺' },
 		{ id: 'desserts', label: 'Desserts', icon: '🍰' }
-	];
+];
 	let selectedMenuCategory = "all"; // Filter for menu categories
+
+	// Bulk edit state for menu items
+	let selectedMenuIds = new Set();
+	let bulkCategory = 'beverage';
+	let isBulkUpdating = false;
+	
+	function toggleSelectMenuItem(id) {
+		if (selectedMenuIds.has(id)) {
+			selectedMenuIds.delete(id);
+		} else {
+			selectedMenuIds.add(id);
+		}
+		// force reactivity with Set
+		selectedMenuIds = new Set(selectedMenuIds);
+	}
+	function clearSelectedMenuItems() {
+		selectedMenuIds = new Set();
+	}
+	function selectAllFilteredMenuItems() {
+		selectedMenuIds = new Set(filteredMenuItems.map(i => i.id));
+	}
+	async function bulkUpdateMenuCategory() {
+		if (selectedMenuIds.size === 0) return;
+		isBulkUpdating = true;
+		try {
+			for (const id of selectedMenuIds) {
+				await collections.updateMenuItem(id, { category: bulkCategory });
+			}
+			await collections.getMenuItems();
+			clearSelectedMenuItems();
+		} catch (e) {
+			console.error('Bulk update failed', e);
+			alert('Failed to bulk update categories.');
+		} finally {
+			isBulkUpdating = false;
+		}
+	}
 
 	// Menu view navigation functions
 	function showMenuDetails() {
@@ -225,7 +265,7 @@
 				return (
 					category === 'beverage' ||
 					category.includes('wine') || ['wine_red','wine_white','wine_sparkling'].includes(subcategory) ||
-					category.includes('cocktail') || ['cocktail_classic','cocktail_signature'].includes(subcategory) ||
+					category.includes('cocktail') || ['cocktail_classic','cocktail_signature','mocktail'].includes(subcategory) ||
 					category.includes('beer') || ['beer_draft','beer_bottle'].includes(subcategory)
 				);
 			case 'dessert':
@@ -741,14 +781,17 @@
 		if (categoryId === 'all') return true;
 		
 		const category = item.category?.toLowerCase() || '';
+		const subcategory = item.subcategory?.toLowerCase() || '';
 		
 		switch (categoryId) {
 			case 'wine':
-				return category.includes('wine') || ['wine_red', 'wine_white', 'wine_sparkling'].includes(category);
+				return category.includes('wine') || ['wine_red', 'wine_white', 'wine_sparkling'].includes(subcategory);
 			case 'cocktails':
-				return category.includes('cocktail') || ['cocktail_classic', 'cocktail_signature'].includes(category);
+				return category.includes('cocktail') || ['cocktail_classic', 'cocktail_signature'].includes(subcategory);
+			case 'mocktails':
+				return subcategory === 'mocktail';
 			case 'beer':
-				return category.includes('beer') || ['beer_draft', 'beer_bottle'].includes(category);
+				return category.includes('beer') || ['beer_draft', 'beer_bottle'].includes(subcategory);
 			case 'dinner':
 				return category === 'dinner' || category === 'main_course';
 			case 'brunch':
@@ -1433,6 +1476,7 @@
 						{ id: 'happy_hour', label: 'Happy Hour', icon: '🍻' },
 						{ id: 'wine', label: 'Wine', icon: '🍷' },
 						{ id: 'cocktails', label: 'Cocktails', icon: '🍸' },
+						{ id: 'mocktails', label: 'Mocktails', icon: '🥤' },
 						{ id: 'beer', label: 'Beer', icon: '🍺' },
 						{ id: 'desserts', label: 'Desserts', icon: '🍰' },
 					]}
@@ -1447,17 +1491,70 @@
 							</button>
 						{/each}
 					</div>
-				{/key}
-			</div>
+					{/key}
+					</div>
 
-			<!-- Menu Items Grid -->
-			<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-				{#each filteredMenuItems as item}
-					{@const cat = (item.category || '').toLowerCase()}
-					<div class="bg-gray-800/50 rounded-xl border border-gray-700/50 p-6 hover:border-gray-600/50 transition-all">
-						<div class="flex justify-between items-start mb-4">
-							<div class="flex-1">
-								<h3 class="text-lg font-semibold text-white mb-1">{item.name}</h3>
+					<!-- Search Input -->
+				<div class="mt-4 relative">
+					<div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+						<svg class="h-5 w-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+							<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+						</svg>
+					</div>
+					<input
+						type="text"
+						bind:value={menuSearchQuery}
+						placeholder="Search menu items..."
+						class="w-full pl-10 pr-12 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+					>
+					{#if speechSupported}
+						<button
+							type="button"
+							on:click={() => (isRecordingSearch ? stopVoiceSearch() : startVoiceSearch())}
+							class="absolute right-2 top-1/2 -translate-y-1/2 p-1 rounded-full transition-colors duration-200 {isRecordingSearch ? 'bg-red-600 text-white animate-pulse' : 'text-gray-400 hover:text-white hover:bg-gray-600'}"
+							title="Voice search"
+						>
+							<svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+								<path fill-rule="evenodd" d="M7 4a3 3 0 016 0v4a3 3 0 11-6 0V4zm4 10.93A7.001 7.001 0 0017 8a1 1 0 10-2 0A5 5 0 015 8a1 1 0 00-2 0 7.001 7.001 0 006 6.93V17H6a1 1 0 100 2h8a1 1 0 100-2h-3v-2.07z" clip-rule="evenodd"></path>
+							</svg>
+						</button>
+					{/if}
+				</div>
+
+				<!-- Bulk actions toolbar -->
+				{#if selectedMenuIds.size > 0}
+				<div class="mb-4 p-3 bg-blue-900/30 border border-blue-700/50 rounded-lg flex flex-wrap items-center gap-3">
+				<span class="text-sm text-blue-200 font-medium">{selectedMenuIds.size} selected</span>
+				<button class="px-2 py-1 text-xs bg-gray-700 hover:bg-gray-600 rounded" on:click={selectAllFilteredMenuItems}>Select all shown</button>
+				<button class="px-2 py-1 text-xs bg-gray-700 hover:bg-gray-600 rounded" on:click={clearSelectedMenuItems}>Clear</button>
+				<div class="flex items-center gap-2">
+				<label class="text-sm text-gray-300">Set category to</label>
+							<select bind:value={bulkCategory} class="px-2 py-1 bg-gray-700 border border-gray-600 rounded text-white text-sm">
+								<option value="appetizer">Appetizer</option>
+								<option value="main_course">Main Course</option>
+								<option value="dessert">Dessert</option>
+								<option value="beverage">Beverage</option>
+								<option value="special">Special</option>
+								<option value="side_dish">Side Dish</option>
+							</select>
+							<button on:click={bulkUpdateMenuCategory} disabled={isBulkUpdating} class="px-3 py-1 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 rounded text-white text-sm">
+								{isBulkUpdating ? 'Updating…' : 'Update Category'}
+							</button>
+						</div>
+					</div>
+				{/if}
+
+				<!-- Menu Items Grid -->
+				<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+					{#each filteredMenuItems as item}
+						{@const cat = (item.category || '').toLowerCase()}
+						<div class="bg-gray-800/50 rounded-xl border border-gray-700/50 p-6 hover:border-gray-600/50 transition-all">
+							<div class="flex justify-between items-start mb-4">
+								<div class="flex-1">
+									<div class="flex items-center gap-2 mb-1">
+										<input type="checkbox" checked={selectedMenuIds.has(item.id)} on:change={() => toggleSelectMenuItem(item.id)} class="h-4 w-4 text-blue-600 rounded border-gray-600 bg-gray-700" />
+										<h3 class="text-lg font-semibold text-white">{item.name}</h3>
+									</div>
 								<p class="text-sm text-gray-400 mb-2">{item.description || 'No description available'}</p>
 								<div class="flex items-center gap-2 mb-2">
 
