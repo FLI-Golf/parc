@@ -122,9 +122,11 @@ PARC Portal is designed for restaurants to manage daily operations efficiently w
 
 #### Advanced Server Features
 
-**Menu Filtering System:**
+**Menu Filtering & View Modes:**
 - **Multi-select categories**: Dinner + Wine + Cocktails simultaneously
 - **Default selections**: Optimized for common service (Dinner, Wine, Cocktails, Beer)
+- **Grid/List toggle**: Switch between `▦ Grid` (visual) and `≡ List` (minimal compact list) near the category chips
+- **Persistence**: Remembers your choice in `localStorage` across sessions
 - **Quick workflows**:
   - Dinner service: Default filters already optimized ✅
   - Happy hour: Uncheck Dinner, check Happy Hour

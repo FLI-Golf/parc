@@ -192,6 +192,13 @@ Note on dashboard behavior:
 - **Server dashboard**: Defaults (Dinner, Wine, Cocktails, Beer) are applied unless you change them.
 - **Manager dashboard**: When the detailed category chips are shown and you select one (e.g., Brunch, Lunch, Happy Hour, Desserts), that selection becomes the primary filter and overrides the defaults. This ensures those categories show results even if they’re not part of the default set.
 
+### Menu View Modes (Server POS)
+- **View toggle**: `▦ Grid` (visual) or `≡ List` (minimal) near the category chips.
+- **Grid view**: Large image tiles with descriptions and tags.
+- **List view (minimal)**: Compact rows with small icon/thumbnail, name, optional short description, price — fits more items per screen.
+- **Persistence**: Remembers the chosen view mode in `localStorage` across sessions.
+- **Behavior**: Both views open the same item customization flow; no changes to ordering logic.
+
 ### Table Click Behavior Preferences
 Customizable click behavior to optimize workflow:
 - **Direct Access (fewer clicks)**: Goes straight to order interface
