@@ -20,6 +20,7 @@ export const tickets = writable([]);
 export const ticketItems = writable([]);
 export const payments = writable([]);
 export const completedOrders = writable([]);
+export const spoils = writable([]);
 
 // Loading states
 export const loading = writable({
@@ -40,7 +41,8 @@ export const loading = writable({
 	tickets: false,
 	ticketItems: false,
 	payments: false,
-	completedOrders: false
+	completedOrders: false,
+		spoils: false
 });
 
 // Collection service functions
@@ -945,6 +947,77 @@ export const collections = {
 			return record;
 		} catch (error) {
 			console.error('Error creating payment record:', error);
+			throw error;
+		}
+	},
+
+	// Spoils (returned/wasted items)
+	async getSpoils() {
+		try {
+			loading.update((s) => ({ ...s, spoils: true }));
+			const records = await pb.collection('spoils').getFullList({
+				sort: '-created',
+				expand: 'ticket_item_id,ticket_id,menu_item_id,user_id,staff_id'
+			});
+			spoils.set(records);
+			return records;
+		} catch (error) {
+			console.error('Error fetching spoils:', error);
+			throw error;
+		} finally {
+			loading.update((s) => ({ ...s, spoils: false }));
+		}
+	},
+	async updateSpoil(id, data) {
+		try {
+			const record = await pb.collection('spoils').update(id, data);
+			spoils.update(list => list.map(s => s.id === id ? record : s));
+			return record;
+		} catch (error) {
+			console.error('Error updating spoil:', error);
+			throw error;
+		}
+	},
+	async createSpoil({
+		ticketItemId,
+		ticketId,
+		menuItemId,
+		userId,
+		staffId = null,
+		quantity = 1,
+		spoilType = 'returned',
+		source = 'bar',
+		status = 'open',
+		reasonText = '',
+		costEstimate = null,
+		occurredAt = null,
+		metadata = null,
+		audioBlob = null
+	}) {
+		try {
+			const form = new FormData();
+			form.append('ticket_item_id', ticketItemId);
+			if (ticketId) form.append('ticket_id', ticketId);
+			if (menuItemId) form.append('menu_item_id', menuItemId);
+			if (userId) form.append('user_id', userId);
+			if (staffId) form.append('staff_id', staffId);
+			form.append('quantity_field', String(quantity));
+			form.append('spoil_type', spoilType);
+			form.append('source', source);
+			form.append('status', status);
+			if (reasonText) form.append('reason_text', reasonText);
+			if (costEstimate != null) form.append('cost_estimate', String(costEstimate));
+			if (occurredAt) form.append('occurred_at', occurredAt);
+			if (metadata) form.append('metadata', typeof metadata === 'string' ? metadata : JSON.stringify(metadata));
+			if (audioBlob) {
+				const file = new File([audioBlob], 'spoil-reason.webm', { type: audioBlob.type || 'audio/webm' });
+				form.append('attachments', file);
+			}
+			const record = await pb.collection('spoils').create(form);
+			spoils.update(items => [record, ...items]);
+			return record;
+		} catch (error) {
+			console.error('Error creating spoil record:', error);
 			throw error;
 		}
 	}
