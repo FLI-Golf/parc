@@ -1100,21 +1100,27 @@
 	function getKitchenStation(category, name = '') {
 		const c = (category || '').toLowerCase();
 		const n = (name || '').toLowerCase();
-		// Treat all beverage-related categories as bar
+		// Explicit food categories first
+		switch (c) {
+			case 'appetizer':
+				return 'cold_station';
+			case 'dessert':
+				return 'cold_station';
+			case 'side_dish':
+				return 'cold_station';
+		}
+		// Beverage categories
 		if (
 			c === 'beverage' || c === 'drink' || c === 'wine' || c === 'beer' || c === 'cocktails' || c === 'mocktails' || c === 'happy_hour' ||
 			c.startsWith('wine_') || c.startsWith('beer_') || c.startsWith('cocktail_')
 		) return 'bar';
-		// Heuristic by name for drinks (covers mimosa, martini, margarita, etc.)
-		const drinkKeywords = ['mimosa', 'wine', 'beer', 'lager', 'ipa', 'stout', 'cocktail', 'martini', 'margarita', 'spritz', 'negroni', 'mojito', 'sangria', 'gin', 'vodka', 'rum', 'whiskey', 'bourbon', 'tequila'];
-		if (drinkKeywords.some(k => n.includes(k))) return 'bar';
-		switch (c) {
-			case 'appetizer': return 'cold_station';
-			case 'dessert': return 'cold_station';
-			case 'main_course':
-			case 'main':
-			default: return 'kitchen';
+		// Heuristic by name for drinks ONLY when category is generic/unknown
+		if (!c || c === 'unknown' || c === 'main' || c === 'main_course') {
+			const drinkKeywords = ['mimosa', 'wine', 'beer', 'lager', 'ipa', 'stout', 'cocktail', 'martini', 'margarita', 'spritz', 'negroni', 'mojito', 'sangria', 'gin', 'vodka', 'rum', 'whiskey', 'bourbon', 'tequila'];
+			if (drinkKeywords.some(k => n.includes(k))) return 'bar';
 		}
+		// Default kitchen
+		return 'kitchen';
 	}
 	
 	function mapCategoryToCourse(category) {
