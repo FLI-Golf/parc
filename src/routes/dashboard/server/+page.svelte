@@ -1097,13 +1097,17 @@
 		}
 	}
 
-	function getKitchenStation(category) {
+	function getKitchenStation(category, name = '') {
 		const c = (category || '').toLowerCase();
+		const n = (name || '').toLowerCase();
 		// Treat all beverage-related categories as bar
 		if (
 			c === 'beverage' || c === 'drink' || c === 'wine' || c === 'beer' || c === 'cocktails' || c === 'mocktails' || c === 'happy_hour' ||
 			c.startsWith('wine_') || c.startsWith('beer_') || c.startsWith('cocktail_')
 		) return 'bar';
+		// Heuristic by name for drinks (covers mimosa, martini, margarita, etc.)
+		const drinkKeywords = ['mimosa', 'wine', 'beer', 'lager', 'ipa', 'stout', 'cocktail', 'martini', 'margarita', 'spritz', 'negroni', 'mojito', 'sangria', 'gin', 'vodka', 'rum', 'whiskey', 'bourbon', 'tequila'];
+		if (drinkKeywords.some(k => n.includes(k))) return 'bar';
 		switch (c) {
 			case 'appetizer': return 'cold_station';
 			case 'dessert': return 'cold_station';
@@ -1279,21 +1283,22 @@
 				const rawCategory = menuItem?.category || menuItem?.category_field || item.category || 'unknown';
 				const category = (rawCategory || '').toLowerCase();
 				
-				// Determine kitchen station based on category (normalized)
-				const station = getKitchenStation(category);
+				// Determine kitchen station based on category (normalized) and course/name heuristics
+				const isDrinkByCourse = (item.course || '').toLowerCase() === 'drink';
+				const station = isDrinkByCourse ? 'bar' : getKitchenStation(category, menuItem?.name || '');
 				if (station === 'bar') {
-				barItems.push(item);
+				 barItems.push(item);
 				} else {
-				kitchenItems.push(item);
+				 kitchenItems.push(item);
 				}
 				
 				console.log(`📍 Item "${menuItem?.name || 'Unknown'}" → ${station} (category: ${category})`);
 
 				// Update each ticket item with station assignment and appropriate status
 				await collections.updateTicketItem(item.id, {
-					status: station === 'bar' ? 'sent_to_bar' : 'sent_to_kitchen',
-					kitchen_station: station,
-					ordered_at: now
+				status: station === 'bar' ? 'sent_to_bar' : 'sent_to_kitchen',
+				kitchen_station: station,
+				 ordered_at: now
 				});
 			}
 
