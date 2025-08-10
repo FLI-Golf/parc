@@ -18,6 +18,7 @@
     occurred_at: '',
     reason_text: ''
   };
+  let attachAudio = true;
   let selectedTicketItemId = '';
   function selectTicketItem(id) {
     selectedTicketItemId = id;
@@ -140,7 +141,7 @@
         costEstimate: null,
         occurredAt: form.occurred_at ? form.occurred_at : null,
         metadata: voiceData ? { duration: voiceData?.duration, mime: voiceData?.blob?.type || 'audio/webm' } : null,
-        audioBlob: voiceData?.blob || null
+        audioBlob: attachAudio ? (voiceData?.blob || null) : null
       };
       console.log('🧪 Spoils payload:', payload);
       await collections.createSpoil(payload);
@@ -335,8 +336,13 @@
               <label class="block text-xs text-gray-400 mb-1">Reason (optional)</label>
               <textarea rows="3" bind:value={form.reason_text} class="w-full bg-gray-800 border border-gray-700 rounded px-2 py-2 text-sm" placeholder="Describe what happened"></textarea>
             </div>
+            <div class="flex items-center justify-between">
+              <p class="text-xs text-gray-400">Record a quick voice note (optional)</p>
+              <label class="flex items-center gap-2 text-xs text-gray-300">
+                <input type="checkbox" bind:checked={attachAudio} class="accent-teal-600" /> Attach audio
+              </label>
+            </div>
             <div>
-              <p class="text-xs text-gray-400 mb-2">Or record a quick voice note:</p>
               <AudioRecorder maxSeconds={90} transcribe={true} language="en-US" on:save={onVoiceSave} on:cancel={onVoiceCancel} />
             </div>
           </div>

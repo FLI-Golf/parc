@@ -995,7 +995,7 @@ export const collections = {
 		audioBlob = null
 	}) {
 		try {
-			const hasFile = !!(audioBlob && typeof audioBlob === 'object' && 'size' in audioBlob && audioBlob.size > 0);
+			const hasFile = !!(audioBlob && typeof audioBlob === 'object' && 'size' in audioBlob && audioBlob.size > 0 && (audioBlob.type || '').startsWith('audio/'));
 			const isoOccurred = occurredAt ? new Date(occurredAt).toISOString() : null;
 			if (hasFile) {
 				const form = new FormData();
