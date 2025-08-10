@@ -1291,10 +1291,11 @@
 				const menuItem = $menuItems.find(m => m.id === item.menu_item_id);
 				const rawCategory = menuItem?.category || menuItem?.category_field || item.category || 'unknown';
 				const category = (rawCategory || '').toLowerCase();
+				const menuName = (menuItem?.name_field || menuItem?.name || item.name || '').toString();
 				
 				// Determine kitchen station based on category (normalized) and course/name heuristics
 				const isDrinkByCourse = (item.course || '').toLowerCase() === 'drink';
-				const station = isDrinkByCourse ? 'bar' : getKitchenStation(category, menuItem?.name || '');
+				const station = isDrinkByCourse ? 'bar' : getKitchenStation(category, menuName);
 				if (station === 'bar') {
 				 barItems.push(item);
 				} else {
