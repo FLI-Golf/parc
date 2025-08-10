@@ -16,6 +16,8 @@
 		sections,
 		tables,
 		tableUpdates,
+		tickets,
+		ticketItems,
 		loading,
 	} from "$lib/stores/collections.js";
 	import ImportModal from "$lib/components/ImportModal.svelte";
@@ -604,6 +606,8 @@
 						collections.getMenuItems().catch(() => console.log("Menu collection not yet set up")),
 						collections.getVendors().catch(() => console.log("Vendors collection not yet set up")),
 						collections.getEvents().catch(() => console.log("Events collection not yet set up")),
+						collections.getTickets().catch(() => console.log("Tickets collection not yet set up")),
+						collections.getTicketItems().catch(() => console.log("Ticket items collection not yet set up")),
 						// Load table management data if collections exist
 						collections
 							.getSections()
@@ -1086,6 +1090,42 @@
 						</div>
 					</div>
 				</div>
+
+				<!-- Kitchen Display -->
+				<a href="/dashboard/kitchen" class="bg-gradient-to-br from-orange-900/50 to-orange-800/30 backdrop-blur-sm rounded-xl border border-orange-700/50 p-6 block">
+					<div class="flex items-center justify-between">
+						<div>
+							<p class="text-orange-200 text-sm font-medium">Kitchen Display</p>
+							<p class="text-xs text-orange-300 mt-1">View live kitchen orders</p>
+						</div>
+						<div class="flex items-center gap-3">
+							<span class="px-2 py-1 text-xs rounded-full bg-orange-900/50 text-orange-300 border border-orange-700/50">
+								{($ticketItems.filter(i => (i.status === 'sent_to_kitchen' || i.status === 'preparing') && i.kitchen_station !== 'bar')).length} pending
+							</span>
+							<div class="w-14 h-14 rounded-xl bg-orange-600/30 flex items-center justify-center">
+								<span class="text-2xl">🍳</span>
+							</div>
+						</div>
+					</div>
+				</a>
+
+				<!-- Bar Display -->
+				<a href="/dashboard/bar" class="bg-gradient-to-br from-blue-900/50 to-blue-800/30 backdrop-blur-sm rounded-xl border border-blue-700/50 p-6 block">
+					<div class="flex items-center justify-between">
+						<div>
+							<p class="text-blue-200 text-sm font-medium">Bar Display</p>
+							<p class="text-xs text-blue-300 mt-1">View live drink orders</p>
+						</div>
+						<div class="flex items-center gap-3">
+							<span class="px-2 py-1 text-xs rounded-full bg-blue-900/50 text-blue-300 border border-blue-700/50">
+								{($ticketItems.filter(i => (i.status === 'sent_to_bar' || i.status === 'preparing') && i.kitchen_station === 'bar')).length} pending
+							</span>
+							<div class="w-14 h-14 rounded-xl bg-blue-600/30 flex items-center justify-center">
+								<span class="text-2xl">🍹</span>
+							</div>
+						</div>
+					</div>
+				</a>
 
 				<!-- Inventory Alert -->
 				<div
