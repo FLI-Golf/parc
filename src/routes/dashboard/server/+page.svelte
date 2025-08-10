@@ -1288,9 +1288,9 @@
 
 				console.log(`📍 Item "${menuItem?.name || 'Unknown'}" → ${station} (category: ${category})`);
 
-				// Update each ticket item with station assignment and timestamp
+				// Update each ticket item with station assignment and appropriate status
 				await collections.updateTicketItem(item.id, {
-					status: 'sent_to_kitchen',
+					status: station === 'bar' ? 'sent_to_bar' : 'sent_to_kitchen',
 					kitchen_station: station,
 					ordered_at: now
 				});

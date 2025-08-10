@@ -98,11 +98,17 @@
 			// Get all ticket items for active tickets
 			const allTicketItems = await collections.getTicketItems();
 			
-			// Filter items that are in kitchen stations
-			const activeItems = allTicketItems.filter(item => 
-				activeTickets.some(ticket => ticket.id === item.ticket_id) &&
-				(item.status === 'sent_to_kitchen' || item.status === 'preparing') &&
-				item.kitchen_station
+			// Compute active items per station with new status 'sent_to_bar'
+			const isActiveTicket = (item) => activeTickets.some(ticket => ticket.id === item.ticket_id);
+			const kitchenActive = allTicketItems.filter(item =>
+				isActiveTicket(item) &&
+				item.kitchen_station && item.kitchen_station !== 'bar' &&
+				(item.status === 'sent_to_kitchen' || item.status === 'preparing')
+			);
+			const barActive = allTicketItems.filter(item =>
+				isActiveTicket(item) &&
+				item.kitchen_station === 'bar' &&
+				(item.status === 'sent_to_bar' || item.status === 'preparing')
 			);
 
 			// Filter by user role
@@ -111,23 +117,15 @@
 			if (userRole === 'bartender') {
 				// Bartenders only see bar orders
 				kitchenOrders = [];
-				barOrders = activeItems.filter(item => 
-					item.kitchen_station === 'bar'
-				);
+				barOrders = barActive;
 			} else if (userRole === 'kitchen_prep' || userRole === 'dishwasher') {
 				// Kitchen prep and dishwashers only see kitchen orders (no bar)
-				kitchenOrders = activeItems.filter(item => 
-					item.kitchen_station !== 'bar'
-				);
+				kitchenOrders = kitchenActive;
 				barOrders = [];
 			} else {
-				// Chefs and managers see everything
-				kitchenOrders = activeItems.filter(item => 
-					item.kitchen_station !== 'bar'
-				);
-				barOrders = activeItems.filter(item => 
-					item.kitchen_station === 'bar'
-				);
+				// Chefs and managers see everything (separated)
+				kitchenOrders = kitchenActive;
+				barOrders = barActive;
 			}
 
 			// Add metadata to items
