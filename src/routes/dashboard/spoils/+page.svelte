@@ -3,7 +3,7 @@
   import { goto } from '$app/navigation';
   import { authStore } from '$lib/auth.js';
   import { collections, spoils, ticketItems, tickets, menuItems, loading } from '$lib/stores/collections.js';
-  import AudioRecorder from '$lib/components/AudioRecorder.svelte';
+  // We use speech recognition for text entry; no file upload is sent
 
   let user = null;
   let hasHandledAuth = false;
@@ -348,14 +348,16 @@
               <textarea rows="3" bind:value={form.reason_text} class="w-full bg-gray-800 border border-gray-700 rounded px-2 py-2 text-sm" placeholder="Describe what happened"></textarea>
             </div>
             <div class="flex items-center justify-between">
-              <p class="text-xs text-gray-400">Record a quick voice note (optional)</p>
-              <label class="flex items-center gap-2 text-xs text-gray-300">
-                <input type="checkbox" bind:checked={attachAudio} class="accent-teal-600" /> Attach audio
-              </label>
-            </div>
-            <div>
-              <AudioRecorder maxSeconds={90} transcribe={true} language="en-US" on:save={onVoiceSave} on:cancel={onVoiceCancel} />
-              <p class="mt-2 text-xs text-gray-400">Supported audio: {supportedAudioTypes.join(', ')}. {audioError ? `(Error: ${audioError})` : ''}</p>
+              <p class="text-xs text-gray-400">Use the mic to dictate the reason:</p>
+              {#if speechSupported}
+                <button type="button" on:click={toggleReasonMic} class="px-2 py-1 rounded {isRecordingReason ? 'bg-red-600 text-white' : 'bg-gray-700 text-gray-300'}" title={isRecordingReason ? 'Stop' : 'Start recording'} aria-label="Dictate reason">
+                  {#if isRecordingReason}
+                    🔴
+                  {:else}
+                    <svg class="w-4 h-4" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" d="M10 2a2 2 0 00-2 2v6a2 2 0 104 0V4a2 2 0 00-2-2zm-5 8a5 5 0 0010 0h2a7 7 0 01-6 6.92V18h3a1 1 0 110 2H6a1 1 0 110-2h3v-1.08A7 7 0 013 10h2z" clip-rule="evenodd"></path></svg>
+                  {/if}
+                </button>
+              {/if}
             </div>
           </div>
           <div class="mt-4 flex justify-between gap-2">
