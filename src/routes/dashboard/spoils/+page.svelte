@@ -18,6 +18,12 @@
     occurred_at: '',
     reason_text: ''
   };
+  let selectedTicketItemId = '';
+  function selectTicketItem(id) {
+    selectedTicketItemId = id;
+    const found = ($ticketItems || []).find(ti => ti.id === id);
+    if (found) creatingFor = found;
+  }
 
   let filterStatus = 'open';
   let filterSource = 'all';
@@ -243,12 +249,22 @@
             {#if creatingFor}
               <div class="text-xs text-gray-300">Item: {creatingFor.expand?.menu_item_id?.name || creatingFor.expand?.menu_item_id?.name_field} • Ticket #{creatingFor.expand?.ticket_id?.ticket_number}</div>
             {:else}
-              <div class="text-xs text-gray-400">Tip: open from an item to auto-fill details</div>
+              <div>
+                <label class="block text-xs text-gray-400 mb-1">Select Item</label>
+                <select bind:value={selectedTicketItemId} on:change={(e)=>selectTicketItem(e.target.value)} class="w-full bg-gray-800 border border-gray-700 rounded px-2 py-2 text-sm">
+                  <option value="">-- Choose a ticket item --</option>
+                  {#each ($ticketItems || []).slice().sort((a,b)=> (b.updated||'').localeCompare(a.updated||'')) as ti}
+                    <option value={ti.id}>
+                      {(ti.expand?.menu_item_id?.name || ti.expand?.menu_item_id?.name_field || 'Item')} • Ticket #{ti.expand?.ticket_id?.ticket_number || ti.ticket_id}
+                    </option>
+                  {/each}
+                </select>
+              </div>
             {/if}
           </div>
           <div class="mt-4 flex justify-end gap-2">
             <button on:click={closeNewSpoil} class="px-3 py-2 bg-gray-700 hover:bg-gray-600 rounded">Cancel</button>
-            <button on:click={() => step = 2} class="px-3 py-2 bg-blue-600 hover:bg-blue-700 rounded">Next</button>
+            <button on:click={() => step = 2} class="px-3 py-2 bg-blue-600 hover:bg-blue-700 rounded" disabled={!creatingFor}>Next</button>
           </div>
         {:else if step === 2}
           <!-- Reason (voice or text) -->
@@ -287,7 +303,7 @@
           </div>
           <div class="mt-4 flex justify-between gap-2">
             <button on:click={() => step = 2} class="px-3 py-2 bg-gray-700 hover:bg-gray-600 rounded">Back</button>
-            <button on:click={submitSpoil} class="px-3 py-2 bg-teal-600 hover:bg-teal-700 rounded">Submit</button>
+            <button on:click={submitSpoil} class="px-3 py-2 bg-teal-600 hover:bg-teal-700 rounded" disabled={!creatingFor}>Submit</button>
           </div>
         {/if}
       </div>
