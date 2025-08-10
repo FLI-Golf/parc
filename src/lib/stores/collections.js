@@ -995,42 +995,57 @@ export const collections = {
 		audioBlob = null
 	}) {
 		try {
-			const form = new FormData();
-			form.append('ticket_item_id', ticketItemId);
-			if (ticketId) form.append('ticket_id', ticketId);
-			if (menuItemId) form.append('menu_item_id', menuItemId);
-			if (userId) form.append('user_id', userId);
-			if (staffId) form.append('staff_id', staffId);
-			form.append('quantity_field', String(quantity));
-			form.append('spoil_type', spoilType);
-			form.append('source', source);
-			form.append('status', status);
-			if (reasonText) form.append('reason_text', reasonText);
-			if (costEstimate != null) form.append('cost_estimate', String(costEstimate));
-			if (occurredAt) {
-				// Normalize to ISO string with Z
-				try {
-					const ts = new Date(occurredAt).toISOString();
-					form.append('occurred_at', ts);
-				} catch {}
-			}
-			if (metadata) form.append('metadata', typeof metadata === 'string' ? metadata : JSON.stringify(metadata));
-			if (audioBlob && typeof audioBlob === 'object' && 'size' in audioBlob && audioBlob.size > 0) {
+			const hasFile = !!(audioBlob && typeof audioBlob === 'object' && 'size' in audioBlob && audioBlob.size > 0);
+			const isoOccurred = occurredAt ? new Date(occurredAt).toISOString() : null;
+			if (hasFile) {
+				const form = new FormData();
+				form.append('ticket_item_id', ticketItemId);
+				if (ticketId) form.append('ticket_id', ticketId);
+				if (menuItemId) form.append('menu_item_id', menuItemId);
+				if (userId) form.append('user_id', userId);
+				if (staffId) form.append('staff_id', staffId);
+				form.append('quantity_field', String(quantity));
+				form.append('spoil_type', spoilType);
+				form.append('source', source);
+				form.append('status', status);
+				if (reasonText) form.append('reason_text', reasonText);
+				if (costEstimate != null) form.append('cost_estimate', String(costEstimate));
+				if (isoOccurred) form.append('occurred_at', isoOccurred);
+				if (metadata) form.append('metadata', typeof metadata === 'string' ? metadata : JSON.stringify(metadata));
 				const mime = audioBlob.type || 'audio/webm';
 				const file = new File([audioBlob], 'spoil-reason.webm', { type: mime });
 				form.append('attachments', file);
+				try {
+					const debug = {};
+					for (const [k, v] of form.entries()) {
+						debug[k] = v instanceof File ? `{File:${v.name}, type=${v.type}, size=${v.size}}` : v;
+					}
+					console.log('🧪 Spoils create form data (multipart):', debug);
+				} catch {}
+				var record = await pb.collection('spoils').create(form);
+				spoils.update(items => [record, ...items]);
+				return record;
+			} else {
+				const data = {
+					ticket_item_id: ticketItemId,
+					ticket_id: ticketId || undefined,
+					menu_item_id: menuItemId || undefined,
+					user_id: userId,
+					staff_id: staffId || undefined,
+					quantity_field: Number(quantity),
+					spoil_type: spoilType,
+					source: source,
+					status: status,
+					reason_text: reasonText || undefined,
+					cost_estimate: costEstimate != null ? Number(costEstimate) : undefined,
+					occurred_at: isoOccurred || undefined,
+					metadata: metadata ? (typeof metadata === 'string' ? metadata : JSON.stringify(metadata)) : undefined
+				};
+				console.log('🧪 Spoils create json data:', data);
+				const record = await pb.collection('spoils').create(data);
+				spoils.update(items => [record, ...items]);
+				return record;
 			}
-			// Debug: log form entries
-			try {
-				const debug = {};
-				for (const [k, v] of form.entries()) {
-					debug[k] = v instanceof File ? `{File:${v.name}, type=${v.type}, size=${v.size}}` : v;
-				}
-				console.log('🧪 Spoils create form data:', debug);
-			} catch {}
-			const record = await pb.collection('spoils').create(form);
-			spoils.update(items => [record, ...items]);
-			return record;
 		} catch (error) {
 			// Surface PocketBase validation errors
 			try { console.error('Error creating spoil record:', error?.data || error); } catch {}
