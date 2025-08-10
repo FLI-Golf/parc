@@ -1098,23 +1098,33 @@
 	}
 
 	function getKitchenStation(category) {
-		switch (category) {
-			case 'beverage': return 'bar';
+		const c = (category || '').toLowerCase();
+		// Treat all beverage-related categories as bar
+		if (
+			c === 'beverage' || c === 'drink' || c === 'wine' || c === 'beer' || c === 'cocktails' || c === 'mocktails' || c === 'happy_hour' ||
+			c.startsWith('wine_') || c.startsWith('beer_') || c.startsWith('cocktail_')
+		) return 'bar';
+		switch (c) {
 			case 'appetizer': return 'cold_station';
-			case 'main_course': return 'kitchen';
-			case 'main': return 'kitchen';
 			case 'dessert': return 'cold_station';
+			case 'main_course':
+			case 'main':
 			default: return 'kitchen';
 		}
 	}
 	
 	function mapCategoryToCourse(category) {
-		switch (category) {
-			case 'main_course': return 'main';
-			case 'beverage': return 'drink';
+		const c = (category || '').toLowerCase();
+		if (
+			c === 'beverage' || c === 'drink' || c === 'wine' || c === 'beer' || c === 'cocktails' || c === 'mocktails' || c === 'happy_hour' ||
+			c.startsWith('wine_') || c.startsWith('beer_') || c.startsWith('cocktail_')
+		) return 'drink';
+		switch (c) {
 			case 'appetizer': return 'appetizer';
 			case 'dessert': return 'dessert';
 			case 'side_dish': return 'side';
+			case 'main_course':
+			case 'main':
 			default: return 'main';
 		}
 	}
@@ -1266,26 +1276,17 @@
 			for (const item of currentTicketItems) {
 				// Get the menu item data to determine category and station
 				const menuItem = $menuItems.find(m => m.id === item.menu_item_id);
-				const category = menuItem?.category || item.category || 'unknown';
+				const rawCategory = menuItem?.category || menuItem?.category_field || item.category || 'unknown';
+				const category = (rawCategory || '').toLowerCase();
 				
-				// Determine kitchen station based on category
-				let station = 'kitchen'; // default
-				if (category === 'beverage' || category === 'drink') {
-					station = 'bar';
-					barItems.push(item);
-				} else if (category === 'appetizer' || category === 'side_dish') {
-					station = 'cold_station';
-					kitchenItems.push(item);
-				} else if (category === 'main_course') {
-					station = 'grill';
-					kitchenItems.push(item);
-				} else if (category === 'dessert') {
-					station = 'cold_station';
-					kitchenItems.push(item);
+				// Determine kitchen station based on category (normalized)
+				const station = getKitchenStation(category);
+				if (station === 'bar') {
+				barItems.push(item);
 				} else {
-					kitchenItems.push(item);
+				kitchenItems.push(item);
 				}
-
+				
 				console.log(`📍 Item "${menuItem?.name || 'Unknown'}" → ${station} (category: ${category})`);
 
 				// Update each ticket item with station assignment and appropriate status
