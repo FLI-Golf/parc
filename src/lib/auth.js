@@ -10,25 +10,31 @@ export const authStore = writable({
 	isLoading: true // Always start as loading to prevent race conditions
 });
 
-// Initialize auth store from PocketBase
+// Initialize auth store from PocketBase with change guards to avoid double updates
 if (browser) {
-	pb.authStore.onChange((auth) => {
+	let last = { isLoggedIn: undefined, userId: undefined, role: undefined };
+	function syncFromPocketBase() {
+		const isLoggedIn = !!pb.authStore.isValid;
+		const model = pb.authStore.model;
+		const userId = model?.id || null;
+		const role = model?.role || null;
+		if (last.isLoggedIn === isLoggedIn && last.userId === userId && last.role === role) {
+			return; // no-op if nothing changed
+		}
+		last = { isLoggedIn, userId, role };
 		authStore.update(() => ({
-			isLoggedIn: !!auth,
-			user: auth?.record || null,
-			role: auth?.record?.role || null,
+			isLoggedIn,
+			user: model || null,
+			role,
 			isLoading: false
 		}));
+	}
+	// Initial sync
+	syncFromPocketBase();
+	// Subscribe to changes
+	pb.authStore.onChange(() => {
+		syncFromPocketBase();
 	});
-
-	// Initial load - check if PocketBase already has valid auth
-	const initialAuth = pb.authStore.isValid;
-	authStore.update(() => ({
-		isLoggedIn: initialAuth,
-		user: initialAuth ? pb.authStore.model : null,
-		role: initialAuth ? (pb.authStore.model?.role || null) : null,
-		isLoading: false
-	}));
 }
 
 // Import role utilities
