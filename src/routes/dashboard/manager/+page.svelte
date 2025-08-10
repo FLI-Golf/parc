@@ -18,6 +18,7 @@
 		tableUpdates,
 		tickets,
 		ticketItems,
+		spoils,
 		loading,
 	} from "$lib/stores/collections.js";
 	import ImportModal from "$lib/components/ImportModal.svelte";
@@ -608,6 +609,7 @@
 						collections.getEvents().catch(() => console.log("Events collection not yet set up")),
 						collections.getTickets().catch(() => console.log("Tickets collection not yet set up")),
 						collections.getTicketItems().catch(() => console.log("Ticket items collection not yet set up")),
+						collections.getSpoils().catch(() => console.log("Spoils collection not yet set up")),
 						// Load table management data if collections exist
 						collections
 							.getSections()
@@ -1120,6 +1122,24 @@
 							</span>
 							<div class="w-14 h-14 rounded-xl bg-blue-600/30 flex items-center justify-center">
 								<span class="text-2xl">🍹</span>
+							</div>
+						</div>
+					</div>
+				</a>
+
+				<!-- Spoils -->
+				<a href="/dashboard/spoils" class="bg-gradient-to-br from-red-900/50 to-red-800/30 backdrop-blur-sm rounded-xl border border-red-700/50 p-6 block">
+					<div class="flex items-center justify-between">
+						<div>
+							<p class="text-red-200 text-sm font-medium">Spoils & Incidents</p>
+							<p class="text-xs text-red-300 mt-1">Voice-captured reasons for review</p>
+						</div>
+						<div class="flex items-center gap-3">
+							<span class="px-2 py-1 text-xs rounded-full bg-red-900/50 text-red-300 border border-red-700/50">
+								{($spoils.filter(s => s.status === 'open')).length} open
+							</span>
+							<div class="w-14 h-14 rounded-xl bg-red-600/30 flex items-center justify-center">
+								<span class="text-2xl">🎧</span>
 							</div>
 						</div>
 					</div>
