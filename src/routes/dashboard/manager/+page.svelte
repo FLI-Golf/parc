@@ -1132,14 +1132,14 @@
 					<div class="flex items-center justify-between">
 						<div>
 							<p class="text-red-200 text-sm font-medium">Spoils & Incidents</p>
-							<p class="text-xs text-red-300 mt-1">Voice-captured reasons for review</p>
+							<p class="text-xs text-red-300 mt-1">Report and review losses</p>
 						</div>
 						<div class="flex items-center gap-3">
 							<span class="px-2 py-1 text-xs rounded-full bg-red-900/50 text-red-300 border border-red-700/50">
 								{($spoils.filter(s => s.status === 'open')).length} open
 							</span>
 							<div class="w-14 h-14 rounded-xl bg-red-600/30 flex items-center justify-center">
-								<span class="text-2xl">🎧</span>
+								<span class="text-2xl">📉</span>
 							</div>
 						</div>
 					</div>

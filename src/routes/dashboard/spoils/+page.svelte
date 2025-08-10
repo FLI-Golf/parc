@@ -10,6 +10,14 @@
   let showNewSpoil = false;
   let creatingFor = null; // optional ticketItemId
   let voiceData = null; // { blob, duration, transcript }
+  let step = 1;
+  let form = {
+    source: 'bar',
+    spoil_type: 'returned',
+    quantity: 1,
+    occurred_at: '',
+    reason_text: ''
+  };
 
   let filterStatus = 'open';
   let filterSource = 'all';
@@ -43,25 +51,25 @@
   function openNewSpoil(ticketItem = null) {
     creatingFor = ticketItem;
     voiceData = null;
+    step = 1;
+    form = { source: 'bar', spoil_type: 'returned', quantity: ticketItem?.quantity || 1, occurred_at: new Date().toISOString().slice(0,16), reason_text: '' };
     showNewSpoil = true;
   }
   function closeNewSpoil() {
     showNewSpoil = false;
     creatingFor = null;
     voiceData = null;
+    step = 1;
   }
   function onVoiceSave(e) {
     voiceData = e.detail;
+    form.reason_text = form.reason_text || voiceData?.transcript || '';
   }
   function onVoiceCancel() {
     voiceData = null;
   }
 
   async function submitSpoil() {
-    if (!voiceData && !creatingFor) {
-      alert('Please record a reason or select an item.');
-      return;
-    }
     try {
       const payload = {
         ticketItemId: creatingFor?.id,
@@ -69,12 +77,14 @@
         menuItemId: creatingFor?.menu_item_id,
         userId: user?.id,
         staffId: null,
-        quantity: creatingFor?.quantity || 1,
-        spoilType: 'returned',
-        source: 'bar',
+        quantity: Number(form.quantity) || 1,
+        spoilType: form.spoil_type,
+        source: form.source,
         status: 'open',
-        reasonText: voiceData?.transcript || '',
-        metadata: { duration: voiceData?.duration, mime: voiceData?.blob?.type || 'audio/webm' },
+        reasonText: form.reason_text || voiceData?.transcript || '',
+        costEstimate: null,
+        occurredAt: form.occurred_at ? new Date(form.occurred_at).toISOString() : null,
+        metadata: voiceData ? { duration: voiceData?.duration, mime: voiceData?.blob?.type || 'audio/webm' } : null,
         audioBlob: voiceData?.blob || null
       };
       await collections.createSpoil(payload);
@@ -110,10 +120,10 @@
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
       <div class="flex justify-between items-center py-4">
         <div class="flex items-center gap-3">
-          <div class="w-10 h-10 rounded-lg bg-red-600/80 flex items-center justify-center">🎧</div>
+          <div class="w-10 h-10 rounded-lg bg-red-600/80 flex items-center justify-center">📉</div>
           <div>
             <h1 class="text-2xl font-bold">Spoils & Incidents</h1>
-            <p class="text-sm text-red-300">Voice-captured reasons, review and approval workflow</p>
+            <p class="text-sm text-red-300">Report, review and approval workflow</p>
           </div>
         </div>
         <div class="flex items-center gap-2">
@@ -185,12 +195,101 @@
     <div class="fixed inset-0 bg-black/60 flex items-center justify-center z-50">
       <div class="bg-gray-900 border border-gray-700 rounded-xl p-4 w-full max-w-xl">
         <h3 class="text-xl font-semibold text-white mb-2">New Spoil Report</h3>
-        <p class="text-sm text-gray-400 mb-3">Record a voice note to explain what happened.</p>
-        <AudioRecorder maxSeconds={90} transcribe={true} language="en-US" on:save={onVoiceSave} on:cancel={onVoiceCancel} />
-        <div class="mt-4 flex justify-end gap-2">
-          <button on:click={closeNewSpoil} class="px-3 py-2 bg-gray-700 hover:bg-gray-600 rounded">Cancel</button>
-          <button on:click={submitSpoil} class="px-3 py-2 bg-teal-600 hover:bg-teal-700 rounded disabled:opacity-50" disabled={!voiceData && !creatingFor}>Submit</button>
+
+        <!-- Stepper -->
+        <div class="flex items-center gap-2 text-xs text-gray-300 mb-3">
+          <span class={step >= 1 ? 'text-white font-semibold' : 'text-gray-400'}>1. Details</span>
+          <span>›</span>
+          <span class={step >= 2 ? 'text-white font-semibold' : 'text-gray-400'}>2. Reason</span>
+          <span>›</span>
+          <span class={step >= 3 ? 'text-white font-semibold' : 'text-gray-400'}>3. Review</span>
         </div>
+
+        {#if step === 1}
+          <!-- Details -->
+          <div class="space-y-3">
+            <div class="grid grid-cols-2 gap-3">
+              <div>
+                <label class="block text-xs text-gray-400 mb-1">Source</label>
+                <select bind:value={form.source} class="w-full bg-gray-800 border border-gray-700 rounded px-2 py-2 text-sm">
+                  <option value="bar">Bar</option>
+                  <option value="kitchen">Kitchen</option>
+                  <option value="server">Server</option>
+                  <option value="guest">Guest</option>
+                </select>
+              </div>
+              <div>
+                <label class="block text-xs text-gray-400 mb-1">Type</label>
+                <select bind:value={form.spoil_type} class="w-full bg-gray-800 border border-gray-700 rounded px-2 py-2 text-sm">
+                  <option value="returned">Returned</option>
+                  <option value="remade">Remade</option>
+                  <option value="wasted">Wasted</option>
+                  <option value="expired">Expired</option>
+                  <option value="overpour">Overpour</option>
+                  <option value="breakage">Breakage</option>
+                </select>
+              </div>
+            </div>
+            <div class="grid grid-cols-2 gap-3">
+              <div>
+                <label class="block text-xs text-gray-400 mb-1">Quantity</label>
+                <input type="number" min="1" bind:value={form.quantity} class="w-full bg-gray-800 border border-gray-700 rounded px-2 py-2 text-sm" />
+              </div>
+              <div>
+                <label class="block text-xs text-gray-400 mb-1">Occurred At</label>
+                <input type="datetime-local" bind:value={form.occurred_at} class="w-full bg-gray-800 border border-gray-700 rounded px-2 py-2 text-sm" />
+              </div>
+            </div>
+            {#if creatingFor}
+              <div class="text-xs text-gray-300">Item: {creatingFor.expand?.menu_item_id?.name || creatingFor.expand?.menu_item_id?.name_field} • Ticket #{creatingFor.expand?.ticket_id?.ticket_number}</div>
+            {:else}
+              <div class="text-xs text-gray-400">Tip: open from an item to auto-fill details</div>
+            {/if}
+          </div>
+          <div class="mt-4 flex justify-end gap-2">
+            <button on:click={closeNewSpoil} class="px-3 py-2 bg-gray-700 hover:bg-gray-600 rounded">Cancel</button>
+            <button on:click={() => step = 2} class="px-3 py-2 bg-blue-600 hover:bg-blue-700 rounded">Next</button>
+          </div>
+        {:else if step === 2}
+          <!-- Reason (voice or text) -->
+          <div class="space-y-3">
+            <div>
+              <label class="block text-xs text-gray-400 mb-1">Reason (optional)</label>
+              <textarea rows="3" bind:value={form.reason_text} class="w-full bg-gray-800 border border-gray-700 rounded px-2 py-2 text-sm" placeholder="Describe what happened"></textarea>
+            </div>
+            <div>
+              <p class="text-xs text-gray-400 mb-2">Or record a quick voice note:</p>
+              <AudioRecorder maxSeconds={90} transcribe={true} language="en-US" on:save={onVoiceSave} on:cancel={onVoiceCancel} />
+            </div>
+          </div>
+          <div class="mt-4 flex justify-between gap-2">
+            <button on:click={() => step = 1} class="px-3 py-2 bg-gray-700 hover:bg-gray-600 rounded">Back</button>
+            <button on:click={() => step = 3} class="px-3 py-2 bg-blue-600 hover:bg-blue-700 rounded">Next</button>
+          </div>
+        {:else}
+          <!-- Review -->
+          <div class="space-y-2 text-sm text-gray-200">
+            <div><span class="text-gray-400">Source:</span> {form.source}</div>
+            <div><span class="text-gray-400">Type:</span> {form.spoil_type}</div>
+            <div><span class="text-gray-400">Quantity:</span> {form.quantity}</div>
+            {#if form.occurred_at}
+              <div><span class="text-gray-400">Occurred:</span> {form.occurred_at}</div>
+            {/if}
+            {#if creatingFor}
+              <div><span class="text-gray-400">Item:</span> {creatingFor.expand?.menu_item_id?.name || creatingFor.expand?.menu_item_id?.name_field} (Ticket #{creatingFor.expand?.ticket_id?.ticket_number})</div>
+            {/if}
+            {#if form.reason_text}
+              <div class="mt-2"><span class="text-gray-400">Reason:</span> {form.reason_text}</div>
+            {/if}
+            {#if voiceData}
+              <div class="text-xs text-gray-400">Audio attached ({voiceData.duration || 0}s)</div>
+            {/if}
+          </div>
+          <div class="mt-4 flex justify-between gap-2">
+            <button on:click={() => step = 2} class="px-3 py-2 bg-gray-700 hover:bg-gray-600 rounded">Back</button>
+            <button on:click={submitSpoil} class="px-3 py-2 bg-teal-600 hover:bg-teal-700 rounded">Submit</button>
+          </div>
+        {/if}
       </div>
     </div>
   {/if}
