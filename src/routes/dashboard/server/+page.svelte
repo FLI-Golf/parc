@@ -1109,6 +1109,9 @@
 			case 'side_dish':
 				return 'cold_station';
 		}
+		// Name-based food override (e.g., 'Shrimp Cocktail' should be kitchen)
+		const foodNameKeywords = ['shrimp', 'prawn', 'salad', 'soup', 'burger', 'sandwich', 'pizza', 'pasta', 'steak', 'chicken', 'beef', 'pork', 'fish', 'taco', 'nacho'];
+		if (foodNameKeywords.some(k => n.includes(k))) return 'kitchen';
 		// Beverage categories
 		if (
 			c === 'beverage' || c === 'drink' || c === 'wine' || c === 'beer' || c === 'cocktails' || c === 'mocktails' || c === 'happy_hour' ||
@@ -1120,7 +1123,7 @@
 			if (drinkKeywords.some(k => n.includes(k))) return 'bar';
 		}
 		// Default kitchen
-		return 'kitchen';
+		return 'kitchen';}
 	}
 	
 	function mapCategoryToCourse(category) {
@@ -1300,11 +1303,13 @@
 				
 				console.log(`📍 Item "${menuItem?.name || 'Unknown'}" → ${station} (category: ${category})`);
 
-				// Update each ticket item with station assignment and appropriate status
+				// Update each ticket item with station assignment, status, and course
+				const course = isDrinkByCourse ? 'drink' : mapCategoryToCourse(category);
 				await collections.updateTicketItem(item.id, {
 				status: station === 'bar' ? 'sent_to_bar' : 'sent_to_kitchen',
 				kitchen_station: station,
-				 ordered_at: now
+				 course,
+					ordered_at: now
 				});
 			}
 
