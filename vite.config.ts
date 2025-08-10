@@ -6,9 +6,7 @@ export default defineConfig(({ mode }) => {
 	const env = loadEnv(mode, process.cwd(), '');
 	return {
 		plugins: [tailwindcss(), sveltekit()],
-		define: {
-			'process.env': env
-		},
+
 		server: {
 			allowedHosts: [
 				'5173-fligolf-parc-lygafhjmw8u.ws-us120.gitpod.io'

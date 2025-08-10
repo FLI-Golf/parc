@@ -1123,7 +1123,7 @@
 			if (drinkKeywords.some(k => n.includes(k))) return 'bar';
 		}
 		// Default kitchen
-		return 'kitchen';}
+		return 'kitchen';
 	}
 	
 	function mapCategoryToCourse(category) {
