@@ -1117,9 +1117,11 @@
 			c === 'beverage' || c === 'drink' || c === 'wine' || c === 'beer' || c === 'cocktails' || c === 'mocktails' || c === 'happy_hour' ||
 			c.startsWith('wine_') || c.startsWith('beer_') || c.startsWith('cocktail_')
 		) return 'bar';
+		// Name-based drink heuristic for ambiguous service categories (brunch/lunch/dinner)
+		const drinkKeywords = ['mimosa', 'wine', 'beer', 'lager', 'ipa', 'stout', 'cocktail', 'martini', 'margarita', 'spritz', 'negroni', 'mojito', 'sangria', 'gin', 'vodka', 'rum', 'whiskey', 'bourbon', 'tequila'];
+		if (['brunch','lunch','dinner'].includes(c) && drinkKeywords.some(k => n.includes(k))) return 'bar';
 		// Heuristic by name for drinks ONLY when category is generic/unknown
 		if (!c || c === 'unknown' || c === 'main' || c === 'main_course') {
-			const drinkKeywords = ['mimosa', 'wine', 'beer', 'lager', 'ipa', 'stout', 'cocktail', 'martini', 'margarita', 'spritz', 'negroni', 'mojito', 'sangria', 'gin', 'vodka', 'rum', 'whiskey', 'bourbon', 'tequila'];
 			if (drinkKeywords.some(k => n.includes(k))) return 'bar';
 		}
 		// Default kitchen
