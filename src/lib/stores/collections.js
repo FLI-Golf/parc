@@ -1015,10 +1015,19 @@ export const collections = {
 				} catch {}
 			}
 			if (metadata) form.append('metadata', typeof metadata === 'string' ? metadata : JSON.stringify(metadata));
-			if (audioBlob) {
-				const file = new File([audioBlob], 'spoil-reason.webm', { type: audioBlob.type || 'audio/webm' });
+			if (audioBlob && typeof audioBlob === 'object' && 'size' in audioBlob && audioBlob.size > 0) {
+				const mime = audioBlob.type || 'audio/webm';
+				const file = new File([audioBlob], 'spoil-reason.webm', { type: mime });
 				form.append('attachments', file);
 			}
+			// Debug: log form entries
+			try {
+				const debug = {};
+				for (const [k, v] of form.entries()) {
+					debug[k] = v instanceof File ? `{File:${v.name}, type=${v.type}, size=${v.size}}` : v;
+				}
+				console.log('🧪 Spoils create form data:', debug);
+			} catch {}
 			const record = await pb.collection('spoils').create(form);
 			spoils.update(items => [record, ...items]);
 			return record;

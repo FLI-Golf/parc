@@ -138,16 +138,18 @@
         status: 'open',
         reasonText: form.reason_text || voiceData?.transcript || '',
         costEstimate: null,
-        occurredAt: form.occurred_at ? new Date(form.occurred_at).toISOString() : null,
+        occurredAt: form.occurred_at ? form.occurred_at : null,
         metadata: voiceData ? { duration: voiceData?.duration, mime: voiceData?.blob?.type || 'audio/webm' } : null,
         audioBlob: voiceData?.blob || null
       };
+      console.log('🧪 Spoils payload:', payload);
       await collections.createSpoil(payload);
       await collections.getSpoils();
       closeNewSpoil();
     } catch (e) {
-      console.error('Failed to submit spoil:', e);
-      alert('Failed to submit spoil');
+      console.error('Failed to submit spoil:', e?.data || e);
+      const msg = e?.data ? (e.data.attachments?.message || e.data.message || 'Failed to submit spoil') : 'Failed to submit spoil';
+      alert(msg);
     }
   }
 
