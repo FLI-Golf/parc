@@ -566,15 +566,17 @@
 
 	onMount(async () => {
 		let hasLoaded = false; // Prevent duplicate data loading
+		let hasHandledAuth = false; // Prevent redirect loops/stutter
 		
 		// Check authentication and role
 		const unsubscribe = authStore.subscribe(async (auth) => {
-			// Wait for auth to finish loading
-			if (auth.isLoading) {
+			// Wait for auth to finish loading or if we've already handled redirect
+			if (auth.isLoading || hasHandledAuth) {
 				return;
 			}
 			
 			if (!auth.isLoggedIn) {
+				hasHandledAuth = true;
 				goto("/");
 				return;
 			}
@@ -585,6 +587,7 @@
 				userRole !== "manager" &&
 				userRole !== "owner"
 			) {
+				hasHandledAuth = true;
 				goto("/dashboard");
 				return;
 			}
