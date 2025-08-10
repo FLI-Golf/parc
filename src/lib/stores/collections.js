@@ -1007,7 +1007,11 @@ export const collections = {
 			form.append('status', status);
 			if (reasonText) form.append('reason_text', reasonText);
 			if (costEstimate != null) form.append('cost_estimate', String(costEstimate));
-			if (occurredAt) form.append('occurred_at', occurredAt);
+			if (occurredAt) {
+				// PocketBase expects either ISO with milliseconds Z or space-separated timestamp
+				const ts = occurredAt.includes('T') ? occurredAt.replace('T', ' ') : occurredAt;
+				form.append('occurred_at', ts);
+			}
 			if (metadata) form.append('metadata', typeof metadata === 'string' ? metadata : JSON.stringify(metadata));
 			if (audioBlob) {
 				const file = new File([audioBlob], 'spoil-reason.webm', { type: audioBlob.type || 'audio/webm' });

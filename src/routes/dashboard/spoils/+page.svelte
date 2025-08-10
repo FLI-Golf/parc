@@ -43,10 +43,59 @@
           collections.getTickets().catch(()=>{}),
           collections.getMenuItems().catch(()=>{})
         ]);
+        initSpeech();
       } catch (e) { console.error('Failed to load spoils:', e); }
     });
     return unsub;
   });
+
+  // Speech recognition for quick entry
+  let recognition = null;
+  let speechSupported = false;
+  let isRecordingSearch = false;
+  let isRecordingReason = false;
+  let searchQuery = '';
+
+  function initSpeech() {
+    if (typeof window === 'undefined') return;
+    const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (SR) {
+      try {
+        recognition = new SR();
+        recognition.lang = 'en-US';
+        recognition.continuous = false;
+        recognition.interimResults = false;
+        recognition.onresult = (e) => {
+          const transcript = e.results?.[0]?.[0]?.transcript || '';
+          if (isRecordingSearch) searchQuery = transcript;
+          if (isRecordingReason) form.reason_text = (form.reason_text + ' ' + transcript).trim();
+          isRecordingSearch = false;
+          isRecordingReason = false;
+        };
+        recognition.onerror = () => {
+          isRecordingSearch = false;
+          isRecordingReason = false;
+        };
+        recognition.onend = () => {
+          isRecordingSearch = false;
+          isRecordingReason = false;
+        };
+        speechSupported = true;
+      } catch {}
+    }
+  }
+  function toggleSearchMic() {
+    if (!recognition) return;
+    if (isRecordingSearch) { try { recognition.stop(); } catch {} isRecordingSearch = false; return; }
+    isRecordingSearch = true; isRecordingReason = false;
+    try { recognition.start(); } catch {}
+  }
+  function toggleReasonMic() {
+    if (!recognition) return;
+    if (isRecordingReason) { try { recognition.stop(); } catch {} isRecordingReason = false; return; }
+    isRecordingReason = true; isRecordingSearch = false;
+    try { recognition.start(); } catch {}
+  }
 
   $: filteredSpoils = $spoils.filter(s => {
     const statusMatch = filterStatus === 'all' ? true : s.status === filterStatus;
@@ -251,9 +300,20 @@
             {:else}
               <div>
                 <label class="block text-xs text-gray-400 mb-1">Select Item</label>
-                <select bind:value={selectedTicketItemId} on:change={(e)=>selectTicketItem(e.target.value)} class="w-full bg-gray-800 border border-gray-700 rounded px-2 py-2 text-sm">
+                <div class="relative">
+                  <input type="text" bind:value={searchQuery} placeholder="Search items..." class="w-full bg-gray-800 border border-gray-700 rounded px-2 py-2 pr-10 text-sm" />
+                  {#if speechSupported}
+                    <button type="button" on:click={toggleSearchMic} class="absolute right-1 top-1.5 px-2 py-1 rounded {isRecordingSearch ? 'bg-red-600 text-white' : 'bg-gray-700 text-gray-300'}" title={isRecordingSearch ? 'Stop' : 'Voice search'}>
+                      {isRecordingSearch ? '🔴' : '🎤'}
+                    </button>
+                  {/if}
+                </div>
+                <select bind:value={selectedTicketItemId} on:change={(e)=>selectTicketItem(e.target.value)} class="mt-2 w-full bg-gray-800 border border-gray-700 rounded px-2 py-2 text-sm">
                   <option value="">-- Choose a ticket item --</option>
-                  {#each ($ticketItems || []).slice().sort((a,b)=> (b.updated||'').localeCompare(a.updated||'')) as ti}
+                  {#each ($ticketItems || []).filter(ti => {
+                    const name = (ti.expand?.menu_item_id?.name || ti.expand?.menu_item_id?.name_field || '').toLowerCase();
+                    return !searchQuery || name.includes(searchQuery.toLowerCase());
+                  }).slice().sort((a,b)=> (b.updated||'').localeCompare(a.updated||'')) as ti}
                     <option value={ti.id}>
                       {(ti.expand?.menu_item_id?.name || ti.expand?.menu_item_id?.name_field || 'Item')} • Ticket #{ti.expand?.ticket_id?.ticket_number || ti.ticket_id}
                     </option>
