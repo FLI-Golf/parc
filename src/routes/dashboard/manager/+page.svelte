@@ -955,18 +955,7 @@
 							</div>
 						</div>
 					{/if}
-					<a
-						href="/dashboard/kitchen"
-						class="px-4 py-2 bg-orange-600 hover:bg-orange-700 rounded-lg transition-colors text-sm font-medium"
-					>
-						🍳 Kitchen Display
-					</a>
-					<button
-						on:click={openImportModal}
-						class="px-4 py-2 bg-green-600 hover:bg-green-700 rounded-lg transition-colors text-sm font-medium"
-					>
-						Import Data
-					</button>
+
 					<button
 						on:click={logout}
 						class="px-4 py-2 bg-red-600 hover:bg-red-700 rounded-lg transition-colors text-sm font-medium"
@@ -1035,6 +1024,12 @@
 						class="px-4 py-2 bg-purple-600 hover:bg-purple-700 rounded-lg text-sm font-medium transition-colors"
 					>
 						+ Event
+					</button>
+					<button
+						on:click={openImportModal}
+						class="px-4 py-2 bg-teal-600 hover:bg-teal-700 rounded-lg text-sm font-medium transition-colors"
+					>
+						Import Data
 					</button>
 				</div>
 			</div>
