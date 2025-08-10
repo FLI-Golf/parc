@@ -1027,8 +1027,11 @@
 					</button>
 					<button
 						on:click={openImportModal}
-						class="px-4 py-2 bg-teal-600 hover:bg-teal-700 rounded-lg text-sm font-medium transition-colors"
+						class="px-4 py-2 bg-teal-600 hover:bg-teal-700 rounded-lg text-sm font-medium transition-colors flex items-center gap-2"
 					>
+						<svg class="w-4 h-4" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+							<path fill-rule="evenodd" d="M3 3a1 1 0 011-1h12a1 1 0 011 1v6a1 1 0 11-2 0V4H5v5a1 1 0 11-2 0V3zm6.293 6.293a1 1 0 011.414 0L12 10.586V6a1 1 0 112 0v4.586l1.293-1.293a1 1 0 111.414 1.414l-3.999 4a1 1 0 01-1.415 0l-4-4a1 1 0 010-1.414zM4 15a1 1 0 011-1h10a1 1 0 110 2H5a1 1 0 01-1-1z" clip-rule="evenodd" />
+						</svg>
 						Import Data
 					</button>
 				</div>
