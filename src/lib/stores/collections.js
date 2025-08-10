@@ -1008,9 +1008,11 @@ export const collections = {
 			if (reasonText) form.append('reason_text', reasonText);
 			if (costEstimate != null) form.append('cost_estimate', String(costEstimate));
 			if (occurredAt) {
-				// PocketBase expects either ISO with milliseconds Z or space-separated timestamp
-				const ts = occurredAt.includes('T') ? occurredAt.replace('T', ' ') : occurredAt;
-				form.append('occurred_at', ts);
+				// Normalize to ISO string with Z
+				try {
+					const ts = new Date(occurredAt).toISOString();
+					form.append('occurred_at', ts);
+				} catch {}
 			}
 			if (metadata) form.append('metadata', typeof metadata === 'string' ? metadata : JSON.stringify(metadata));
 			if (audioBlob) {
@@ -1021,7 +1023,8 @@ export const collections = {
 			spoils.update(items => [record, ...items]);
 			return record;
 		} catch (error) {
-			console.error('Error creating spoil record:', error);
+			// Surface PocketBase validation errors
+			try { console.error('Error creating spoil record:', error?.data || error); } catch {}
 			throw error;
 		}
 	}
