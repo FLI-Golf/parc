@@ -117,8 +117,15 @@
     voiceData = null;
     step = 1;
   }
+  const supportedAudioTypes = ['audio/webm','audio/ogg','audio/mpeg','audio/wav'];
+  let audioError = '';
   function onVoiceSave(e) {
     voiceData = e.detail;
+    audioError = '';
+    if (voiceData?.blob && voiceData.blob.type && !supportedAudioTypes.includes(voiceData.blob.type)) {
+      audioError = `Unsupported audio format: ${voiceData.blob.type}. Supported: ${supportedAudioTypes.join(', ')}`;
+      attachAudio = false; // disable attachment to avoid PB validation errors
+    }
     form.reason_text = form.reason_text || voiceData?.transcript || '';
   }
   function onVoiceCancel() {
@@ -306,8 +313,12 @@
                 <div class="relative">
                   <input type="text" bind:value={searchQuery} placeholder="Search items..." class="w-full bg-gray-800 border border-gray-700 rounded px-2 py-2 pr-10 text-sm" />
                   {#if speechSupported}
-                    <button type="button" on:click={toggleSearchMic} class="absolute right-1 top-1.5 px-2 py-1 rounded {isRecordingSearch ? 'bg-red-600 text-white' : 'bg-gray-700 text-gray-300'}" title={isRecordingSearch ? 'Stop' : 'Voice search'}>
-                      {isRecordingSearch ? '🔴' : '🎤'}
+                    <button type="button" on:click={toggleSearchMic} class="absolute right-1 top-1.5 px-2 py-1 rounded {isRecordingSearch ? 'bg-red-600 text-white' : 'bg-gray-700 text-gray-300'}" title={isRecordingSearch ? 'Stop' : 'Voice search'} aria-label="Voice search">
+                      {#if isRecordingSearch}
+                        🔴
+                      {:else}
+                        <svg class="w-4 h-4" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" d="M10 2a2 2 0 00-2 2v6a2 2 0 104 0V4a2 2 0 00-2-2zm-5 8a5 5 0 0010 0h2a7 7 0 01-6 6.92V18h3a1 1 0 110 2H6a1 1 0 110-2h3v-1.08A7 7 0 013 10h2z" clip-rule="evenodd"></path></svg>
+                      {/if}
                     </button>
                   {/if}
                 </div>
@@ -344,6 +355,7 @@
             </div>
             <div>
               <AudioRecorder maxSeconds={90} transcribe={true} language="en-US" on:save={onVoiceSave} on:cancel={onVoiceCancel} />
+              <p class="mt-2 text-xs text-gray-400">Supported audio: {supportedAudioTypes.join(', ')}. {audioError ? `(Error: ${audioError})` : ''}</p>
             </div>
           </div>
           <div class="mt-4 flex justify-between gap-2">
@@ -353,25 +365,50 @@
         {:else}
           <!-- Review -->
           <div class="space-y-2 text-sm text-gray-200">
-            <div><span class="text-gray-400">Source:</span> {form.source}</div>
-            <div><span class="text-gray-400">Type:</span> {form.spoil_type}</div>
-            <div><span class="text-gray-400">Quantity:</span> {form.quantity}</div>
-            {#if form.occurred_at}
-              <div><span class="text-gray-400">Occurred:</span> {form.occurred_at}</div>
-            {/if}
-            {#if creatingFor}
-              <div><span class="text-gray-400">Item:</span> {creatingFor.expand?.menu_item_id?.name || creatingFor.expand?.menu_item_id?.name_field} (Ticket #{creatingFor.expand?.ticket_id?.ticket_number})</div>
-            {/if}
-            {#if form.reason_text}
-              <div class="mt-2"><span class="text-gray-400">Reason:</span> {form.reason_text}</div>
-            {/if}
-            {#if voiceData}
-              <div class="text-xs text-gray-400">Audio attached ({voiceData.duration || 0}s)</div>
-            {/if}
+            <!-- High-level -->
+            <div class="grid grid-cols-2 gap-2">
+              <div><span class="text-gray-400">Source:</span> {form.source}</div>
+              <div><span class="text-gray-400">Type:</span> {form.spoil_type}</div>
+              <div><span class="text-gray-400">Quantity:</span> {form.quantity}</div>
+              <div><span class="text-gray-400">Occurred:</span> {form.occurred_at || '—'}</div>
+            </div>
+            <div>
+              <span class="text-gray-400">Item:</span>
+              {#if creatingFor}
+                {(creatingFor.expand?.menu_item_id?.name || creatingFor.expand?.menu_item_id?.name_field)} (Ticket #{creatingFor.expand?.ticket_id?.ticket_number})
+              {:else}
+                <span class="text-red-400">Required</span>
+              {/if}
+            </div>
+            <div><span class="text-gray-400">Reason:</span> {form.reason_text || '—'}</div>
+            <div><span class="text-gray-400">Audio:</span> {attachAudio && voiceData ? `Attached (${voiceData.duration || 0}s, ${voiceData?.blob?.type || 'audio'})` : 'Not attached'}</div>
+
+            <!-- Low-level (what will be sent) -->
+            <div class="mt-3 p-2 bg-gray-800 border border-gray-700 rounded">
+              <div class="text-xs text-gray-400 mb-1">Request preview</div>
+              <div class="text-xs grid grid-cols-2 gap-x-3 gap-y-1">
+                <div><span class="text-gray-500">ticket_item_id:</span> {creatingFor?.id || '—'}</div>
+                <div><span class="text-gray-500">ticket_id:</span> {creatingFor?.ticket_id || '—'}</div>
+                <div><span class="text-gray-500">menu_item_id:</span> {creatingFor?.menu_item_id || '—'}</div>
+                <div><span class="text-gray-500">user_id:</span> {user?.id || '—'}</div>
+                <div><span class="text-gray-500">quantity_field:</span> {Number(form.quantity) || 1}</div>
+                <div><span class="text-gray-500">spoil_type:</span> {form.spoil_type}</div>
+                <div><span class="text-gray-500">source:</span> {form.source}</div>
+                <div><span class="text-gray-500">status:</span> open</div>
+                <div class="col-span-2"><span class="text-gray-500">occurred_at:</span> {form.occurred_at ? new Date(form.occurred_at).toISOString() : '—'}</div>
+                <div class="col-span-2"><span class="text-gray-500">reason_text:</span> {form.reason_text || '—'}</div>
+                <div class="col-span-2"><span class="text-gray-500">attachments:</span> {attachAudio && voiceData ? `{File: spoil-reason.webm, type=${voiceData?.blob?.type || 'audio/webm'}, size=${voiceData?.blob?.size || 0}}` : '—'}</div>
+              </div>
+            </div>
+
+            <!-- Validation hints -->
+            <div class="text-xs text-yellow-300 mt-2">
+              Required: Item, Type, Source, Quantity, User. {#if !creatingFor || !user?.id}<span class="text-red-400">Missing required field(s).</span>{/if}
+            </div>
           </div>
           <div class="mt-4 flex justify-between gap-2">
             <button on:click={() => step = 2} class="px-3 py-2 bg-gray-700 hover:bg-gray-600 rounded">Back</button>
-            <button on:click={submitSpoil} class="px-3 py-2 bg-teal-600 hover:bg-teal-700 rounded" disabled={!creatingFor}>Submit</button>
+            <button on:click={submitSpoil} class="px-3 py-2 bg-teal-600 hover:bg-teal-700 rounded" disabled={!creatingFor || !user?.id}>Submit</button>
           </div>
         {/if}
       </div>

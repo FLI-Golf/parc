@@ -1049,6 +1049,32 @@ export const collections = {
 		} catch (error) {
 			// Surface PocketBase validation errors
 			try { console.error('Error creating spoil record:', error?.data || error); } catch {}
+			// If attachments failed validation, retry without file as JSON to avoid blocking
+			try {
+				if (error?.data?.attachments && audioBlob) {
+					console.warn('⚠️ Attachments validation failed, retrying without audio...');
+					const isoOccurred = occurredAt ? new Date(occurredAt).toISOString() : undefined;
+					const data = {
+						ticket_item_id: ticketItemId,
+						ticket_id: ticketId || undefined,
+						menu_item_id: menuItemId || undefined,
+						user_id: userId,
+						staff_id: staffId || undefined,
+						quantity_field: Number(quantity),
+						spoil_type: spoilType,
+						source: source,
+						status: status,
+						reason_text: reasonText || undefined,
+						cost_estimate: costEstimate != null ? Number(costEstimate) : undefined,
+						occurred_at: isoOccurred,
+						metadata: metadata ? (typeof metadata === 'string' ? metadata : JSON.stringify({ ...metadata, audioFailed: true })) : JSON.stringify({ audioFailed: true })
+					};
+					console.log('🧪 Spoils retry without attachments:', data);
+					const record = await pb.collection('spoils').create(data);
+					spoils.update(items => [record, ...items]);
+					return record;
+				}
+			} catch {}
 			throw error;
 		}
 	}
