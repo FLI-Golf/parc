@@ -1,8 +1,10 @@
 <script lang="ts">
-  import { createEventDispatcher } from 'svelte';
+  import { createEventDispatcher, onMount } from 'svelte';
   const dispatch = createEventDispatcher();
 
   export let open = false;
+  $: console.debug('ScheduleProposeModal open=', open);
+  onMount(() => console.debug('ScheduleProposeModal mounted'));
 
   let week_start = '';
   let roles = { server: 4, bartender: 1 } as Record<string, number>;

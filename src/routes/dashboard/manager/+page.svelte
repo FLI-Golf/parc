@@ -1042,6 +1042,12 @@
 </div>
 
 <ScheduleProposeModal bind:open={showScheduleModal} on:approved={() => collections.getShifts()} />
+<!-- Debug overlay marker -->
+{#if showScheduleModal}
+  <div style="position:fixed;inset:0;z-index:9998;pointer-events:none;">
+    <div style="position:absolute;top:8px;right:8px;background:#0d9488;color:white;padding:4px 8px;border-radius:6px;">Modal should be visible</div>
+  </div>
+{/if}
 
 			<!-- Enhanced Key Metrics -->
 			<div
