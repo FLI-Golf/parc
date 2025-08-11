@@ -29,6 +29,8 @@
 	import VendorModal from "$lib/components/VendorModal.svelte";
 	import EventModal from "$lib/components/EventModal.svelte";
 	import MaintenanceModal from "$lib/components/MaintenanceModal.svelte";
+	import ScheduleProposeModal from "$lib/components/ScheduleProposeModal.svelte";
+	let showScheduleModal = false;
 
 	let activeTab = "overview";
 	let user = null;
@@ -1037,7 +1039,9 @@
 						Import Data
 					</button>
 				</div>
-			</div>
+</div>
+
+<ScheduleProposeModal bind:open={showScheduleModal} on:approved={() => collections.getShifts()} />
 
 			<!-- Enhanced Key Metrics -->
 			<div
@@ -2380,12 +2384,20 @@
 			<div class="space-y-6">
 				<div class="flex justify-between items-center">
 					<h2 class="text-2xl font-bold">Shifts Management</h2>
-					<button
-						on:click={() => openShiftModal()}
-						class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-					>
-						Schedule Shift
-					</button>
+					<div class="flex items-center gap-2">
+						<button
+							on:click={() => openShiftModal()}
+							class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+						>
+							Schedule Shift
+						</button>
+						<button
+							on:click={() => showScheduleModal = true}
+							class="px-4 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700 transition-colors"
+						>
+							AI Propose Week
+						</button>
+					</div>
 				</div>
 
 				<div

@@ -21,6 +21,7 @@ export const ticketItems = writable([]);
 export const payments = writable([]);
 export const completedOrders = writable([]);
 export const spoils = writable([]);
+export const scheduleProposals = writable([]);
 
 // Loading states
 export const loading = writable({
@@ -42,7 +43,8 @@ export const loading = writable({
 	ticketItems: false,
 	payments: false,
 	completedOrders: false,
-		spoils: false
+	spoils: false,
+	scheduleProposals: false
 });
 
 // Collection service functions
@@ -1017,6 +1019,21 @@ export const collections = {
 		} catch (error) {
 			try { console.error('Error creating spoil record:', error?.data || error); } catch {}
 			throw error;
+		}
+	},
+
+	// Schedule Proposals
+	async getScheduleProposals() {
+		try {
+			loading.update(s => ({ ...s, scheduleProposals: true }));
+			const records = await pb.collection('schedule_proposals').getFullList({ sort: '-created' }).catch(() => []);
+			scheduleProposals.set(records);
+			return records;
+		} catch (error) {
+			console.error('Error fetching schedule proposals:', error);
+			throw error;
+		} finally {
+			loading.update(s => ({ ...s, scheduleProposals: false }));
 		}
 	}
 };
