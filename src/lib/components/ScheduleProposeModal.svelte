@@ -59,8 +59,8 @@
 </script>
 
 {#if open}
-  <div class="fixed inset-0 bg-black/60 z-50 flex items-center justify-center">
-    <div class="bg-gray-900 text-gray-100 border border-gray-700 rounded-xl w-full max-w-4xl max-h-[90vh] overflow-auto">
+  <div class="fixed inset-0 bg-black/60 z-[9999] flex items-center justify-center">
+    <div class="bg-gray-900 text-gray-100 border border-gray-700 rounded-xl w-full max-w-4xl max-h-[90vh] overflow-auto shadow-xl shadow-black/50">
       <div class="p-4 border-b border-gray-700 flex items-center justify-between">
         <h3 class="text-lg font-semibold">Propose Weekly Schedule</h3>
         <button class="px-2 py-1 bg-gray-700 rounded" on:click={close}>✕</button>
