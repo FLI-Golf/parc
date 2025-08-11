@@ -1,0 +1,91 @@
+name,description,category,subcategory,price,available
+Apple Tarte Tatin,"Caramelized apples, vanilla bean gelato",Desserts,dessert,14.00,true
+Chocolate Lava Cake,"Chocolate cake, chocolate ganache, vanilla bean gelato",Desserts,dessert,14.00,true
+Crème Brulee,"Vanilla bean custard, fresh strawberries",Desserts,dessert,14.00,true
+Dark Chocolate Marquise,"Gluten free chocolate cake, chocolate mousse, chocolate glaze, chocolate crumble",Desserts,dessert,14.00,true
+Profiteroles,"Vanilla gelato & Weiss melted chocolate ganache",Desserts,dessert,14.00,true
+Sorbet,,Desserts,dessert,8.00,true
+Gelato,,Desserts,dessert,8.00,true
+Espresso Martini,"Stoli Vanilla Vodka, Coffee Liqueur, Cafe Vergnano Espresso, Served Up",Desserts,beverage,16.00,true
+Parc's Spanish Coffee,"151 Rum, Coffee Liqueur, Grand Marnier, Licor 43, Coffee, Licor 43 Whipped Cream, Nutmeg",Desserts,beverage,16.00,true
+Sauternes FR,,Desserts,beverage,15.00,true
+Chardonnay Dolce Nickel & Nickel Napa,,Desserts,beverage,25.00,true
+Moscato D' Asti Michele Chiarlo "Nivole",,Desserts,beverage,12.00,true
+Riesling Pacific Rim "Vin De Glaciere" WA,,Desserts,beverage,12.00,true
+Royal Tokaji 5 Puttonyos Aszu Hungary,,Desserts,beverage,18.00,true
+Fonseca Bin 27 Reserve Ruby Portugal,,Desserts,beverage,12.00,true
+Taylor Fladgate LBV Ruby Portugal,,Desserts,beverage,14.00,true
+Taylor Fladgate 20yr Tawny Portugal,,Desserts,beverage,18.00,true
+Taylor Fladgate 30yr Tawny Portugal,,Desserts,beverage,35.00,true
+Taylor Fladgate 40yr Tawny Portugal,,Desserts,beverage,45.00,true
+Amaro Meletti,,Desserts,beverage,12.00,true
+Amaro Nonino,,Desserts,beverage,14.00,true
+Anisette Meletti,,Desserts,beverage,12.00,true
+Fernet - Branca,,Desserts,beverage,12.00,true
+Ricard,,Desserts,beverage,12.00,true
+Banfi Grappa,,Desserts,beverage,18.00,true
+Green Chartreuse,,Desserts,beverage,16.00,true
+Limoncello,,Desserts,beverage,11.00,true
+Sambuca Meletti,,Desserts,beverage,11.00,true
+Carajillo,,Desserts,beverage,14.00,true
+Amaretto,,Desserts,beverage,14.00,true
+Benedictine,,Desserts,beverage,14.00,true
+Baileys,,Desserts,beverage,14.00,true
+Frangelico,,Desserts,beverage,14.00,true
+Grand Marnier,,Desserts,beverage,18.00,true
+Remy XO,,Desserts,beverage,60.00,true
+Remy VSOP,,Desserts,beverage,20.00,true
+Martell Cordon Bleu,,Desserts,beverage,25.00,true
+Courvoisier VSOP,,Desserts,beverage,20.00,true
+Courvoisier XO,,Desserts,beverage,50.00,true
+Courvoisier Erte,,Desserts,beverage,165.00,true
+Martell XO,,Desserts,beverage,50.00,true
+Hennessy VSOP,,Desserts,beverage,18.00,true
+Larressingle Armagnac VSOP,,Desserts,beverage,20.00,true
+Frapin,,Desserts,beverage,18.00,true
+Frapin XO,,Desserts,beverage,36.00,true
+Boulard Calvados VSOP,,Desserts,beverage,20.00,true
+Torres 15yr,,Desserts,beverage,13.00,true
+Balvenie 12yr,,Desserts,beverage,16.00,true
+Macallan 12yr,,Desserts,beverage,20.00,true
+Macallan 18yr,,Desserts,beverage,60.00,true
+Macallan Rare Cask,,Desserts,beverage,60.00,true
+Glenfiddich 12yr,,Desserts,beverage,15.00,true
+Glenfiddich 15yr,,Desserts,beverage,18.00,true
+Highland Park 18yr,,Desserts,beverage,30.00,true
+Oban 14yr,,Desserts,beverage,20.00,true
+Lagavulin 16yr,,Desserts,beverage,25.00,true
+Johnny Walker Black 12yr,,Desserts,beverage,15.00,true
+Johnie Walker Blue,,Desserts,beverage,40.00,true
+Laphroiag,,Desserts,beverage,18.00,true
+Templeton Rye 6yr "Parc Bistro Barrel",,Desserts,beverage,12.00,true
+Templeton Rye 10yr,,Desserts,beverage,16.00,true
+Woodford Reserve,,Desserts,beverage,15.00,true
+Basil Hayden,,Desserts,beverage,16.00,true
+Gentleman Jack,,Desserts,beverage,13.00,true
+Jack Daniel's "Single Barrel",,Desserts,beverage,18.00,true
+High West "Campfire",,Desserts,beverage,16.00,true
+High West "Rendezvous Rye",,Desserts,beverage,20.00,true
+High West "Midwinter Night's Dram",,Desserts,beverage,40.00,true
+High West "The Prisoner's Share",,Desserts,beverage,60.00,true
+Knob Creek,,Desserts,beverage,16.00,true
+Maker's Mark,,Desserts,beverage,15.00,true
+Hibiki Japanese Whiskey,,Desserts,beverage,45.00,true
+Fuji "Single Grain" Japanese Whiskey,,Desserts,beverage,35.00,true
+Herradura Silver,,Desserts,beverage,15.00,true
+Herradura Anejo,,Desserts,beverage,18.00,true
+Corralejo Anejo,,Desserts,beverage,20.00,true
+Tears of Llorona 5yr Extra Anejo,,Desserts,beverage,50.00,true
+Chinaco Anejo,,Desserts,beverage,15.00,true
+Casamigos Reposado,,Desserts,beverage,16.00,true
+Clase Azul Reposado,,Desserts,beverage,40.00,true
+Patron Silver,,Desserts,beverage,15.00,true
+Patron Anejo,,Desserts,beverage,18.00,true
+Don Julio Anejo,,Desserts,beverage,18.00,true
+Xicaru Mezcal,,Desserts,beverage,14.00,true
+Pedro San Juan Mezcal,,Desserts,beverage,14.00,true
+Lalo Silver,,Desserts,beverage,15.00,true
+Gran Centenario Extra Anejo,,Desserts,beverage,45.00,true
+Don Julio 1942,,Desserts,beverage,30.00,true
+Jose Cuervo La Familia Extra Anejo,,Desserts,beverage,30.00,true
+Cazadores Reposado,,Desserts,beverage,12.00,true

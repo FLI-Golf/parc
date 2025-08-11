@@ -1,0 +1,69 @@
+name,description,category,subcategory,price,available
+Pastry Basket,"Perfect for the table! Croissant, pain au chocolat, danish",brunch,appetizer,12.00,true
+Breakfast Sandwich,"Cage-free eggs, fried or scrambled, melted Emmental cheese, crispy bacon, sriracha mayo, toasted brioche bun | Add avocado +$6.00",brunch,sandwich,14.00,true
+Short Rib Hash,"18hr braised beef short ribs, roasted potatoes, caramelized onions, fried egg",brunch,entree,24.00,true
+Fried Chicken & Waffle,"Crispy fried chicken breast, Belgian waffle, home-made chicken gravy",brunch,entree,18.00,true
+Brioche French Toast,"Whipped mascarpone, fresh berries, maple syrup",brunch,entree,14.00,true
+Strawberry Waffle,"Fresh organic strawberries, Belgian waffle, whipped cream",brunch,entree,14.00,true
+Quiche Lorraine,Served with artisan baby greens,brunch,entree,25.00,true
+Croque Monsieur,"Bayonne ham, Emmental cheese, béchamel served on sourdough toast | Add fried egg +$3.00",brunch,sandwich,18.00,true
+Mussels & Frites,"White wine reduction, shallots, garlic, herbs, shoestring fries",brunch,seafood,32.00,true
+Steak Frites,"Flat iron steak, spinach, shoestring fries, peppercorn sauce",brunch,steak,36.00,true
+Avocado Toast,"Smashed local avocado, oven-roasted tomatoes, smoked feta, multigrain toast | Add 2 poached eggs +$6.00",brunch,entree,16.00,true
+Smoked Lox & Bagel,"Smoked salmon, capers, red onion, hardboiled egg, tomatoes, cream cheese",brunch,entree,18.00,true
+Egg White Omelette,"Spinach & mushrooms, and a side of fresh fruit",brunch,entree,14.00,true
+Fresh Seafood Tower,"6 oysters, 6 mussels, 4 shrimp, Parc ceviche",brunch,appetizer,69.00,true
+Fresh Oysters on the Half Shell (6),"Home-made mignonette, fresh horseradish, cocktail sauce",brunch,appetizer,26.00,true
+Cocktail De Fruits De Mer,"Fresh avocado, Octopus, Shrimp, Crab Claw",brunch,appetizer,25.00,true
+Parc Ceviche,"Fresh fish, shrimp, citrus, avocado, wonton chips",brunch,appetizer,21.00,true
+Jumbo Shrimp Cocktail,Home-made cocktail sauce,brunch,appetizer,25.00,true
+Calamari Fritti,Spicy aioli,brunch,appetizer,17.00,true
+Dungeness Lump Crab Cake,"Our Specialty! Served with home-made remoulade",brunch,appetizer,28.00,true
+Escargots De Bourgogne,"Garlic, parsley, butter, Pernod",brunch,appetizer,18.00,true
+Petrossian Caviar Service 1 OZ,"Royal Ossetra served With Blinis, Red Onion, Shaved Hard-Boiled egg, Crème Fraîche",brunch,appetizer,130.00,true
+Steak & Eggs,"6 oz Flat iron steak, 2 eggs any style, peppercorn sauce, toast",brunch,entree,29.00,true
+Eggs Benedict - Canadian Bacon,"2 poached eggs with home-made hollandaise, served on toasted English muffins with Canadian bacon",brunch,entree,16.00,true
+Eggs Benedict - Short Rib,"2 poached eggs with home-made hollandaise, served on toasted English muffins with short rib",brunch,entree,21.00,true
+Eggs Benedict - Crab Cake,"2 poached eggs with home-made hollandaise, served on toasted English muffins with crab cake",brunch,entree,21.00,true
+Eggs Benedict - Smoked Salmon,"2 poached eggs with home-made hollandaise, served on toasted English muffins with smoked salmon",brunch,entree,18.00,true
+2 Eggs Any Style,"Served with crispy bacon, batard toast",brunch,entree,15.00,true
+Mediterranean Omellette,"Fresh basil, tomatoes, kalamata olives, feta",brunch,entree,16.00,true
+Crab Meat Omelette,"Emmental cheese, fresh crab, red bell peppers, chives, avocado",brunch,entree,20.00,true
+Parc Omelette,"Bayonne ham, Emmental cheese",brunch,entree,15.00,true
+Omelette Merguez,"Lamb sausage, tomato provencal, shallots",brunch,entree,19.00,true
+Soup Du Jour,Chef's daily selection,brunch,soup,10.00,true
+French Onion Soup Gratinée,"Caramelized onions, beef broth, Emmental cheese",brunch,soup,15.00,true
+Classic Caesar,"Home-made croutons, shaved parmesan • Add chicken +$12.00 | Shrimp +$15.00 | Steak +$15.00 | Salmon +$12.00",brunch,salad,16.00,true
+Artisan Baby Green Salad,"Organic greens, shaved fennel, tomatoes, house vinaigrette",brunch,salad,16.00,true
+Baby Roasted Beet Salad,"Bruleed goat cheese, Anjou pear, arugula • Add chicken +$12.00 | Shrimp +$15.00 | Steak +$15.00 | Salmon +$12.00",brunch,salad,17.00,true
+Tuna Niçoise Salad,"Fresh seared Ahi tuna, mixed greens, niçoise olives, fingerling potatoes, green beans, tomatoes, hard-boiled egg, shallot vinaigrette",brunch,salad,26.00,true
+Fresh Seafood Cobb Salad,"Fresh crab, shrimp, smoked salmon, avocado, hard-boiled eggs, tomatoes, green beans, home-made tarragon dressing",brunch,salad,26.00,true
+Salade De Canard,"Duck confit with orange sherry vinaigrette, toasted pecans, bacon, seasonal organic greens",brunch,salad,22.00,true
+Parc Chopped Chicken Salad,"Grilled chicken, artisan baby greens, apples, cranberries, blue cheese, Dijon vinaigrette",brunch,salad,22.00,true
+Mediterranean Shrimp Salad,"Herb marinated prawns, baby kale, crispy quinoa, tomatoes, cucumber, smoked feta, shallot vinaigrette, kalamata olives",brunch,salad,26.00,true
+Salmon Paillard,Fresh pan seared salmon served with an artisan baby green salad,brunch,seafood,25.00,true
+Steak Schnitzel Sandwich,"Pounded flat iron steak, jalapeno aioli, shredded lettuce, tomatoes, red onion, avocado, ciabatta",brunch,sandwich,20.00,true
+Blackened Salmon Sandwich,"Salmon, sriracha aioli, lettuce, tomato, onion, cucumber, ciabatta",brunch,sandwich,18.00,true
+Parc Burger,"Emmental cheese, bacon, sautéed mushrooms & onions, lettuce, tomato, truffle aioli, brioche bun | Add fried egg +$3.00",brunch,sandwich,22.00,true
+B.L.T.A,"Bacon, lettuce, tomatoes, avocado, Dijon aioli, toasted bread",brunch,sandwich,18.00,true
+Bengy's Famous Fried Chicken Sandwich,"House pickles, arugula, remoulade, tomato, ciabatta",brunch,sandwich,20.00,true
+Baguette Jambon Et Beurre,Classic French ham & butter on baguette,brunch,sandwich,16.00,true
+Burger Végétarien,"Meatless Impossible burger, melted Emmental cheese, avocado, lettuce, tomatoes, onions, sriracha aioli",brunch,sandwich,18.00,true
+Parc Chicken Club Sandwich,"Wheat bread, avocado, Emmental cheese, lettuce, bacon, tomato, home-made aioli",brunch,sandwich,18.00,true
+Bananas Foster Crepe,"Caramelized bananas, whipped cream, vanilla ice cream",brunch,dessert_cake,14.00,true
+Nutella Crepe,"Nutella, whipped cream",brunch,dessert_cake,14.00,true
+Florentine Crepe,"Emmental cheese, sautéed spinach, roasted chicken, béchamel",brunch,entree,17.00,true
+Smoked Salmon Crepe,"Emmental cheese, chives, béchamel",brunch,entree,18.00,true
+Crab Crepe,"Emmental cheese, bell pepper, chives",brunch,entree,20.00,true
+Strawberry Crepe,"Fresh organic strawberries, crème anglaise",brunch,dessert_cake,14.00,true
+The Parc Crepe,"Bayonne ham, Emmental cheese, béchamel",brunch,entree,15.00,true
+Chicken Apple Sausage,"",brunch,side,5.00,true
+Crispy Bacon,"",brunch,side,5.00,true
+Multigrain or Sourdough Toast,"",brunch,side,4.00,true
+Belgian Waffle,"",brunch,side,7.00,true
+Breakfast Potatoes,"",brunch,side,5.00,true
+English Muffin or Bagel,"",brunch,side,4.00,true
+Fresh Avocado,"",brunch,side,6.00,true
+Fresh Seasonal Fruit,"",brunch,side,6.00,true
+Bottomless Mimosa,"",brunch,cocktail_classic,18.00,true
+Parc's Famous Bloody Mary,"",brunch,cocktail_classic,12.00,true

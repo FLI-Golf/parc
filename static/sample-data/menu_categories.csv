@@ -1,0 +1,10 @@
+name,icon,color,sort_order,active,description
+Brunch,🥐,#f59e0b,1,true,Weekend brunch favorites and breakfast items
+Lunch,🥗,#10b981,2,true,Light midday meals and fresh options
+Dinner,🍽️,#3b82f6,3,true,Evening dining and main courses
+Wine,🍷,#7c3aed,4,true,Curated wine selection
+Cocktails,🍸,#ec4899,5,true,Handcrafted cocktails and mixed drinks
+Mocktails,🥤,#22c55e,6,true,Alcohol-free crafted beverages
+Happy Hour Menu,🍻,#f97316,7,true,Special deals and appetizers
+Beer,🍺,#eab308,8,true,Draft and bottled beer selection
+Desserts,🍰,#ef4444,9,true,Sweet endings and treats

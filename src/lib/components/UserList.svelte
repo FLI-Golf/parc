@@ -163,7 +163,7 @@
             <div class="flex items-start space-x-3">
               {#if user.avatar}
                 <img
-                  src={`https://pocketbase-app-1753896437.fly.dev/api/files/_pb_users_auth_/${user.id}/${user.avatar}`}
+                  src={`https://pocketbase-production-7050.up.railway.app/api/files/_pb_users_auth_/${user.id}/${user.avatar}`}
                   alt={user.name}
                   class="w-12 h-12 rounded-full object-cover"
                 />

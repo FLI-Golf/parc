@@ -1,0 +1,43 @@
+name,description,category,subcategory,price,available
+Fresh Oysters (6),House mignonette cocktail sauce,happy_hour,appetizer,24.00,true
+Baked Camembert,Seasonal jam crostinis,happy_hour,appetizer,14.00,true
+Steamed Mussels,Garlic white wine herbs,happy_hour,appetizer,16.00,true
+Parc Sliders (2),Angus beef aged cheddar cornichons,happy_hour,appetizer,12.00,true
+Seared Ahi Sliders (2),Fresh ahi tuna arugula pickled ginger wasabi mayo brioche bun,happy_hour,appetizer,14.00,true
+Parc Ceviche,Fresh fish shrimp citrus avocado jalapeno wonton chips,happy_hour,appetizer,12.00,true
+Calamari Fritti,Lightly fried spicy aioli,happy_hour,appetizer,12.00,true
+Spicy Shrimp Provencal,Garlic parsley butter chili flakes fresh squeezed lemon,happy_hour,appetizer,15.00,true
+Tarte Flambee,French ham caramelized onions Emmental cheese on crispy flatbread,happy_hour,appetizer,12.00,true
+Smoked Salmon Blini,Smoked salmon creme fraiche topped with caviar,happy_hour,appetizer,15.00,true
+Wagyu Sliders,Caramelized onions blue cheese lettuce tomato bacon and dijon aioli,happy_hour,appetizer,14.00,true
+Lobster Arancini,Lobster risotto croquettes harissa aioli,happy_hour,appetizer,14.00,true
+Artisan Cheese Board,Chef's Selection seasonal jam crostinis,happy_hour,appetizer,14.00,true
+Truffle Fries,Truffle aioli,happy_hour,side,10.00,true
+House Bread Butter & Tapenade,"",happy_hour,side,5.00,true
+Chardonnay Domaine Bernier,FR,happy_hour,wine_white,10.00,true
+Pinot Blanc Pierre Sparr Alsace,FR,happy_hour,wine_white,10.00,true
+Gruner Vetliner Laurenz V,Austria,happy_hour,wine_white,10.00,true
+Pinot Grigio Caposaldo Venezie,IT,happy_hour,wine_white,10.00,true
+Sauvignon Blanc,New Zealand,happy_hour,wine_white,10.00,true
+Rose Roseblood Provence,FR,happy_hour,wine_white,10.00,true
+Sparkling Rose Gerard Bertrand,FR,happy_hour,wine_sparkling,10.00,true
+Sparkling Brut Grand Imperial,FR,happy_hour,wine_sparkling,10.00,true
+Cabernet Robert Hall Paso Robles,"",happy_hour,wine_red,10.00,true
+Bordeaux Blend Chateau du Parc,FR,happy_hour,wine_red,10.00,true
+Cotes du Rhone,FR,happy_hour,wine_red,10.00,true
+Pinot Noir Bacus,OR,happy_hour,wine_red,10.00,true
+Malbec Amalaya Salta,ARG,happy_hour,wine_red,10.00,true
+French Lavender Martini HH,Lavender infused Titos Handmade vodka elderflower lavender syrup citrus,happy_hour,cocktail_signature,10.00,true
+Limoncello Drop HH,Limoncello vodka lemon simple syrup,happy_hour,cocktail_signature,10.00,true
+Blood Orange Old Fashioned HH,Templeton 6yr parcs private barrel blood orange ipa caramel orange bitters,happy_hour,cocktail_signature,10.00,true
+Jalapeno-Pineapple Margarita HH,House infused jalapeno tequila organic agave pineapple lime tajin rim,happy_hour,cocktail_signature,10.00,true
+Rose Spritz HH,Aperol lychee liqueur sparkling rose rose water,happy_hour,cocktail_signature,10.00,true
+Zest & Spice HH,Bourbon Amaro Abano Tuaca strawberry orange star anise syrup served up,happy_hour,cocktail_signature,10.00,true
+Queen Bee HH,Empress 1908 Gin lemon honey lavender syrup served up,happy_hour,cocktail_signature,10.00,true
+French Kiss HH,Templeton rye whiskey lemon juice creme de cassis simple syrup ginger beer,happy_hour,cocktail_signature,10.00,true
+Kronenburg 1664 Blanc,European Lager France 5.5%,happy_hour,beer_draft,7.00,true
+Duvel 6.66 Belgian Blonde,Belgium 6.66%,happy_hour,beer_draft,7.00,true
+Second Chance Brewery Mulligan,Amber Ale San Diego 5.6%,happy_hour,beer_draft,7.00,true
+Second Chance Brewery New Day West Coast Style IPA,San Diego 6.5%,happy_hour,beer_draft,7.00,true
+Stella Artois European Pilsner,Belgium 5.2%,happy_hour,beer_draft,7.00,true
+Hazy IPA,San Diego 6.5%,happy_hour,beer_draft,7.00,true

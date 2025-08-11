@@ -1,11 +1,11 @@
 # PocketBase Deployment on Fly.io
 
 Your PocketBase instance is now deployed and running at:
-https://pocketbase-app-1753896437.fly.dev/
+https://pocketbase-production-7050.up.railway.app/
 
 ## Accessing the Admin Panel
 
-1. Visit https://pocketbase-app-1753896437.fly.dev/_/
+1. Visit https://pocketbase-production-7050.up.railway.app/_/
 2. Create your first admin account (superuser)
 3. Log in with your admin credentials
 
@@ -31,7 +31,7 @@ To import collections into your PocketBase instance:
    // Example using JavaScript/Node.js
    const PocketBase = require('pocketbase');
    
-   const pb = new PocketBase('https://pocketbase-app-1753896437.fly.dev');
+   const pb = new PocketBase('https://pocketbase-production-7050.up.railway.app');
    
    // Authenticate as admin
    await pb.admins.authWithPassword('your_admin_email', 'your_admin_password');
@@ -55,7 +55,7 @@ The `sample_collections.json` file contains two sample collections:
 Update your `.env` file with the correct PocketBase URL:
 
 ```
-VITE_POCKETBASE_URL=https://pocketbase-app-1753896437.fly.dev/
+VITE_POCKETBASE_URL=https://pocketbase-production-7050.up.railway.app/
 ```
 
 ## Connecting from Your SvelteKit App
@@ -66,7 +66,7 @@ In your SvelteKit application, you can connect to PocketBase using the JavaScrip
 // src/lib/pocketbase.js
 import PocketBase from 'pocketbase';
 
-const pb = new PocketBase('https://pocketbase-app-1753896437.fly.dev');
+const pb = new PocketBase('https://pocketbase-production-7050.up.railway.app');
 
 export default pb;
 ```

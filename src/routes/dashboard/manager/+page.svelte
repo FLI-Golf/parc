@@ -16,6 +16,9 @@
 		sections,
 		tables,
 		tableUpdates,
+		tickets,
+		ticketItems,
+		spoils,
 		loading,
 	} from "$lib/stores/collections.js";
 	import ImportModal from "$lib/components/ImportModal.svelte";
@@ -47,6 +50,183 @@
 	let maintenanceFilter = "all"; // For maintenance task filtering
 	let floorPlanFilter = "all"; // For floor plan filtering
 	let filteredSections = []; // Filtered sections based on floor plan filter
+	let showDetailedMenuView = false; // For detailed menu items view
+
+	// Menu filtering system variables
+	let selectedMenuCategories = {
+		brunch: false,
+		lunch: false,
+		dinner: true,    // Default checked
+		wine: true,      // Default checked
+		cocktails: true, // Default checked
+		mocktails: true, // Default checked
+		happy_hour: false,
+		beer: true,      // Default checked
+		desserts: false
+	};
+	let menuSearchQuery = '';
+	let showMenuFilters = false; // Collapsed by default
+	let menuQuickFilter = 'all'; // Default to show all categories
+
+	// Voice search state
+	let speechSupported = false;
+	let recognition = null;
+	let isRecordingSearch = false;
+
+	// Persist manager menu filter preferences and init speech
+	onMount(() => {
+		try {
+			const saved = JSON.parse(localStorage.getItem('mgrMenuSelectedCategories') || 'null');
+			if (saved && typeof saved === 'object') selectedMenuCategories = { ...selectedMenuCategories, ...saved };
+			const savedShow = localStorage.getItem('mgrMenuShowFilters');
+			if (savedShow !== null) showMenuFilters = savedShow === 'true';
+			const savedQuick = localStorage.getItem('mgrMenuQuickFilter');
+			if (savedQuick) menuQuickFilter = savedQuick;
+		} catch (e) {
+			console.warn('Could not load manager menu filter prefs:', e);
+		}
+		// Setup Web Speech API if available
+		if (typeof window !== 'undefined') {
+			const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+			if (SpeechRecognition) {
+				try {
+					recognition = new SpeechRecognition();
+					recognition.lang = 'en-US';
+					recognition.continuous = false;
+					recognition.interimResults = false;
+					recognition.onresult = (event) => {
+						const transcript = event.results?.[0]?.[0]?.transcript || '';
+						if (transcript) menuSearchQuery = transcript;
+						isRecordingSearch = false;
+					};
+					recognition.onerror = (event) => {
+						console.error('Speech recognition error:', event);
+						isRecordingSearch = false;
+					};
+					speechSupported = true;
+				} catch (err) {
+					console.warn('Speech recognition setup failed:', err);
+				}
+			}
+		}
+	});
+	$: if (typeof window !== 'undefined') {
+		localStorage.setItem('mgrMenuSelectedCategories', JSON.stringify(selectedMenuCategories));
+		localStorage.setItem('mgrMenuShowFilters', String(showMenuFilters));
+		localStorage.setItem('mgrMenuQuickFilter', String(menuQuickFilter));
+	}
+
+	function startVoiceSearch() {
+		if (!recognition) return;
+		try {
+			isRecordingSearch = true;
+			recognition.start();
+		} catch (e) {
+			console.warn('Failed to start voice search:', e);
+			isRecordingSearch = false;
+		}
+	}
+	function stopVoiceSearch() {
+		if (!recognition) return;
+		try { recognition.stop(); } catch {}
+		isRecordingSearch = false;
+	}
+
+	// Menu filter categories
+	const menuFilterCategories = [
+	{ id: 'brunch', label: 'Brunch', icon: '🥐' },
+	{ id: 'lunch', label: 'Lunch', icon: '🥗' },
+	{ id: 'dinner', label: 'Dinner', icon: '🍽️' },
+	{ id: 'wine', label: 'Wine', icon: '🍷' },
+	{ id: 'cocktails', label: 'Cocktails', icon: '🍸' },
+	{ id: 'mocktails', label: 'Mocktails', icon: '🥤' },
+	{ id: 'happy_hour', label: 'Happy Hour', icon: '🍻' },
+	{ id: 'beer', label: 'Beer', icon: '🍺' },
+		{ id: 'desserts', label: 'Desserts', icon: '🍰' }
+];
+
+	// Quick filter categories
+	const menuQuickFilterCategories = [
+	{ id: 'all', label: 'All Defaults', icon: '📋' },
+	{ id: 'brunch', label: 'Brunch', icon: '🥐' },
+	{ id: 'lunch', label: 'Lunch', icon: '🥗' },
+	{ id: 'dinner', label: 'Dinner', icon: '🍽️' },
+	{ id: 'wine', label: 'Wine', icon: '🍷' },
+	{ id: 'cocktails', label: 'Cocktails', icon: '🍸' },
+	{ id: 'mocktails', label: 'Mocktails', icon: '🥤' },
+	{ id: 'happy_hour', label: 'Happy Hour', icon: '🍻' },
+	{ id: 'beer', label: 'Beer', icon: '🍺' },
+		{ id: 'desserts', label: 'Desserts', icon: '🍰' }
+];
+	let selectedMenuCategory = "all"; // Filter for menu categories
+
+	// Bulk edit state for menu items
+	let selectedMenuIds = new Set();
+	let bulkCategory = 'beverage';
+	let isBulkUpdating = false;
+	
+	function toggleSelectMenuItem(id) {
+		if (selectedMenuIds.has(id)) {
+			selectedMenuIds.delete(id);
+		} else {
+			selectedMenuIds.add(id);
+		}
+		// force reactivity with Set
+		selectedMenuIds = new Set(selectedMenuIds);
+	}
+	function clearSelectedMenuItems() {
+		selectedMenuIds = new Set();
+	}
+	function selectAllFilteredMenuItems() {
+		selectedMenuIds = new Set(filteredMenuItems.map(i => i.id));
+	}
+	async function bulkUpdateMenuCategory() {
+		if (selectedMenuIds.size === 0) return;
+		isBulkUpdating = true;
+		try {
+			for (const id of selectedMenuIds) {
+				await collections.updateMenuItem(id, { category: bulkCategory });
+			}
+			await collections.getMenuItems();
+			clearSelectedMenuItems();
+		} catch (e) {
+			console.error('Bulk update failed', e);
+			alert('Failed to bulk update categories.');
+		} finally {
+			isBulkUpdating = false;
+		}
+	}
+
+	// Menu view navigation functions
+	function showMenuDetails() {
+		showDetailedMenuView = true;
+	}
+	
+	function backToOverview() {
+		showDetailedMenuView = false;
+		selectedMenuCategory = "all";
+	}
+
+	// Get today's date in local timezone
+	function getTodayString() {
+		const today = new Date();
+		const year = today.getFullYear();
+		const month = String(today.getMonth() + 1).padStart(2, '0');
+		const day = String(today.getDate()).padStart(2, '0');
+		return `${year}-${month}-${day}`;
+	}
+
+	function formatDate(dateStr) {
+		// Parse as local date to avoid timezone issues
+		const [year, month, day] = dateStr.split('-');
+		const date = new Date(year, month - 1, day);
+		return date.toLocaleDateString('en-US', {
+			weekday: 'long',
+			year: 'numeric',
+			month: 'long',
+			day: 'numeric'
+		});
+	}
 
 	// Reactive declarations
 	$: lowStockItems = $inventoryItems.filter(
@@ -54,7 +234,7 @@
 	);
 
 	$: todayShifts = $shifts.filter(
-		(shift) => shift.shift_date === new Date().toISOString().split("T")[0]
+		(shift) => shift.shift_date === getTodayString()
 	);
 
 	// Enhanced metrics
@@ -74,8 +254,55 @@
 	$: availableMenuItems = $menuItems.filter((item) => item.available).length;
 	$: activeStaff = $staff.filter((member) => member.status === "active")
 		.length;
-	$: pendingEvents = $events.filter((event) => event.status === "inquiry")
-		.length;
+	$: pendingEvents = $events.filter((event) => event.status === "inquiry").length;
+
+	// Helper for detailed view category matching (independent of defaults)
+	function itemMatchesDetailedCategory(item, categoryId) {
+		if (categoryId === 'all') return true;
+		const category = (item.category || '').toLowerCase();
+		const subcategory = (item.subcategory || '').toLowerCase();
+		switch (categoryId) {
+			case 'main_course':
+				return category === 'main_course' || category === 'dinner';
+			case 'beverage':
+				return (
+					category === 'beverage' ||
+					category.includes('wine') || ['wine_red','wine_white','wine_sparkling'].includes(subcategory) ||
+					category.includes('cocktail') || ['cocktail_classic','cocktail_signature','mocktail'].includes(subcategory) ||
+					category.includes('beer') || ['beer_draft','beer_bottle'].includes(subcategory)
+				);
+			case 'dessert':
+				return category === 'dessert' || category === 'desserts';
+			default:
+				return category === categoryId;
+		}
+	}
+
+	// Menu filtering reactive statement
+	$: filteredMenuItems = $menuItems.filter((item) => {
+		// Search filter
+		if (menuSearchQuery && !item.name.toLowerCase().includes(menuSearchQuery.toLowerCase())) {
+			return false;
+		}
+
+		// If a detailed category chip is active, use it as the primary filter
+		if (showDetailedMenuView && selectedMenuCategory !== 'all') {
+			return itemMatchesDetailedCategory(item, selectedMenuCategory);
+		}
+
+		// Otherwise, apply defaults/quick filters like the Server dashboard
+		let matchesDefaults;
+		if (menuQuickFilter === 'all') {
+			matchesDefaults = Object.keys(selectedMenuCategories).some(categoryId =>
+				selectedMenuCategories[categoryId] && itemMatchesCategory(item, categoryId)
+			);
+		} else {
+			matchesDefaults = itemMatchesCategory(item, menuQuickFilter);
+		}
+		if (!matchesDefaults) return false;
+
+		return true;
+	});
 
 	// Weekly shifts calculation
 	$: weeklyShifts = $shifts.filter((shift) => {
@@ -116,8 +343,7 @@
 		(task) => task.priority === "critical"
 	);
 	$: todayTasks = $maintenanceSchedules.filter((schedule) => {
-		const today = new Date().toISOString().split("T")[0];
-		return schedule.scheduled_date === today;
+		return schedule.scheduled_date === getTodayString();
 	});
 	$: pendingTasks = $maintenanceSchedules.filter(
 		(schedule) => schedule.status === "pending"
@@ -342,9 +568,18 @@
 	}
 
 	onMount(async () => {
+		let hasLoaded = false; // Prevent duplicate data loading
+		let hasHandledAuth = false; // Prevent redirect loops/stutter
+		
 		// Check authentication and role
 		const unsubscribe = authStore.subscribe(async (auth) => {
-			if (!auth.isLoggedIn && !auth.isLoading) {
+			// Wait for auth to finish loading or if we've already handled redirect
+			if (auth.isLoading || hasHandledAuth) {
+				return;
+			}
+			
+			if (!auth.isLoggedIn) {
+				hasHandledAuth = true;
 				goto("/");
 				return;
 			}
@@ -355,21 +590,26 @@
 				userRole !== "manager" &&
 				userRole !== "owner"
 			) {
+				hasHandledAuth = true;
 				goto("/dashboard");
 				return;
 			}
 
-			if (auth.isLoggedIn) {
+			if (auth.isLoggedIn && !hasLoaded) {
+				hasLoaded = true;
 				user = auth.user;
 				// Load all data for managers
 				try {
 					await Promise.all([
-						collections.getInventoryItems(),
-						collections.getStaff(),
-						collections.getShifts(),
-						collections.getMenuItems(),
-						collections.getVendors(),
-						collections.getEvents(),
+						collections.getInventoryItems().catch(() => console.log("Inventory collection not yet set up")),
+						collections.getStaff().catch(() => console.log("Staff collection not yet set up")),
+						collections.getShifts().catch(() => console.log("Shifts collection not yet set up")),
+						collections.getMenuItems().catch(() => console.log("Menu collection not yet set up")),
+						collections.getVendors().catch(() => console.log("Vendors collection not yet set up")),
+						collections.getEvents().catch(() => console.log("Events collection not yet set up")),
+						collections.getTickets().catch(() => console.log("Tickets collection not yet set up")),
+						collections.getTicketItems().catch(() => console.log("Ticket items collection not yet set up")),
+						collections.getSpoils().catch(() => console.log("Spoils collection not yet set up")),
 						// Load table management data if collections exist
 						collections
 							.getSections()
@@ -533,6 +773,49 @@
 		}
 	}
 
+	// Menu filtering functions
+	function handleMenuCategoryChange() {
+		// Auto-switch to 'all' if current quick filter is not in selected defaults
+		if (menuQuickFilter !== 'all' && !selectedMenuCategories[menuQuickFilter]) {
+			menuQuickFilter = 'all';
+		}
+	}
+
+	function handleMenuQuickFilterChange() {
+		// Function handles radio button changes automatically through bind:group
+	}
+
+	// Function to check if an item matches the selected category filter
+	function itemMatchesCategory(item, categoryId) {
+		if (categoryId === 'all') return true;
+		
+		const category = item.category?.toLowerCase() || '';
+		const subcategory = item.subcategory?.toLowerCase() || '';
+		
+		switch (categoryId) {
+			case 'wine':
+				return category.includes('wine') || ['wine_red', 'wine_white', 'wine_sparkling'].includes(subcategory);
+			case 'cocktails':
+				return category.includes('cocktail') || ['cocktail_classic', 'cocktail_signature'].includes(subcategory);
+			case 'mocktails':
+				return subcategory === 'mocktail';
+			case 'beer':
+				return category.includes('beer') || ['beer_draft', 'beer_bottle'].includes(subcategory);
+			case 'dinner':
+				return category === 'dinner' || category === 'main_course';
+			case 'brunch':
+				return category === 'brunch';
+			case 'lunch':
+				return category === 'lunch';
+			case 'happy_hour':
+				return category === 'happy_hour';
+			case 'desserts':
+				return category === 'dessert' || category === 'desserts';
+			default:
+				return category === categoryId;
+		}
+	}
+
 	function openVendorModal(item = null) {
 		editVendorItem = item;
 		showVendorModal = true;
@@ -601,7 +884,10 @@
 
 	// Helper functions for date and time formatting
 	function formatShortDate(dateString) {
-		const date = new Date(dateString);
+		// Handle both "YYYY-MM-DD" and "YYYY-MM-DD HH:MM:SS" formats
+		const dateOnly = dateString.split(' ')[0]; // Remove time if present
+		const [year, month, day] = dateOnly.split('-');
+		const date = new Date(year, month - 1, day);
 		return date.toLocaleDateString("en-US", {
 			month: "short",
 			day: "numeric",
@@ -671,15 +957,10 @@
 							</div>
 						</div>
 					{/if}
-					<button
-						on:click={openImportModal}
-						class="px-4 py-2 bg-green-600 hover:bg-green-700 rounded-lg transition-colors text-sm font-medium"
-					>
-						Import Data
-					</button>
+
 					<button
 						on:click={logout}
-						class="px-4 py-2 bg-gray-700 hover:bg-gray-600 rounded-lg transition-colors text-sm font-medium"
+						class="px-4 py-2 bg-red-600 hover:bg-red-700 rounded-lg transition-colors text-sm font-medium"
 					>
 						Logout
 					</button>
@@ -710,11 +991,12 @@
 
 	<!-- Main Content -->
 	<main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-		{#if activeTab === "overview"}
+		{#if activeTab === "overview" && !showDetailedMenuView}
 			<!-- Overview Dashboard -->
 			<div class="mb-8 flex justify-between items-center">
 				<div>
 					<h2 class="text-3xl font-bold">Manager Overview</h2>
+				<p class="text-gray-400 mt-2">{formatDate(getTodayString())}</p>
 					<p class="text-gray-400 mt-2">
 						Monitor your restaurant operations at a glance
 					</p>
@@ -744,6 +1026,15 @@
 						class="px-4 py-2 bg-purple-600 hover:bg-purple-700 rounded-lg text-sm font-medium transition-colors"
 					>
 						+ Event
+					</button>
+					<button
+						on:click={openImportModal}
+						class="px-4 py-2 bg-teal-600 hover:bg-teal-700 rounded-lg text-sm font-medium transition-colors flex items-center gap-2"
+					>
+						<svg class="w-4 h-4" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+							<path fill-rule="evenodd" d="M3 3a1 1 0 011-1h12a1 1 0 011 1v6a1 1 0 11-2 0V4H5v5a1 1 0 11-2 0V3zm6.293 6.293a1 1 0 011.414 0L12 10.586V6a1 1 0 112 0v4.586l1.293-1.293a1 1 0 111.414 1.414l-3.999 4a1 1 0 01-1.415 0l-4-4a1 1 0 010-1.414zM4 15a1 1 0 011-1h10a1 1 0 110 2H5a1 1 0 01-1-1z" clip-rule="evenodd" />
+						</svg>
+						Import Data
 					</button>
 				</div>
 			</div>
@@ -800,6 +1091,60 @@
 					</div>
 				</div>
 
+				<!-- Kitchen Display -->
+				<a href="/dashboard/kitchen" class="bg-gradient-to-br from-orange-900/50 to-orange-800/30 backdrop-blur-sm rounded-xl border border-orange-700/50 p-6 block">
+					<div class="flex items-center justify-between">
+						<div>
+							<p class="text-orange-200 text-sm font-medium">Kitchen Display</p>
+							<p class="text-xs text-orange-300 mt-1">View live kitchen orders</p>
+						</div>
+						<div class="flex items-center gap-3">
+							<span class="px-2 py-1 text-xs rounded-full bg-orange-900/50 text-orange-300 border border-orange-700/50">
+								{($ticketItems.filter(i => (i.status === 'sent_to_kitchen' || i.status === 'preparing') && i.kitchen_station !== 'bar')).length} pending
+							</span>
+							<div class="w-14 h-14 rounded-xl bg-orange-600/30 flex items-center justify-center">
+								<span class="text-2xl">🍳</span>
+							</div>
+						</div>
+					</div>
+				</a>
+
+				<!-- Bar Display -->
+				<a href="/dashboard/bar" class="bg-gradient-to-br from-blue-900/50 to-blue-800/30 backdrop-blur-sm rounded-xl border border-blue-700/50 p-6 block">
+					<div class="flex items-center justify-between">
+						<div>
+							<p class="text-blue-200 text-sm font-medium">Bar Display</p>
+							<p class="text-xs text-blue-300 mt-1">View live drink orders</p>
+						</div>
+						<div class="flex items-center gap-3">
+							<span class="px-2 py-1 text-xs rounded-full bg-blue-900/50 text-blue-300 border border-blue-700/50">
+								{($ticketItems.filter(i => (i.status === 'sent_to_bar' || i.status === 'preparing') && i.kitchen_station === 'bar')).length} pending
+							</span>
+							<div class="w-14 h-14 rounded-xl bg-blue-600/30 flex items-center justify-center">
+								<span class="text-2xl">🍹</span>
+							</div>
+						</div>
+					</div>
+				</a>
+
+				<!-- Spoils -->
+				<a href="/dashboard/spoils" class="bg-gradient-to-br from-red-900/50 to-red-800/30 backdrop-blur-sm rounded-xl border border-red-700/50 p-6 block">
+					<div class="flex items-center justify-between">
+						<div>
+							<p class="text-red-200 text-sm font-medium">Spoils & Incidents</p>
+							<p class="text-xs text-red-300 mt-1">Report and review losses</p>
+						</div>
+						<div class="flex items-center gap-3">
+							<span class="px-2 py-1 text-xs rounded-full bg-red-900/50 text-red-300 border border-red-700/50">
+								{($spoils.filter(s => s.status === 'open')).length} open
+							</span>
+							<div class="w-14 h-14 rounded-xl bg-red-600/30 flex items-center justify-center">
+								<span class="text-2xl">📉</span>
+							</div>
+						</div>
+					</div>
+				</a>
+
 				<!-- Inventory Alert -->
 				<div
 					class="bg-gradient-to-br from-orange-900/50 to-orange-800/30 backdrop-blur-sm rounded-xl border border-orange-700/50 p-6"
@@ -849,8 +1194,9 @@
 				</div>
 
 				<!-- Menu Status -->
-				<div
-					class="bg-gradient-to-br from-teal-900/50 to-teal-800/30 backdrop-blur-sm rounded-xl border border-teal-700/50 p-6"
+				<button
+					on:click={showMenuDetails}
+					class="bg-gradient-to-br from-teal-900/50 to-teal-800/30 backdrop-blur-sm rounded-xl border border-teal-700/50 p-6 hover:from-teal-800/60 hover:to-teal-700/40 transition-all duration-200 w-full text-left"
 				>
 					<div class="flex items-center justify-between">
 						<div>
@@ -870,7 +1216,7 @@
 							<span class="text-2xl">🍽️</span>
 						</div>
 					</div>
-				</div>
+				</button>
 
 				<!-- Upcoming Events -->
 				<div
@@ -1156,6 +1502,205 @@
 					{/if}
 				</div>
 			</div>
+		{:else if activeTab === "overview" && showDetailedMenuView}
+			<!-- Detailed Menu Items View -->
+			<div class="mb-8 flex justify-between items-center">
+				<div>
+					<h2 class="text-3xl font-bold">Menu Items</h2>
+					<p class="text-gray-400 mt-2">Detailed view of all menu items organized by category</p>
+				</div>
+				<!-- Actions -->
+				<div class="flex space-x-3">
+					<button
+						on:click={backToOverview}
+						class="px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded-lg text-sm font-medium transition-colors flex items-center gap-2"
+					>
+						← Back to Overview
+					</button>
+					<button
+						on:click={() => openMenuModal()}
+						class="px-4 py-2 bg-green-600 hover:bg-green-700 rounded-lg text-sm font-medium transition-colors"
+					>
+						+ Add Item
+					</button>
+				</div>
+			</div>
+
+			<!-- Category Filter -->
+			<div class="mb-6">
+				{#key 'detailed-categories'}
+					{@const detailedCategories = [
+						{ id: 'all', label: 'All Categories', icon: '🍴' },
+						{ id: 'brunch', label: 'Brunch', icon: '🥐' },
+						{ id: 'lunch', label: 'Lunch', icon: '🥗' },
+						{ id: 'dinner', label: 'Dinner', icon: '🍽️' },
+						{ id: 'happy_hour', label: 'Happy Hour', icon: '🍻' },
+						{ id: 'wine', label: 'Wine', icon: '🍷' },
+						{ id: 'cocktails', label: 'Cocktails', icon: '🍸' },
+						{ id: 'mocktails', label: 'Mocktails', icon: '🥤' },
+						{ id: 'beer', label: 'Beer', icon: '🍺' },
+						{ id: 'desserts', label: 'Desserts', icon: '🍰' },
+					]}
+					<div class="flex flex-wrap gap-2">
+						{#each detailedCategories as cat}
+							<button
+								on:click={() => selectedMenuCategory = cat.id}
+								class="px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center gap-2 {selectedMenuCategory === cat.id ? 'bg-teal-600 text-white' : 'bg-gray-700 text-gray-300 hover:bg-gray-600'}"
+							>
+								<span>{cat.icon}</span>
+								<span>{cat.label}</span>
+							</button>
+						{/each}
+					</div>
+					{/key}
+					</div>
+
+					<!-- Search Input -->
+				<div class="mt-4 relative">
+					<div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+						<svg class="h-5 w-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+							<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+						</svg>
+					</div>
+					<input
+						type="text"
+						bind:value={menuSearchQuery}
+						placeholder="Search menu items..."
+						class="w-full pl-10 pr-12 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+					>
+					{#if speechSupported}
+						<button
+							type="button"
+							on:click={() => (isRecordingSearch ? stopVoiceSearch() : startVoiceSearch())}
+							class="absolute right-2 top-1/2 -translate-y-1/2 p-1 rounded-full transition-colors duration-200 {isRecordingSearch ? 'bg-red-600 text-white animate-pulse' : 'text-gray-400 hover:text-white hover:bg-gray-600'}"
+							title="Voice search"
+						>
+							<svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+								<path fill-rule="evenodd" d="M7 4a3 3 0 016 0v4a3 3 0 11-6 0V4zm4 10.93A7.001 7.001 0 0017 8a1 1 0 10-2 0A5 5 0 015 8a1 1 0 00-2 0 7.001 7.001 0 006 6.93V17H6a1 1 0 100 2h8a1 1 0 100-2h-3v-2.07z" clip-rule="evenodd"></path>
+							</svg>
+						</button>
+					{/if}
+				</div>
+
+				<!-- Bulk actions toolbar -->
+				{#if selectedMenuIds.size > 0}
+				<div class="mb-4 p-3 bg-blue-900/30 border border-blue-700/50 rounded-lg flex flex-wrap items-center gap-3">
+				<span class="text-sm text-blue-200 font-medium">{selectedMenuIds.size} selected</span>
+				<button class="px-2 py-1 text-xs bg-gray-700 hover:bg-gray-600 rounded" on:click={selectAllFilteredMenuItems}>Select all shown</button>
+				<button class="px-2 py-1 text-xs bg-gray-700 hover:bg-gray-600 rounded" on:click={clearSelectedMenuItems}>Clear</button>
+				<div class="flex items-center gap-2">
+				<label class="text-sm text-gray-300">Set category to</label>
+							<select bind:value={bulkCategory} class="px-2 py-1 bg-gray-700 border border-gray-600 rounded text-white text-sm">
+								<option value="appetizer">Appetizer</option>
+								<option value="main_course">Main Course</option>
+								<option value="dessert">Dessert</option>
+								<option value="beverage">Beverage</option>
+								<option value="special">Special</option>
+								<option value="side_dish">Side Dish</option>
+							</select>
+							<button on:click={bulkUpdateMenuCategory} disabled={isBulkUpdating} class="px-3 py-1 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 rounded text-white text-sm">
+								{isBulkUpdating ? 'Updating…' : 'Update Category'}
+							</button>
+						</div>
+					</div>
+				{/if}
+
+				<!-- Menu Items Grid -->
+				<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+					{#each filteredMenuItems as item}
+						{@const cat = (item.category || '').toLowerCase()}
+						<div class="bg-gray-800/50 rounded-xl border border-gray-700/50 p-6 hover:border-gray-600/50 transition-all">
+							<div class="flex justify-between items-start mb-4">
+								<div class="flex-1">
+									<div class="flex items-center gap-2 mb-1">
+										<input type="checkbox" checked={selectedMenuIds.has(item.id)} on:change={() => toggleSelectMenuItem(item.id)} class="h-4 w-4 text-blue-600 rounded border-gray-600 bg-gray-700" />
+										<h3 class="text-lg font-semibold text-white">{item.name}</h3>
+									</div>
+								<p class="text-sm text-gray-400 mb-2">{item.description || 'No description available'}</p>
+								<div class="flex items-center gap-2 mb-2">
+
+									<span class="px-2 py-1 rounded text-xs font-medium flex items-center gap-1 {
+										cat === 'brunch' ? 'bg-amber-900/40 text-amber-300' :
+										cat === 'lunch' ? 'bg-lime-900/40 text-lime-300' :
+										cat === 'dinner' ? 'bg-red-900/40 text-red-300' :
+										cat === 'happy_hour' ? 'bg-yellow-900/40 text-yellow-300' :
+										cat === 'wine' ? 'bg-rose-900/40 text-rose-300' :
+										cat === 'cocktails' ? 'bg-fuchsia-900/40 text-fuchsia-300' :
+										cat === 'beer' ? 'bg-orange-900/40 text-orange-300' :
+										cat === 'desserts' ? 'bg-purple-900/40 text-purple-300' :
+										'bg-gray-900/50 text-gray-300'
+									}">
+										<span>
+											{cat === 'brunch' ? '🥐' :
+											 cat === 'lunch' ? '🥗' :
+											 cat === 'dinner' ? '🍽️' :
+											 cat === 'happy_hour' ? '🍻' :
+											 cat === 'wine' ? '🍷' :
+											 cat === 'cocktails' ? '🍸' :
+											 cat === 'beer' ? '🍺' :
+											 cat === 'desserts' ? '🍰' : '🍴'}
+										</span>
+										<span class="capitalize">{(item.category || 'uncategorized').replace('_', ' ')}</span>
+									</span>
+									<span class="px-2 py-1 rounded text-xs font-medium {item.available ? 'bg-green-900/50 text-green-300' : 'bg-red-900/50 text-red-300'}">
+										{item.available ? 'Available' : 'Unavailable'}
+									</span>
+								</div>
+								<p class="text-xl font-bold text-green-400">${item.price?.toFixed(2) || '0.00'}</p>
+							</div>
+							<div class="flex flex-col gap-2 ml-4">
+								<button
+									on:click={() => openMenuModal(item)}
+									class="px-3 py-1 bg-blue-600 hover:bg-blue-700 rounded text-xs font-medium transition-colors"
+								>
+									Edit
+								</button>
+								<button
+									on:click={() => {
+										if (confirm(`Toggle availability for ${item.name}?`)) {
+											collections.updateMenuItem(item.id, { available: !item.available });
+										}
+									}}
+									class="px-3 py-1 {item.available ? 'bg-red-600 hover:bg-red-700' : 'bg-green-600 hover:bg-green-700'} rounded text-xs font-medium transition-colors"
+								>
+									{item.available ? 'Disable' : 'Enable'}
+								</button>
+							</div>
+						</div>
+						
+						{#if item.allergens && item.allergens.length > 0}
+							<div class="mt-3 pt-3 border-t border-gray-700">
+								<p class="text-xs text-gray-500 mb-1">Allergens:</p>
+								<div class="flex flex-wrap gap-1">
+									{#each item.allergens as allergen}
+										<span class="px-2 py-1 bg-orange-900/30 text-orange-300 rounded text-xs">
+											{allergen}
+										</span>
+									{/each}
+								</div>
+							</div>
+						{/if}
+					</div>
+				{/each}
+			</div>
+
+			{#if $menuItems.filter(item => selectedMenuCategory === "all" || item.category === selectedMenuCategory).length === 0}
+				<div class="text-center py-12">
+					<div class="w-24 h-24 mx-auto mb-4 rounded-full bg-gray-800/50 flex items-center justify-center">
+						<span class="text-4xl">🍽️</span>
+					</div>
+					<h3 class="text-xl font-semibold text-gray-300 mb-2">No Menu Items</h3>
+					<p class="text-gray-500 mb-4">
+						{selectedMenuCategory === "all" ? "No menu items found." : `No ${selectedMenuCategory} items found.`}
+					</p>
+					<button
+						on:click={() => openMenuModal()}
+						class="px-4 py-2 bg-green-600 hover:bg-green-700 rounded-lg text-sm font-medium transition-colors"
+					>
+						Add First Item
+					</button>
+				</div>
+			{/if}
 		{:else if activeTab === "floor-plan"}
 			<!-- Floor Plan -->
 			<div class="mb-8 flex justify-between items-center">
@@ -1439,37 +1984,7 @@
 				</div>
 			</div>
 
-			<!-- Section Assignment Info -->
-			<div class="bg-gray-800/50 backdrop-blur-sm rounded-xl border border-gray-700 p-6 mb-8">
-				<h3 class="text-xl font-semibold mb-4">How Section Assignments Work</h3>
-				<div class="space-y-4">
-					<div class="bg-blue-900/30 rounded-lg p-4 border border-blue-700/50">
-						<h4 class="text-blue-300 font-medium mb-2">📋 Current Setup</h4>
-						<p class="text-gray-300 text-sm">
-							You have {$sections.length} sections configured. To assign staff to sections, you need to:
-						</p>
-						<ol class="list-decimal list-inside text-sm text-gray-400 mt-2 space-y-1">
-							<li>Add the "assigned_section" field to your PocketBase shifts collection</li>
-							<li>Use the Shift Management tab to assign staff to specific sections</li>
-							<li>View section coverage and assignments here</li>
-						</ol>
-					</div>
-					
-					<div class="bg-yellow-900/30 rounded-lg p-4 border border-yellow-700/50">
-						<h4 class="text-yellow-300 font-medium mb-2">🔧 Database Setup Required</h4>
-						<p class="text-gray-300 text-sm">
-							To enable section assignments, add this field to your PocketBase "shifts" collection:
-						</p>
-						<div class="bg-gray-900/50 rounded p-2 mt-2 font-mono text-xs text-gray-300">
-							Field Name: assigned_section<br/>
-							Type: Relation<br/>
-							Collection: sections<br/>
-							Max Select: 1<br/>
-							Required: No
-						</div>
-					</div>
-				</div>
-			</div>
+
 
 			<!-- Available Sections -->
 			<div class="bg-gray-800/50 backdrop-blur-sm rounded-xl border border-gray-700 p-6">
@@ -1986,6 +2501,135 @@
 					</button>
 				</div>
 
+				<!-- Menu Filtering System -->
+				<div class="bg-gray-800/50 rounded-xl border border-gray-700 p-6">
+					<!-- Default Items Filtering (Multi-select checkboxes) -->
+					<div class="mb-4">
+						<button
+							on:click={() => showMenuFilters = !showMenuFilters}
+							class="flex items-center gap-2 text-lg font-semibold text-white hover:text-blue-400 transition-colors"
+						>
+							<span>⚙️</span>
+							<span>Default Items</span>
+							<span class="text-sm text-gray-400">
+								{#if !showMenuFilters}
+									Expand to set the current defaults • Example: if not Dinner uncheck and use Lunch
+								{/if}
+							</span>
+							<span class="text-gray-400 ml-auto">{showMenuFilters ? '▼' : '▶'}</span>
+						</button>
+						
+						{#if showMenuFilters}
+							<div class="mt-4 grid grid-cols-2 md:grid-cols-4 gap-3">
+								{#each menuFilterCategories as category}
+									<label class="flex items-center gap-2 p-2 rounded-lg hover:bg-gray-700/50 cursor-pointer">
+										<input
+											type="checkbox"
+											bind:checked={selectedMenuCategories[category.id]}
+											on:change={handleMenuCategoryChange}
+											class="w-4 h-4 text-blue-600 rounded focus:ring-2 focus:ring-blue-500"
+										>
+										<span class="text-lg">{category.icon}</span>
+										<span class="text-sm font-medium text-white">{category.label}</span>
+									</label>
+								{/each}
+							</div>
+							
+							<!-- Active filters display -->
+							<div class="mt-3 flex flex-wrap gap-2">
+								<span class="text-xs text-gray-400">
+									({Object.values(selectedMenuCategories).filter(Boolean).length} active)
+								</span>
+								{#each menuFilterCategories as category}
+									{#if selectedMenuCategories[category.id]}
+										<span class="inline-flex items-center gap-1 px-2 py-1 bg-blue-600/20 text-blue-300 rounded text-xs">
+											{category.icon}
+											{category.label}
+										</span>
+									{/if}
+								{/each}
+							</div>
+						{/if}
+					</div>
+
+					<!-- Quick Filter Radio Buttons -->
+					<div class="mb-4">
+					<div class="flex items-center justify-between mb-2">
+					{#if menuQuickFilterCategories}
+					{@const enabledCategories = menuQuickFilterCategories.filter(cat => cat.id === 'all' || selectedMenuCategories[cat.id])}
+					{@const disabledCount = menuQuickFilterCategories.length - enabledCategories.length}
+					<p class="text-xs text-gray-400">
+					{#if disabledCount > 0}
+					{enabledCategories.length - 1} of {menuQuickFilterCategories.length - 1} categories enabled • {disabledCount} greyed out (not in defaults)
+					{:else}
+					All categories enabled • Change defaults above to limit options
+					{/if}
+					</p>
+					{/if}
+					</div>
+					<div class="flex flex-wrap gap-2">
+					{#each menuQuickFilterCategories as category}
+					{@const isInDefaults = category.id === 'all' || selectedMenuCategories[category.id]}
+					{@const isDisabled = !isInDefaults}
+					<label class="cursor-pointer inline-flex items-center gap-2 px-3 py-2 rounded-lg border transition-all {
+					isDisabled 
+					? 'bg-gray-800 text-gray-500 cursor-not-allowed' 
+					: menuQuickFilter === category.id 
+					 ? 'bg-blue-600 border-blue-500 text-white' 
+					  : 'bg-gray-700/50 border-gray-600 text-gray-300 hover:bg-gray-600/50'
+					}"
+					 title={isDisabled ? 'Not in defaults - enable in Default Items above' : ''}
+					 >
+					  <input
+					   type="radio"
+					  name="menuQuickFilter"
+					 value={category.id}
+					  bind:group={menuQuickFilter}
+					   on:change={handleMenuQuickFilterChange}
+					    disabled={isDisabled}
+										class="sr-only"
+									>
+									<span class="text-lg">{category.icon}</span>
+									<span class="font-medium">{category.label}</span>
+								</label>
+								{/each}
+							</div>
+							
+							{#if menuQuickFilter !== 'all'}
+								<p class="text-xs text-gray-400 mt-2">
+									Showing {menuQuickFilter} items • {filteredMenuItems.length} of {$menuItems.length} items
+								</p>
+							{/if}
+						</div>
+
+					<!-- Search Input -->
+					<div class="relative">
+						<div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+							<svg class="h-5 w-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+								<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+							</svg>
+						</div>
+						<input
+							type="text"
+							bind:value={menuSearchQuery}
+							placeholder="Search menu items..."
+							class="w-full pl-10 pr-12 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+						>
+						{#if speechSupported}
+							<button
+								type="button"
+								on:click={() => (isRecordingSearch ? stopVoiceSearch() : startVoiceSearch())}
+								class="absolute right-2 top-1/2 -translate-y-1/2 p-1 rounded-full transition-colors duration-200 {isRecordingSearch ? 'bg-red-600 text-white animate-pulse' : 'text-gray-400 hover:text-white hover:bg-gray-600'}"
+								title="Voice search"
+							>
+								<svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+									<path fill-rule="evenodd" d="M7 4a3 3 0 016 0v4a3 3 0 11-6 0V4zm4 10.93A7.001 7.001 0 0017 8a1 1 0 10-2 0A5 5 0 015 8a1 1 0 00-2 0 7.001 7.001 0 006 6.93V17H6a1 1 0 100 2h8a1 1 0 100-2h-3v-2.07z" clip-rule="evenodd"></path>
+								</svg>
+							</button>
+						{/if}
+					</div>
+				</div>
+
 				<div
 					class="bg-gray-800/50 rounded-xl border border-gray-700 overflow-hidden"
 				>
@@ -2019,7 +2663,7 @@
 							</tr>
 						</thead>
 						<tbody class="divide-y divide-gray-700">
-							{#each $menuItems as item}
+							{#each filteredMenuItems as item}
 								<tr class="hover:bg-gray-700/30">
 									<td class="px-6 py-4 text-sm text-white">
 										{item.name}

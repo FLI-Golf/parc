@@ -18,10 +18,12 @@
 	const collectionOptions = [
 		{ id: 'inventory_collection', name: 'Inventory Items', sampleFile: '/sample-data/inventory_items.csv' },
 		{ id: 'staff_collection', name: 'Staff', sampleFile: '/sample-data/staff.csv' },
-		{ id: 'menu_collection', name: 'Menu Items', sampleFile: '/sample-data/menu_items.csv' },
+		{ id: 'menu_collection', name: 'Enhanced Menu Items', sampleFile: '/sample-data/menu_items.csv' },
+		{ id: 'menu_categories', name: 'Menu Categories', sampleFile: '/sample-data/menu_categories.csv' },
+		{ id: 'menu_modifiers', name: 'Menu Modifiers', sampleFile: '/sample-data/menu_modifiers.csv' },
 		{ id: 'vendors_collection', name: 'Vendors', sampleFile: '/sample-data/vendors.csv' },
 		{ id: 'events_collection', name: 'Events', sampleFile: '/sample-data/events.csv' },
-		{ id: 'shifts_collection', name: 'Shifts', sampleFile: '/sample-data/shifts.csv' },
+		{ id: 'pb_shifts_colle', name: 'Shifts', sampleFile: '/sample-data/shifts.csv' },
 		{ id: 'sections_collection', name: 'Sections', sampleFile: '/sample-data/sections.csv' },
 		{ id: 'tables_collection', name: 'Tables', sampleFile: '/sample-data/tables.csv' },
 		{ id: 'table_updates_collection', name: 'Table Updates', sampleFile: '/sample-data/table_updates.csv' },
@@ -156,22 +158,124 @@
 		
 		for (const item of data) {
 			try {
+				// Helper function to parse arrays from CSV
+				const parseArray = (value) => {
+					if (!value || value.trim() === '') return [];
+					return value.split(',').map(item => item.trim()).filter(item => item !== '');
+				};
+
+				// Helper function to parse boolean
+				const parseBoolean = (value) => {
+					if (typeof value === 'string') {
+						return value.toLowerCase() === 'true';
+					}
+					return Boolean(value);
+				};
+
+				// Helper function to parse numbers
+				const parseNumber = (value) => {
+					const num = parseFloat(value);
+					return isNaN(num) ? 0 : num;
+				};
+
 				const menuData = {
 					name: item.name,
 					description: item.description || '',
 					category: item.category,
-					price: item.price,
-					cost: item.cost,
+					subcategory: item.subcategory || '',
+					price: parseNumber(item.price),
+					cost: parseNumber(item.cost),
 					ingredients: item.ingredients || '',
-					allergens: item.allergens ? item.allergens.split(',').map(a => a.trim()) : [],
-					preparation_time: item.preparation_time,
-					available: item.available !== false
+					allergens: parseArray(item.allergens),
+					preparation_time: parseNumber(item.preparation_time),
+					available: parseBoolean(item.available),
+					tags: parseArray(item.tags),
+					sort_order: parseNumber(item.sort_order),
+					portion_size: item.portion_size || '',
+					spice_level: parseNumber(item.spice_level),
+					dietary_flags: parseArray(item.dietary_flags),
+					kitchen_notes: item.kitchen_notes || '',
+					calories: parseNumber(item.calories),
+					featured: parseBoolean(item.featured)
 				};
 				
 				await collections.createMenuItem(menuData);
 				results.success++;
 			} catch (error) {
 				results.errors.push(`${item.name}: ${error.message}`);
+			}
+		}
+		
+		return results;
+	}
+
+	async function processMenuCategoriesData(data) {
+		const results = { success: 0, errors: [] };
+		
+		for (const category of data) {
+			try {
+				// Helper functions
+				const parseBoolean = (value) => {
+					if (typeof value === 'string') {
+						return value.toLowerCase() === 'true';
+					}
+					return Boolean(value);
+				};
+
+				const parseNumber = (value) => {
+					const num = parseFloat(value);
+					return isNaN(num) ? 0 : num;
+				};
+
+				const categoryData = {
+					name: category.name.replace(/"/g, ''),
+					icon: category.icon || '🍴',
+					color: category.color || '#6B7280',
+					sort_order: parseNumber(category.sort_order),
+					active: parseBoolean(category.active),
+					description: category.description ? category.description.replace(/"/g, '') : ''
+				};
+				
+				await pb.collection('menu_categories').create(categoryData);
+				results.success++;
+			} catch (error) {
+				results.errors.push(`${category.name}: ${error.message}`);
+			}
+		}
+		
+		return results;
+	}
+
+	async function processMenuModifiersData(data) {
+		const results = { success: 0, errors: [] };
+		
+		for (const modifier of data) {
+			try {
+				// Helper functions
+				const parseBoolean = (value) => {
+					if (typeof value === 'string') {
+						return value.toLowerCase() === 'true';
+					}
+					return Boolean(value);
+				};
+
+				const parseNumber = (value) => {
+					const num = parseFloat(value);
+					return isNaN(num) ? 0 : num;
+				};
+
+				const modifierData = {
+					name: modifier.name.replace(/"/g, ''),
+					type: modifier.type || 'add_on',
+					price_change: parseNumber(modifier.price_change),
+					required: parseBoolean(modifier.required),
+					sort_order: parseNumber(modifier.sort_order)
+				};
+				
+				await pb.collection('menu_modifiers').create(modifierData);
+				results.success++;
+			} catch (error) {
+				results.errors.push(`${modifier.name}: ${error.message}`);
 			}
 		}
 		
@@ -438,13 +542,19 @@
 				case 'menu_collection':
 					results = await processMenuData(data);
 					break;
+				case 'menu_categories':
+					results = await processMenuCategoriesData(data);
+					break;
+				case 'menu_modifiers':
+					results = await processMenuModifiersData(data);
+					break;
 				case 'vendors_collection':
 					results = await processVendorsData(data);
 					break;
 				case 'events_collection':
 					results = await processEventsData(data);
 					break;
-				case 'shifts_collection':
+				case 'pb_shifts_colle':
 					results = await processShiftsData(data);
 					break;
 				case 'sections_collection':

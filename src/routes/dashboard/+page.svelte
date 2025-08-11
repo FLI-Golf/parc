@@ -9,9 +9,11 @@
 	
 	// Check if user is logged in and redirect to role-specific dashboard
 	onMount(async () => {
+		let handled = false;
 		const unsubscribe = authStore.subscribe((auth) => {
+			if (handled) return;
 			if (!auth.isLoggedIn && !auth.isLoading) {
-				// Redirect to login if not authenticated
+				handled = true;
 				goto('/');
 				return;
 			}
@@ -23,11 +25,12 @@
 				// Redirect to role-specific dashboard
 				const userRole = auth.role?.toLowerCase();
 				if (userRole === 'manager' || userRole === 'owner') {
+					handled = true;
 					goto('/dashboard/manager');
 				} else if (['server', 'host', 'bartender', 'busser', 'chef', 'kitchen_prep', 'dishwasher'].includes(userRole)) {
+					handled = true;
 					goto('/dashboard/server');
 				} else {
-					// For users without specific roles or unknown roles
 					console.log('User role:', auth.role);
 				}
 			}

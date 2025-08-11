@@ -4,7 +4,7 @@
 	import { goto } from '$app/navigation';
 	
 	// Initialize PocketBase client
-	const pb = new PocketBase('https://pocketbase-app-1753896437.fly.dev');
+	const pb = new PocketBase('https://pocketbase-production-7050.up.railway.app');
 	
 	let name = '';
 	let email = '';

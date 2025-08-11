@@ -1,10 +1,7 @@
 <script>
 	import { onMount } from 'svelte';
-	import PocketBase from 'pocketbase';
 	import { goto } from '$app/navigation';
-	
-	// Initialize PocketBase client
-	const pb = new PocketBase('https://pocketbase-app-1753896437.fly.dev');
+	import pb from '$lib/pocketbase.js';
 	
 	let email = '';
 	let password = '';
@@ -13,8 +10,9 @@
 	
 	// Check if user is already logged in
 	onMount(async () => {
-		if (pb.authStore.isValid) {
-			// Redirect to dashboard or appropriate page
+		let redirected = false;
+		if (pb.authStore.isValid && !redirected) {
+			redirected = true;
 			goto('/dashboard');
 		}
 	});

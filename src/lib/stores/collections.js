@@ -6,6 +6,8 @@ export const inventoryItems = writable([]);
 export const staff = writable([]);
 export const shifts = writable([]);
 export const menuItems = writable([]);
+export const menuCategories = writable([]);
+export const menuModifiers = writable([]);
 export const vendors = writable([]);
 export const events = writable([]);
 export const maintenanceTasks = writable([]);
@@ -14,6 +16,11 @@ export const maintenanceRecords = writable([]);
 export const sections = writable([]);
 export const tables = writable([]);
 export const tableUpdates = writable([]);
+export const tickets = writable([]);
+export const ticketItems = writable([]);
+export const payments = writable([]);
+export const completedOrders = writable([]);
+export const spoils = writable([]);
 
 // Loading states
 export const loading = writable({
@@ -21,6 +28,8 @@ export const loading = writable({
 	staff: false,
 	shifts: false,
 	menu: false,
+	menuCategories: false,
+	menuModifiers: false,
 	vendors: false,
 	events: false,
 	maintenance: false,
@@ -28,7 +37,12 @@ export const loading = writable({
 	records: false,
 	sections: false,
 	tables: false,
-	tableUpdates: false
+	tableUpdates: false,
+	tickets: false,
+	ticketItems: false,
+	payments: false,
+	completedOrders: false,
+		spoils: false
 });
 
 // Collection service functions
@@ -242,6 +256,64 @@ export const collections = {
 			menuItems.update(items => items.filter(item => item.id !== id));
 		} catch (error) {
 			console.error('Error deleting menu item:', error);
+			throw error;
+		}
+	},
+
+	// Menu Categories
+	async getMenuCategories() {
+		try {
+			loading.update(state => ({ ...state, menuCategories: true }));
+			const records = await pb.collection('menu_categories').getFullList({
+				sort: '+sort_order'
+			});
+			menuCategories.set(records);
+			return records;
+		} catch (error) {
+			console.error('Error fetching menu categories:', error);
+			menuCategories.set([]);
+			return [];
+		} finally {
+			loading.update(state => ({ ...state, menuCategories: false }));
+		}
+	},
+
+	async createMenuCategory(data) {
+		try {
+			const record = await pb.collection('menu_categories').create(data);
+			menuCategories.update(items => [...items, record]);
+			return record;
+		} catch (error) {
+			console.error('Error creating menu category:', error);
+			throw error;
+		}
+	},
+
+	// Menu Modifiers
+	async getMenuModifiers() {
+		try {
+			loading.update(state => ({ ...state, menuModifiers: true }));
+			const records = await pb.collection('menu_modifiers').getFullList({
+				sort: '+sort_order'
+			});
+			menuModifiers.set(records);
+			return records;
+		} catch (error) {
+			console.error('Error fetching menu modifiers:', error);
+			menuModifiers.set([]);
+			return [];
+		} finally {
+			loading.update(state => ({ ...state, menuModifiers: false }));
+		}
+	},
+
+	async createMenuModifier(data) {
+		try {
+			const record = await pb.collection('menu_modifiers').create(data);
+			menuModifiers.update(items => [...items, record]);
+			return record;
+		} catch (error) {
+			console.error('Error creating menu modifier:', error);
 			throw error;
 		}
 	},
@@ -519,6 +591,19 @@ export const collections = {
 		}
 	},
 
+	async updateTicketItem(itemId, data) {
+		try {
+			const record = await pb.collection('ticket_items_collection').update(itemId, data);
+			ticketItems.update(items => items.map(item => 
+				item.id === itemId ? record : item
+			));
+			return record;
+		} catch (error) {
+			console.error('Error updating ticket item:', error);
+			throw error;
+		}
+	},
+
 	// Sections
 	async getSections() {
 		try {
@@ -624,6 +709,313 @@ export const collections = {
 			return record;
 		} catch (error) {
 			console.error('Error creating table update:', error);
+			throw error;
+		}
+	},
+
+	// Tickets
+	async getTickets() {
+		try {
+			loading.update(state => ({ ...state, tickets: true }));
+			const records = await pb.collection('tickets_collection').getFullList({
+				expand: 'table_id,server_id',
+				sort: '-created'
+			});
+			tickets.set(records);
+			return records;
+		} catch (error) {
+			console.error('Error fetching tickets:', error);
+			tickets.set([]);
+			return [];
+		} finally {
+			loading.update(state => ({ ...state, tickets: false }));
+		}
+	},
+
+	async createTicket(data) {
+		try {
+			// Generate ticket number
+			const ticketNumber = `T${Date.now().toString().slice(-6)}`;
+			const ticketData = {
+				...data,
+				ticket_number: ticketNumber,
+				status: 'open',
+				subtotal_amount: 0,
+				tax_amount: 0,
+				tip_amount: 0,
+				total_amount: 0
+			};
+			
+			const record = await pb.collection('tickets_collection').create(ticketData, {
+			expand: 'table_id,server_id'
+			});
+			tickets.update(items => [record, ...items]);
+			return record;
+		} catch (error) {
+			console.error('Error creating ticket:', error);
+			throw error;
+		}
+	},
+
+	async updateTicket(id, data) {
+		try {
+			const record = await pb.collection('tickets_collection').update(id, data, {
+			expand: 'table_id,server_id'
+			});
+			tickets.update(items => 
+				items.map(item => item.id === id ? record : item)
+			);
+			return record;
+		} catch (error) {
+			console.error('Error updating ticket:', error);
+			throw error;
+		}
+	},
+
+	// Ticket Items
+	async getTicketItems(ticketId = null) {
+		try {
+			loading.update(state => ({ ...state, ticketItems: true }));
+			const filter = ticketId ? `ticket_id="${ticketId}"` : '';
+			const records = await pb.collection('ticket_items_collection').getFullList({
+			expand: 'ticket_id,menu_item_id',
+			filter,
+			sort: 'created'
+			});
+			ticketItems.set(records);
+			return records;
+		} catch (error) {
+			console.error('Error fetching ticket items:', error);
+			ticketItems.set([]);
+			return [];
+		} finally {
+			loading.update(state => ({ ...state, ticketItems: false }));
+		}
+	},
+
+	async addTicketItem(data) {
+		try {
+			const itemData = {
+				ticket_id: data.ticket_id,
+				menu_item_id: data.menu_item_id,
+				quantity: data.quantity,
+				unit_price: data.unit_price,
+				total_price: data.total_price,
+				modifications: data.modifications,
+				course: data.course,
+				kitchen_station: data.kitchen_station,
+				status: 'ordered',
+				ordered_at: new Date().toISOString()
+			};
+			
+			const record = await pb.collection('ticket_items_collection').create(itemData, {
+				expand: 'ticket_id,menu_item_id'
+			});
+			ticketItems.update(items => [record, ...items]);
+			
+			// Update ticket totals
+			await this.recalculateTicketTotals(data.ticket_id);
+			
+			return record;
+		} catch (error) {
+			console.error('Error adding ticket item:', error);
+			throw error;
+		}
+	},
+
+	async updateTicketItem(id, data) {
+		try {
+			const record = await pb.collection('ticket_items_collection').update(id, data, {
+			expand: 'ticket_id,menu_item_id'
+			});
+			ticketItems.update(items => 
+				items.map(item => item.id === id ? record : item)
+			);
+			return record;
+		} catch (error) {
+			console.error('Error updating ticket item:', error);
+			throw error;
+		}
+	},
+
+	async removeTicketItem(id) {
+		try {
+			// Try to get the item from the correct collection first
+			let item = null;
+			let ticketId = null;
+			
+			try {
+				item = await pb.collection('ticket_items_collection').getOne(id);
+				ticketId = item.ticket_id;
+			} catch (getError) {
+				console.warn('Item not found in ticket_items_collection, trying ticket_items:', getError);
+				// Try the other collection name as fallback
+				try {
+					item = await pb.collection('ticket_items').getOne(id);
+					ticketId = item.ticket_id;
+				} catch (fallbackError) {
+					console.error('Item not found in either collection:', fallbackError);
+					// Still try to remove from local state
+					ticketItems.update(items => items.filter(item => item.id !== id));
+					return;
+				}
+			}
+			
+			// Try to delete from the collection where we found it
+			try {
+				if (item) {
+					await pb.collection('ticket_items_collection').delete(id);
+				}
+			} catch (deleteError) {
+				console.warn('Failed to delete from ticket_items_collection, trying ticket_items:', deleteError);
+				try {
+					await pb.collection('ticket_items').delete(id);
+				} catch (fallbackDeleteError) {
+					console.error('Failed to delete from both collections:', fallbackDeleteError);
+				}
+			}
+			
+			// Always update local state regardless
+			ticketItems.update(items => items.filter(item => item.id !== id));
+			
+			// Update ticket totals if we have a ticket ID
+			if (ticketId) {
+				await this.recalculateTicketTotals(ticketId);
+			}
+		} catch (error) {
+			console.error('Error removing ticket item:', error);
+			// Don't throw the error, just log it and update local state
+			ticketItems.update(items => items.filter(item => item.id !== id));
+		}
+	},
+
+	async recalculateTicketTotals(ticketId) {
+		try {
+			const items = await pb.collection('ticket_items_collection').getFullList({
+				filter: `ticket_id="${ticketId}"`
+			});
+			
+			const subtotal = items.reduce((sum, item) => sum + (item.total_price || 0), 0);
+			const taxRate = 0.09; // 9% tax rate
+			const taxAmount = subtotal * taxRate;
+			const totalAmount = subtotal + taxAmount;
+			
+			return await this.updateTicket(ticketId, {
+				subtotal_amount: subtotal,
+				tax_amount: taxAmount,
+				total_amount: totalAmount
+			});
+		} catch (error) {
+			console.error('Error recalculating ticket totals:', error);
+			throw error;
+		}
+	},
+
+	// Completed Orders
+	async getCompletedOrders() {
+		try {
+			loading.update(state => ({ ...state, completedOrders: true }));
+			const records = await pb.collection('completed_orders').getFullList({
+				sort: '-completed_at',
+				expand: 'table_id,server_id'
+			});
+			completedOrders.set(records);
+			return records;
+		} catch (error) {
+			console.error('Error fetching completed orders:', error);
+			throw error;
+		} finally {
+			loading.update(state => ({ ...state, completedOrders: false }));
+		}
+	},
+
+	async createCompletedOrder(data) {
+		try {
+			const record = await pb.collection('completed_orders').create(data);
+			completedOrders.update(items => [record, ...items]);
+			return record;
+		} catch (error) {
+			console.error('Error creating completed order:', error);
+			throw error;
+		}
+	},
+
+	async createPayment(data) {
+		try {
+			const record = await pb.collection('payments').create(data);
+			console.log('Payment record created:', record);
+			return record;
+		} catch (error) {
+			console.error('Error creating payment record:', error);
+			throw error;
+		}
+	},
+
+	// Spoils (returned/wasted items)
+	async getSpoils() {
+		try {
+			loading.update((s) => ({ ...s, spoils: true }));
+			const records = await pb.collection('spoils').getFullList({
+				sort: '-created',
+				expand: 'ticket_item_id,ticket_id,menu_item_id,user_id,staff_id'
+			});
+			spoils.set(records);
+			return records;
+		} catch (error) {
+			console.error('Error fetching spoils:', error);
+			throw error;
+		} finally {
+			loading.update((s) => ({ ...s, spoils: false }));
+		}
+	},
+	async updateSpoil(id, data) {
+		try {
+			const record = await pb.collection('spoils').update(id, data);
+			spoils.update(list => list.map(s => s.id === id ? record : s));
+			return record;
+		} catch (error) {
+			console.error('Error updating spoil:', error);
+			throw error;
+		}
+	},
+	async createSpoil({
+		ticketItemId,
+		ticketId,
+		menuItemId,
+		userId,
+		staffId = null,
+		quantity = 1,
+		spoilType = 'returned',
+		source = 'bar',
+		status = 'open',
+		reasonText = '',
+		costEstimate = null,
+		occurredAt = null,
+		metadata = null
+	}) {
+		try {
+			const isoOccurred = occurredAt ? new Date(occurredAt).toISOString() : undefined;
+			const data = {
+				ticket_item_id: ticketItemId,
+				ticket_id: ticketId || undefined,
+				menu_item_id: menuItemId || undefined,
+				user_id: userId,
+				staff_id: staffId || undefined,
+				quantity_field: Number(quantity),
+				spoil_type: spoilType,
+				source: source,
+				status: status,
+				reason_text: reasonText || undefined,
+				cost_estimate: costEstimate != null ? Number(costEstimate) : undefined,
+				occurred_at: isoOccurred,
+				metadata: metadata ? (typeof metadata === 'string' ? metadata : JSON.stringify(metadata)) : undefined
+			};
+			console.log('🧪 Spoils create json data:', data);
+			const record = await pb.collection('spoils').create(data);
+			spoils.update(items => [record, ...items]);
+			return record;
+		} catch (error) {
+			try { console.error('Error creating spoil record:', error?.data || error); } catch {}
 			throw error;
 		}
 	}
