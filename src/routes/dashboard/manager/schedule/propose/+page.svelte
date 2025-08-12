@@ -459,7 +459,7 @@
               <tbody class="text-gray-200">
                 {#each proposal.shifts as s}
                   <tr class="border-t border-gray-700">
-                    <td class="p-2">{(s.staff_name || s.staff_id) + ' • ' + (s.position || '')}</td>
+                    <td class="p-2">{(s.staff_name || s.staff_id) + ' • ' + (s.position || (s.shift_type === 'brunch' ? 'server' : ''))}</td>
                     <td class="p-2">
                       <input type="date" bind:value={s.shift_date} class="bg-gray-700 border border-gray-600 rounded px-2 py-1" />
                       {#if s.shift_type === 'brunch' && !isSunday(s.shift_date)}
@@ -484,7 +484,7 @@
                 <div class="text-xs text-gray-400 mb-2">{day}</div>
                 {#each proposal.shifts.filter(s => s.shift_date === day) as s}
                   <div class="mb-2 bg-gray-700 rounded p-2">
-                    <div class="text-xs text-gray-300 truncate">{s.staff_name || s.staff_id} • {s.position}</div>
+                    <div class="text-xs text-gray-300 truncate">{s.staff_name || s.staff_id} • {s.position || (s.shift_type === 'brunch' ? 'server' : '')}</div>
                     <div class="text-xs">{s.start_time}–{s.end_time} • {s.section_code}</div>
                     {#if s.shift_type === 'brunch'}
                       <div class="text-[10px] text-yellow-300">Brunch</div>
