@@ -263,7 +263,7 @@
             const st = pickStaff(staffList, 'bartender', idx * 1000 + b);
             shifts.push({
               staff_id: st.id, staff_name: st.name, shift_date: week[idx], start_time: cfg.barNights.start || '18:00', end_time: cfg.barNights.end || '24:00',
-              position: 'bartender', section_code: 'BAR', shift_type: 'bar', notes: 'Bar night'
+              position: 'bartender', section_code: 'BAR', shift_type: 'dinner', notes: 'Bar night'
             });
           }
         }

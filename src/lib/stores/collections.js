@@ -223,9 +223,11 @@ export const collections = {
 				throw Object.assign(new Error(`Missing required shift fields: ${missing.join(', ')}`), { data: { missing } });
 			}
 			// Sanitize shift_type to allowed values if present
-			const allowedShiftTypes = new Set(['brunch','lunch','dinner','bar']);
-			if (payload.shift_type && !allowedShiftTypes.has(String(payload.shift_type).toLowerCase())) {
-				delete payload.shift_type;
+			const allowedShiftTypes = new Set(['brunch','lunch','dinner']);
+			if (payload.shift_type) {
+				const st = String(payload.shift_type).toLowerCase();
+				if (st === 'bar') payload.shift_type = 'dinner';
+				else if (!allowedShiftTypes.has(st)) delete payload.shift_type;
 			}
 			let record;
 			let collectionUsed = 'shifts_collection';
