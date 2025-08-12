@@ -212,7 +212,7 @@
             const st = pickStaff(staffList, pos, i * 10 + c);
             shifts.push({
               staff_id: st.id, staff_name: st.name, shift_date: week[i], start_time: '11:00', end_time: '17:00',
-              position: pos, section_code: c % 2 ? 'B' : (pos === 'bartender' ? 'BAR' : 'A'), shift_type: 'regular', notes: 'Lunch (weekday)'
+              position: pos, section_code: c % 2 ? 'B' : (pos === 'bartender' ? 'BAR' : 'A'), shift_type: 'lunch', notes: 'Lunch (weekday)'},
             });
           }
         }
@@ -221,7 +221,7 @@
             const st = pickStaff(staffList, pos, i * 100 + c);
             shifts.push({
               staff_id: st.id, staff_name: st.name, shift_date: week[i], start_time: '14:00', end_time: '23:00',
-              position: pos, section_code: c % 2 ? 'B' : (pos === 'bartender' ? 'BAR' : 'A'), shift_type: 'regular', notes: 'Dinner (weekday)'
+              position: pos, section_code: c % 2 ? 'B' : (pos === 'bartender' ? 'BAR' : 'A'), shift_type: 'dinner', notes: 'Dinner (weekday)'
             });
           }
         }
@@ -236,7 +236,7 @@
             const st = pickStaff(staffList, pos, i * 20 + c);
             shifts.push({
               staff_id: st.id, staff_name: st.name, shift_date: week[i], start_time: '11:00', end_time: '17:00',
-              position: pos, section_code: c % 2 ? 'B' : (pos === 'bartender' ? 'BAR' : 'A'), shift_type: 'regular', notes: 'Lunch (weekend)'
+              position: pos, section_code: c % 2 ? 'B' : (pos === 'bartender' ? 'BAR' : 'A'), shift_type: 'lunch', notes: 'Lunch (weekend)'
             });
           }
         }
@@ -245,7 +245,7 @@
             const st = pickStaff(staffList, pos, i * 200 + c);
             shifts.push({
               staff_id: st.id, staff_name: st.name, shift_date: week[i], start_time: '14:00', end_time: '23:00',
-              position: pos, section_code: c % 2 ? 'B' : (pos === 'bartender' ? 'BAR' : 'A'), shift_type: 'regular', notes: 'Dinner (weekend)'
+              position: pos, section_code: c % 2 ? 'B' : (pos === 'bartender' ? 'BAR' : 'A'), shift_type: 'dinner', notes: 'Dinner (weekend)'
             });
           }
         }
@@ -262,7 +262,7 @@
             const st = pickStaff(staffList, 'bartender', idx * 1000 + b);
             shifts.push({
               staff_id: st.id, staff_name: st.name, shift_date: week[idx], start_time: cfg.barNights.start || '18:00', end_time: cfg.barNights.end || '24:00',
-              position: 'bartender', section_code: 'BAR', shift_type: 'regular', notes: 'Bar night'
+              position: 'bartender', section_code: 'BAR', shift_type: 'bar', notes: 'Bar night'
             });
           }
         }
