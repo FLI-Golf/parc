@@ -1,5 +1,5 @@
 // @ts-nocheck
-import { writable } from 'svelte/store';
+import { writable, get } from 'svelte/store';
 import pb from '../pocketbase.js';
 
 // Collection stores (typed to avoid never[] inference)
@@ -184,7 +184,7 @@ export const collections = {
 		try {
 			// Approvals allowed any day; enforce brunch-on-Sunday via caller
 			// Map UI draft fields to PocketBase schema and strip unknowns
-			const payload = {
+			let payload = {
 				staff_member: data.staff_member || data.staff_id || null,
 				shift_date: data.shift_date,
 				start_time: data.start_time,
@@ -196,9 +196,20 @@ export const collections = {
 				assigned_section: data.assigned_section || null,
 				shift_type: data.shift_type || 'regular'
 			};
+			// Map section_code -> assigned_section id if available
+			if (!payload.assigned_section && data.section_code) {
+				try {
+					const allSections = get(sections) || [];
+					const match = allSections.find(s => (s.section_code || s.code || s.name) === data.section_code);
+					if (match?.id) payload.assigned_section = match.id;
+				} catch {}
+			}
+			// Prune null/undefined optional fields
+			payload = Object.fromEntries(Object.entries(payload).filter(([k, v]) => v !== null && v !== undefined));
 			// Basic required validation to avoid 400s
 			if (!payload.staff_member || !payload.shift_date || !payload.start_time || !payload.end_time || !payload.position || !payload.status) {
-				throw new Error('Missing required shift fields');
+				const missing = ['staff_member','shift_date','start_time','end_time','position','status'].filter(k => !payload[k]);
+				throw Object.assign(new Error(`Missing required shift fields: ${missing.join(', ')}`), { data: { missing } });
 			}
 			let record;
 			let collectionUsed = 'shifts_collection';

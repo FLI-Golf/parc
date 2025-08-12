@@ -286,8 +286,20 @@
 
     try {
       for (const row of proposal.shifts) {
-        // Map staff_id -> staff_member as expected by PocketBase
-        const payload = { ...row, staff_member: row.staff_id };
+        // Map to backend shape; omit UI-only fields
+        const payload = {
+          staff_member: row.staff_id,
+          shift_date: row.shift_date,
+          start_time: row.start_time,
+          end_time: row.end_time,
+          break_duration: row.break_duration ?? 0,
+          position: row.position || 'server',
+          status: row.status || 'scheduled',
+          notes: row.notes || '',
+          assigned_section: row.assigned_section || undefined,
+          shift_type: row.shift_type || 'regular',
+          section_code: row.section_code || undefined // for helper mapping in collections
+        };
         await collections.createShift(payload);
       }
       await collections.getShifts();
