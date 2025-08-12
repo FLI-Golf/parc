@@ -212,7 +212,8 @@
             const st = pickStaff(staffList, pos, i * 10 + c);
             shifts.push({
               staff_id: st.id, staff_name: st.name, shift_date: week[i], start_time: '11:00', end_time: '17:00',
-              position: pos, section_code: c % 2 ? 'B' : (pos === 'bartender' ? 'BAR' : 'A'), shift_type: 'lunch', notes: 'Lunch (weekday)'},
+              position: pos, section_code: c % 2 ? 'B' : (pos === 'bartender' ? 'BAR' : 'A'), shift_type: 'lunch', notes: 'Lunch (weekday)'
+
             });
           }
         }
