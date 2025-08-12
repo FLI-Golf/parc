@@ -3,9 +3,10 @@ import { OPENAI_API_KEY } from '$env/static/private';
 import pb from '$lib/pocketbase';
 
 // Simple guard to ensure server has the API key configured
-function assertKey() {
+function assertKeyOrReturn401() {
   if (!OPENAI_API_KEY) {
-    throw new Error('OPENAI_API_KEY is not set on the server. Configure it in your server environment.');
+    // Throw a typed object the POST handler will map to a 401
+    throw { status: 401, message: 'OPENAI_API_KEY is missing on the server. Set it in the server environment.' } as any;
   }
 }
 
@@ -48,7 +49,7 @@ async function buildPrompt(params: any) {
 }
 
 async function callOpenAI(prompt: { sys: string; usr: string }) {
-  assertKey();
+  assertKeyOrReturn401();
   const res = await fetch('https://api.openai.com/v1/chat/completions', {
     method: 'POST',
     headers: {
@@ -67,6 +68,9 @@ async function callOpenAI(prompt: { sys: string; usr: string }) {
   });
   if (!res.ok) {
     const text = await res.text();
+    if (res.status === 401) {
+      throw { status: 401, message: `OpenAI unauthorized: ${text}` } as any;
+    }
     throw new Error(`OpenAI error ${res.status}: ${text}`);
   }
   const data = await res.json();
@@ -113,6 +117,9 @@ export async function POST({ request }) {
 
     return json({ proposal: record.proposal, proposal_id: record.id ?? null });
   } catch (e: any) {
+    if (e?.status === 401) {
+      return json({ error: e?.message ?? 'Unauthorized' }, { status: 401 });
+    }
     return json({ error: e?.message ?? 'Internal error' }, { status: 500 });
   }
 }

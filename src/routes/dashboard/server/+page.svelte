@@ -8,15 +8,16 @@
 
 	let activeTab = 'today';
 	let orderTab = 'current'; // 'current' or 'history'
-	let completedOrders = []; // Store completed order history
+	/** @type {any[]} */ let completedOrders = []; // Store completed order history
 	let showHistoryModal = false;
-	let user = null;
+	/** @type {any} */ let user = null;
 	let forcePaymentEnabled = false; // Server override for payment when items aren't ready
 
 	// Shift timer state
+	/** @type {Map<string, { startTime: Date, breakNotified?: boolean }>} */
 	let shiftTimers = new Map(); // Map of shiftId -> timer data
 	let currentTime = new Date();
-	let timeInterval;
+	/** @type {any} */ let timeInterval;
 
 	// Reactive declarations
 	$: myShifts = $shifts.filter(shift => {
@@ -235,7 +236,7 @@
 		const timer = shiftTimers.get(shiftId);
 		if (!timer) return null;
 		
-		const duration = currentTime - timer.startTime;
+		const duration = (currentTime.getTime() - timer.startTime.getTime());
 		const hours = Math.floor(duration / (1000 * 60 * 60));
 		const minutes = Math.floor((duration % (1000 * 60 * 60)) / (1000 * 60));
 		return { hours, minutes, duration };
@@ -246,7 +247,7 @@
 		const shift = todayShifts.find(s => s.id === shiftId);
 		if (!timer || !shift) return null;
 		
-		const elapsed = currentTime - timer.startTime;
+		const elapsed = ((currentTime as any as Date).getTime() - (timer.startTime as any as Date).getTime());
 		const threeHours = 3 * 60 * 60 * 1000; // 3 hours in milliseconds
 		
 		// Calculate elapsed time
@@ -315,7 +316,7 @@
 					};
 				}
 				
-				const timeToEnd = endTime - currentTime;
+				const timeToEnd = (endTime.getTime() - currentTime.getTime());
 				const hours = Math.floor(timeToEnd / (1000 * 60 * 60));
 				const minutes = Math.floor((timeToEnd % (1000 * 60 * 60)) / (1000 * 60));
 				const seconds = Math.floor((timeToEnd % (1000 * 60)) / 1000);
@@ -352,7 +353,7 @@
 		const timer = shiftTimers.get(shiftId);
 		if (!timer || timer.breakReminded) return false;
 		
-		const duration = currentTime - timer.startTime;
+		const duration = (currentTime.getTime() - timer.startTime.getTime());
 		const threeHours = 3 * 60 * 60 * 1000; // 3 hours in milliseconds
 		
 		if (duration >= threeHours && !timer.breakReminded) {
@@ -374,7 +375,7 @@
 		const timer = shiftTimers.get(shiftId);
 		if (!timer) return false;
 		
-		const duration = currentTime - timer.startTime;
+		const duration = (currentTime.getTime() - timer.startTime.getTime());
 		const threeHours = 3 * 60 * 60 * 1000; // 3 hours in milliseconds
 		return duration > threeHours;
 	}
@@ -642,31 +643,31 @@
 	
 	// Ticket management state
 	let showTicketModal = false;
-	let selectedTable = null;
-	let currentTicket = null;
-	let currentTicketItems = [];
-	let selectedMenuItem = null;
+	/** @type {any} */ let selectedTable = null;
+	/** @type {any} */ let currentTicket = null;
+	/** @type {any[]} */ let currentTicketItems = [];
+	/** @type {any} */ let selectedMenuItem = null;
 	let showItemModal = false;
-	let selectedModifiers = [];
+	/** @type {any[]} */ let selectedModifiers = [];
 	let itemQuantity = 1;
 	let specialInstructions = '';
-	let selectedSeat = null;
-	let seatNames = {}; // Map of seat numbers to names
+	/** @type {number | null} */ let selectedSeat = null;
+	/** @type {Record<number, string>} */ let seatNames = {}; // Map of seat numbers to names
 	
 	// Item edit modal state
 	let showEditItemModal = false;
-	let editingItem = null;
+	/** @type {any} */ let editingItem = null;
 	let editQuantity = 1;
-	let editModifiers = [];
+	/** @type {any[]} */ let editModifiers = [];
 	let editSpecialInstructions = '';
-	let editSeat = null;
+	/** @type {number | null} */ let editSeat = null;
 	
 	// Dynamic seat management  
 	let maxSeats = 10; // Default max seats (expandable) - generous for walk-ins
 	
 	// Voice recognition state
 	let isRecording = false;
-	let recognition = null;
+	/** @type {any} */ let recognition = null;
 	let speechSupported = false;
 	let isRecordingEdit = false;
 	let isRecordingSearch = false;
@@ -681,7 +682,7 @@
 	$: calculatedTotal = calculatedSubtotal + calculatedTax;
 	
 	// Reactive: Update bar orders when ticket items change (debounced)
-	let barOrdersUpdateTimeout;
+	/** @type {any} */ let barOrdersUpdateTimeout;
 	$: if ($ticketItems && user?.role?.toLowerCase() === 'bartender') {
 		// Debounce to prevent excessive updates
 		clearTimeout(barOrdersUpdateTimeout);
@@ -712,6 +713,7 @@
 	}
 	let guestCount = 2;
 	// Category selection for filtering (multi-select checkboxes)
+	/** @type {Record<string, boolean>} */
 	let selectedCategories = {
 		brunch: false,
 		lunch: false,
@@ -1447,7 +1449,7 @@
 			const menuItem = $menuItems.find(m => m.id === item.menu_item_id);
 			const prepTime = menuItem?.preparation_time || 12;
 			const orderedAt = new Date(item.ordered_at);
-			const elapsed = Math.floor((now - orderedAt) / (1000 * 60));
+			const elapsed = Math.floor((now.getTime() - orderedAt.getTime()) / (1000 * 60));
 			return Math.max(0, prepTime - elapsed);
 		}));
 		
@@ -1583,20 +1585,20 @@
 	}
 
 	// Show table order details modal
-	let showTableDetailsModal = false;
-	let selectedTableDetails = null;
+	/** @type {boolean} */ let showTableDetailsModal = false;
+	/** @type {any} */ let selectedTableDetails = null;
 	
 	// Bar orders for bartenders
-	let barOrders = [];
+	/** @type {any[]} */ let barOrders = [];
 	
 	// Payment processing
-	let showPaymentModal = false;
-	let selectedTableForPayment = null;
+	/** @type {boolean} */ let showPaymentModal = false;
+	/** @type {any} */ let selectedTableForPayment = null;
 	let paymentAmount = 0;
 	let paymentMethod = 'card';
-	let stripe = null;
-	let cardElement = null;
-	let stripeElements = null;
+	/** @type {any} */ let stripe = null;
+	/** @type {any} */ let cardElement = null;
+	/** @type {any} */ let stripeElements = null;
 	
 	// Tip handling
 	let tipAmount = 0;
@@ -1611,7 +1613,7 @@
 	
 	// Payment workflow state
 	let paymentWorkflowStep = 'initial'; // 'initial', 'card_authorized', 'awaiting_tip', 'finalizing'
-	let authorizedPaymentIntent = null;
+	/** @type {any} */ let authorizedPaymentIntent = null;
 	let authorizedAmount = 0;
 
 	function showTableOrderDetails(table) {
@@ -1664,7 +1666,7 @@
 				.map(item => {
 					const orderedAt = new Date(item.ordered_at);
 					const preparedAt = item.prepared_at ? new Date(item.prepared_at) : null;
-					const elapsedMinutes = Math.floor((now - orderedAt) / (1000 * 60));
+					const elapsedMinutes = Math.floor((now.getTime() - orderedAt.getTime()) / (1000 * 60));
 					const estimatedMinutes = 3; // Bar items typically 3 minutes
 					const remainingMinutes = Math.max(0, estimatedMinutes - elapsedMinutes);
 					
@@ -1674,7 +1676,7 @@
 						new Date(orderedAt.getTime() + 10 * 60 * 1000); // 10 minutes after ordered if not ready yet
 					
 					const shouldDisplay = now < displayUntil;
-					const minutesUntilHidden = Math.max(0, Math.floor((displayUntil - now) / (1000 * 60)));
+					const minutesUntilHidden = Math.max(0, Math.floor((displayUntil.getTime() - now.getTime()) / (1000 * 60)));
 					
 					console.log(`🍹 DEBUG Item ${item.id}:`, {
 						status: item.status,
@@ -3639,7 +3641,7 @@
 											</button>
 										{:else}
 											{@const timer = shiftTimers.get(shift.id)}
-											{@const elapsed = currentTime - timer.startTime}
+											{@const elapsed = (currentTime.getTime() - timer.startTime.getTime())}
 											{@const threeHours = 3 * 60 * 60 * 1000}
 											{@const atBreakTime = elapsed >= threeHours && !timer.breakReminded}
 											
@@ -4058,7 +4060,7 @@
 									
 									const orderedAt = new Date(item.ordered_at);
 									const now = new Date();
-									const elapsed = Math.floor((now - orderedAt) / (1000 * 60));
+									const elapsed = Math.floor((now.getTime() - orderedAt.getTime()) / (1000 * 60));
 									const remaining = Math.max(0, prepTime - elapsed);
 									
 									// Calculate realistic status based on elapsed time
@@ -5166,7 +5168,7 @@
 							}
 						})()}
 						{@const orderedAt = new Date(item.ordered_at)}
-						{@const elapsed = Math.floor((currentTime - orderedAt) / (1000 * 60))}
+						{@const elapsed = Math.floor((currentTime.getTime() - orderedAt.getTime()) / (1000 * 60))}
 						{@const remaining = Math.max(0, prepTime - elapsed)}
 						{@const calculatedStatus = (() => {
 							if (item.status !== 'sent_to_kitchen') return item.status;

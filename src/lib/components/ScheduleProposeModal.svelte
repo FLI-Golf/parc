@@ -61,9 +61,7 @@
 </script>
 
 {#if open}
-  <div class="fixed inset-0 bg-black/60 z-[9999] flex items-center justify-center">
-    <!-- DEBUG: bright box to confirm overlay visibility -->
-    <div style="position:absolute;top:12px;left:12px;width:300px;height:200px;background:red;opacity:0.6;border:3px solid white;z-index:10000;pointer-events:none;">DEBUG OVERLAY</div>
+  <div class="fixed inset-0 bg-black/60 z-[99999] flex items-center justify-center">
 
     <div class="bg-gray-900 text-gray-100 border border-gray-700 rounded-xl w-full max-w-4xl max-h-[90vh] overflow-auto shadow-xl shadow-black/50">
       <div class="p-4 border-b border-gray-700 flex items-center justify-between">

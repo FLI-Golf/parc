@@ -30,6 +30,7 @@
 	import EventModal from "$lib/components/EventModal.svelte";
 	import MaintenanceModal from "$lib/components/MaintenanceModal.svelte";
 	import ScheduleProposeModal from "$lib/components/ScheduleProposeModal.svelte";
+	import { portal } from "$lib/actions/portal";
 	let showScheduleModal = false;
 
 	let activeTab = "overview";
@@ -626,13 +627,15 @@
 									"Tables collection not yet set up"
 								)
 							),
-						collections
-							.getTableUpdates()
-							.catch(() =>
-								console.log(
-									"Table updates collection not yet set up"
-								)
-							),
+						// Defer table updates on overview to avoid unnecessary load
+						// (Enable when a Table Activity panel is opened)
+						// collections
+						// 	.getTableUpdates()
+						// 	.catch(() =>
+						// 		console.log(
+						// 			"Table updates collection not yet set up"
+						// 		)
+						// ),
 						// Load maintenance data if collections exist
 						collections
 							.getMaintenanceTasks()
@@ -1038,27 +1041,22 @@
 						</svg>
 						Import Data
 					</button>
+					<button
+						on:click={() => goto('/dashboard/manager/schedule/propose')}
+						class="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 rounded-lg text-sm font-medium transition-colors flex items-center gap-2"
+						aria-label="AI Propose Week"
+					>
+						<svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+							<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
+						</svg>
+						AI Propose Week
+					</button>
 				</div>
 </div>
 
-<script>
-	$: console.debug('Manager showScheduleModal=', showScheduleModal);
-</script>
-
-<ScheduleProposeModal bind:open={showScheduleModal} on:approved={() => collections.getShifts()} />
-<!-- Debug overlay marker -->
-{#if showScheduleModal}
-  <div style="position:fixed;inset:0;z-index:9998;pointer-events:none;">
-    <div style="position:absolute;top:8px;right:8px;background:#0d9488;color:white;padding:4px 8px;border-radius:6px;">Modal should be visible</div>
-  </div>
-  <!-- Fallback inline overlay for debug -->
-  <div style="position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:9997;display:flex;align-items:center;justify-content:center;">
-    <div style="width:320px;height:200px;background:#ff0066;color:white;border:3px solid white;display:flex;flex-direction:column;align-items:center;justify-content:center;border-radius:12px;">
-      <div>Inline Debug Modal</div>
-      <button style="margin-top:12px;background:#0d9488;padding:6px 10px;border-radius:8px;" on:click={() => showScheduleModal=false}>Close</button>
-    </div>
-  </div>
-{/if}
+<div use:portal>
+  <ScheduleProposeModal bind:open={showScheduleModal} on:approved={() => collections.getShifts()} />
+</div>
 
 			<!-- Enhanced Key Metrics -->
 			<div

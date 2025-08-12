@@ -9,7 +9,7 @@ export default defineConfig(({ mode }) => {
 
 		server: {
 			allowedHosts: [
-				'5173-fligolf-parc-lygafhjmw8u.ws-us120.gitpod.io'
+				'5173-fligolf-parc-lygafhjmw8u.ws-us121.gitpod.io'
 			]
 		},
 		build: {

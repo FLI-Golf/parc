@@ -35,6 +35,22 @@ PARC Portal is designed for restaurants to manage daily operations efficiently w
 
 #### Manager Workflows
 
+##### AI Schedule Proposal (Manager Overview → AI Propose Week)
+- Generate a draft schedule using either Local or AI generator.
+- Local generator: no network calls; builds a client-side draft you can edit.
+- AI generator: calls `/api/schedule/propose` to fetch a proposal; still client-side until approval.
+- Review in List or Calendar view; edit rows inline.
+- Approve and Create performs PocketBase writes and is allowed only on Sundays. Brunch shifts must be on Sunday.
+- Options include:
+  - Days to include (Sun–Sat)
+  - Include Sunday brunch
+  - Weekday lunch/dinner toggles with server counts
+  - Friday/Saturday bar with bartender count
+
+Setup notes:
+- Set `OPENAI_API_KEY` in a local `.env` for AI mode (do not commit secrets). If missing/invalid, the UI uses Local fallback.
+- Environment keys sample in `.env.example`.
+
 **Daily Operations Checklist:**
 1. **Morning Review** (5-10 minutes)
    - Check overnight alerts and notifications
