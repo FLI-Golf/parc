@@ -200,7 +200,18 @@ export const collections = {
 			if (!payload.assigned_section && data.section_code) {
 				try {
 					const allSections = get(sections) || [];
-					const match = allSections.find(s => (s.section_code || s.code || s.name) === data.section_code);
+					const code = String(data.section_code).toUpperCase();
+					const aliases = {
+						A: ['A','MAIN DINING','SECTION A'],
+						B: ['B','SECTION B'],
+						BAR: ['BAR','BAR AREA']
+					};
+					const names = aliases[code] || [code];
+					const match = allSections.find(s => {
+						const cand = String(s.section_code || s.code || s.name || '').toUpperCase();
+						const name = String(s.name || '').toUpperCase();
+						return names.includes(cand) || names.includes(name);
+					});
 					if (match?.id) payload.assigned_section = match.id;
 				} catch {}
 			}
@@ -219,11 +230,31 @@ export const collections = {
 			let record;
 			let collectionUsed = 'shifts_collection';
 			try {
+				// Idempotency: skip if identical shift already exists
+				try {
+					const existing = await pb.collection(collectionUsed).getList(1, 1, {
+						filter: `staff_member = "${payload.staff_member}" && shift_date = "${payload.shift_date}" && start_time = "${payload.start_time}" && position = "${payload.position}"`
+					});
+					if (existing?.items?.length) {
+						console.warn('Duplicate shift detected in', collectionUsed, 'skipping create');
+						return existing.items[0];
+					}
+				} catch {}
 				record = await pb.collection(collectionUsed).create(payload);
 			} catch (firstError) {
 				console.warn('shifts_collection create failed, trying shifts:', firstError?.message || firstError?.data?.message, firstError?.data || firstError);
 				collectionUsed = 'shifts';
 				try {
+					// Idempotency check in fallback collection
+					try {
+						const existing = await pb.collection(collectionUsed).getList(1, 1, {
+							filter: `staff_member = "${payload.staff_member}" && shift_date = "${payload.shift_date}" && start_time = "${payload.start_time}" && position = "${payload.position}"`
+						});
+						if (existing?.items?.length) {
+							console.warn('Duplicate shift detected in', collectionUsed, 'skipping create');
+							return existing.items[0];
+						}
+					} catch {}
 					record = await pb.collection(collectionUsed).create(payload);
 				} catch (secondError) {
 					console.warn('shifts create failed:', secondError?.message || secondError?.data?.message, secondError?.data || secondError);
