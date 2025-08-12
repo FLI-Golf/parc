@@ -195,7 +195,7 @@
     if (dayFlags[0] && brunchOnSunday) {
       const st = pickStaff(staffList, 'server', 0);
       shifts.push({
-        staff_id: st.id, staff_name: st.name, shift_date: week[0], start_time: '10:00', end_time: '16:00',
+        staff_id: st.id, staff_name: st.name, shift_date: week[0], start_time: '08:00', end_time: '13:00',
         position: 'server', section_code: 'A', shift_type: 'brunch', notes: 'Brunch service'
       });
     }
@@ -211,18 +211,16 @@
           for (let c = 0; c < (cfg.weekdayLunchCount || 0); c++) {
             const st = pickStaff(staffList, pos, i * 10 + c);
             shifts.push({
-              staff_id: st.id, staff_name: st.name, shift_date: week[i], start_time: '11:00', end_time: '15:00',
+              staff_id: st.id, staff_name: st.name, shift_date: week[i], start_time: '11:00', end_time: '17:00',
               position: pos, section_code: c % 2 ? 'B' : (pos === 'bartender' ? 'BAR' : 'A'), shift_type: 'regular', notes: 'Lunch (weekday)'
             });
           }
         }
         if (cfg.weekdayDinnerEnabled && (cfg.weekdayDinnerCount || 0) > 0) {
           for (let c = 0; c < (cfg.weekdayDinnerCount || 0); c++) {
-            const start = c === 0 ? '16:00' : '17:00';
-            const end = c === 0 ? '22:00' : '23:00';
             const st = pickStaff(staffList, pos, i * 100 + c);
             shifts.push({
-              staff_id: st.id, staff_name: st.name, shift_date: week[i], start_time: start, end_time: end,
+              staff_id: st.id, staff_name: st.name, shift_date: week[i], start_time: '14:00', end_time: '23:00',
               position: pos, section_code: c % 2 ? 'B' : (pos === 'bartender' ? 'BAR' : 'A'), shift_type: 'regular', notes: 'Dinner (weekday)'
             });
           }
@@ -237,18 +235,16 @@
           for (let c = 0; c < (cfg.weekendLunchCount || 0); c++) {
             const st = pickStaff(staffList, pos, i * 20 + c);
             shifts.push({
-              staff_id: st.id, staff_name: st.name, shift_date: week[i], start_time: '11:00', end_time: '15:00',
+              staff_id: st.id, staff_name: st.name, shift_date: week[i], start_time: '11:00', end_time: '17:00',
               position: pos, section_code: c % 2 ? 'B' : (pos === 'bartender' ? 'BAR' : 'A'), shift_type: 'regular', notes: 'Lunch (weekend)'
             });
           }
         }
         if ((cfg.weekendDinnerCount || 0) > 0) {
           for (let c = 0; c < (cfg.weekendDinnerCount || 0); c++) {
-            const start = c === 0 ? '16:00' : '17:00';
-            const end = c === 0 ? '23:00' : '24:00';
             const st = pickStaff(staffList, pos, i * 200 + c);
             shifts.push({
-              staff_id: st.id, staff_name: st.name, shift_date: week[i], start_time: start, end_time: end,
+              staff_id: st.id, staff_name: st.name, shift_date: week[i], start_time: '14:00', end_time: '23:00',
               position: pos, section_code: c % 2 ? 'B' : (pos === 'bartender' ? 'BAR' : 'A'), shift_type: 'regular', notes: 'Dinner (weekend)'
             });
           }

@@ -47,6 +47,10 @@ PARC Portal is designed for restaurants to manage daily operations efficiently w
     - Weekend (Fri–Sun): Lunch count; Dinner count
     - Bartender tab: Bar nights (Fri/Sat/Sun toggles), Start/End time, Bartenders count
   - Global: Days to include (Sun–Sat), Include Sunday brunch
+- Default time blocks used by Local generator:
+  - Brunch: 8:00–1:00
+  - Lunch: 11:00–5:00
+  - Dinner: 2:00–11:00
 - Staff assignment uses PocketBase staff records by position/role; cycles through matches and falls back to mock if none.
 
 Setup notes:
