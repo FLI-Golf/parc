@@ -240,7 +240,9 @@ export const collections = {
 			return expandedRecord;
 		} catch (error) {
 			console.error('Error creating shift:', error);
-			throw error;
+			// Bubble up with PB error details when available
+			const message = error?.data ? JSON.stringify(error.data) : (error?.message || 'Failed to create shift');
+			throw Object.assign(new Error(message), { data: error?.data || null });
 		}
 	},
 

@@ -285,6 +285,8 @@
     }
 
     try {
+      // Ensure sections are loaded so section_code can be mapped
+      await collections.getSections();
       for (const row of proposal.shifts) {
         // Map to backend shape; omit UI-only fields
         const payload = {
