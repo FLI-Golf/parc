@@ -182,12 +182,7 @@ export const collections = {
 
 	async createShift(data) {
 		try {
-			// Sunday-only guard
-			const today = new Date().getDay(); // 0 = Sunday
-			if (today !== 0) {
-				throw new Error('Shift creation is allowed only on Sunday');
-			}
-			
+			// Approvals allowed any day; enforce brunch-on-Sunday via caller
 			let record;
 			let collectionUsed = 'shifts_collection';
 			try {
