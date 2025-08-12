@@ -31,52 +31,88 @@
 	import MaintenanceModal from "$lib/components/MaintenanceModal.svelte";
 	import ScheduleProposeModal from "$lib/components/ScheduleProposeModal.svelte";
 	import { portal } from "$lib/actions/portal";
-	let showScheduleModal = false;
+let showScheduleModal = false;
 
-	let activeTab = "overview";
-	let user = null;
-	let showImportModal = false;
-	let showInventoryModal = false;
-	let editInventoryItem = null;
-	let showStaffModal = false;
-	let editStaffItem = null;
-	let showShiftModal = false;
-	let editShiftItem = null;
-	let showMenuModal = false;
-	let editMenuItem = null;
-	let showVendorModal = false;
-	let editVendorItem = null;
-	let showEventModal = false;
-	let editEventItem = null;
-	let showMaintenanceModal = false;
-	let editMaintenanceItem = null;
-	let maintenanceFilter = "all"; // For maintenance task filtering
-	let floorPlanFilter = "all"; // For floor plan filtering
-	let filteredSections = []; // Filtered sections based on floor plan filter
-	let showDetailedMenuView = false; // For detailed menu items view
-	let shiftsView = 'list'; // 'list' | 'calendar'
+let activeTab = "overview";
+let user = null;
+let showImportModal = false;
+let showInventoryModal = false;
+let editInventoryItem = null;
+let showStaffModal = false;
+let editStaffItem = null;
+let showShiftModal = false;
+let editShiftItem = null;
+let showMenuModal = false;
+let editMenuItem = null;
+let showVendorModal = false;
+let editVendorItem = null;
+let showEventModal = false;
+let editEventItem = null;
+let showMaintenanceModal = false;
+let editMaintenanceItem = null;
+let maintenanceFilter = "all"; // For maintenance task filtering
+let floorPlanFilter = "all"; // For floor plan filtering
+let filteredSections = []; // Filtered sections based on floor plan filter
+let showDetailedMenuView = false; // For detailed menu items view
+let shiftsView = 'list'; // 'list' | 'calendar'
 
-	function getWeekSunday(d) {
-		const dt = new Date(d);
-		const day = dt.getDay();
-		const sunday = new Date(dt);
-		sunday.setDate(dt.getDate() - day);
-		sunday.setHours(0, 0, 0, 0);
-		return sunday;
-	}
-	function toISODate(d) {
-		const y = d.getFullYear();
-		const m = String(d.getMonth() + 1).padStart(2, '0');
-		const day = String(d.getDate()).padStart(2, '0');
-		return `${y}-${m}-${day}`;
-	}
-	function getWeekDates(sunday) {
-		return Array.from({ length: 7 }, (_, i) => {
-			const dd = new Date(sunday);
-			dd.setDate(sunday.getDate() + i);
-			return toISODate(dd);
-		});
-	}
+// Position visuals and filters
+const positionMeta = {
+	server:      { icon: '🧑‍🍳', bg: 'bg-green-900/40 border-green-700', chip: 'bg-green-700/40 text-green-300 border-green-600' },
+	bartender:   { icon: '🍸',    bg: 'bg-blue-900/40 border-blue-700',  chip: 'bg-blue-700/40 text-blue-300 border-blue-600' },
+	host:        { icon: '🪑',    bg: 'bg-amber-900/40 border-amber-700', chip: 'bg-amber-700/40 text-amber-300 border-amber-600' },
+	busser:      { icon: '🧹',    bg: 'bg-emerald-900/40 border-emerald-700', chip: 'bg-emerald-700/40 text-emerald-300 border-emerald-600' },
+	dishwasher:  { icon: '🧼',    bg: 'bg-slate-900/40 border-slate-700', chip: 'bg-slate-700/40 text-slate-300 border-slate-600' },
+	kitchen_prep:{ icon: '🔪',    bg: 'bg-orange-900/40 border-orange-700', chip: 'bg-orange-700/40 text-orange-300 border-orange-600' },
+	chef:        { icon: '👨‍🍳',  bg: 'bg-red-900/40 border-red-700',    chip: 'bg-red-700/40 text-red-300 border-red-600' },
+	manager:     { icon: '🧭',    bg: 'bg-indigo-900/40 border-indigo-700', chip: 'bg-indigo-700/40 text-indigo-300 border-indigo-600' },
+	owner:       { icon: '⭐',    bg: 'bg-purple-900/40 border-purple-700', chip: 'bg-purple-700/40 text-purple-300 border-purple-600' },
+};
+const allPositions = Object.keys(positionMeta);
+let positionFilters = Object.fromEntries(allPositions.map(p => [p, true]));
+let shiftTypeFilters = { brunch: true, lunch: true, dinner: true };
+let sectionFilter = 'all';
+
+$: filteredShifts = ($shifts || []).filter(s => {
+	const pos = String(s.position || '').toLowerCase();
+	const st  = String(s.shift_type || '').toLowerCase();
+	const posOk = positionFilters[pos] !== false || !pos;
+	const typeOk = shiftTypeFilters[st] !== false || !st;
+	const secOk = sectionFilter === 'all' || s.assigned_section === sectionFilter;
+	return posOk && typeOk && secOk;
+});
+
+function getPosIcon(pos) {
+	return positionMeta[pos?.toLowerCase()]?.icon || '';
+}
+function getPosBg(pos) {
+	return positionMeta[pos?.toLowerCase()]?.bg || 'bg-gray-700/40 border-gray-600';
+}
+function getPosChip(pos) {
+	return positionMeta[pos?.toLowerCase()]?.chip || 'bg-gray-700/40 text-gray-300 border-gray-600';
+}
+
+function getWeekSunday(d) {
+	const dt = new Date(d);
+	const day = dt.getDay();
+	const sunday = new Date(dt);
+	sunday.setDate(dt.getDate() - day);
+	sunday.setHours(0, 0, 0, 0);
+	return sunday;
+}
+function toISODate(d) {
+	const y = d.getFullYear();
+	const m = String(d.getMonth() + 1).padStart(2, '0');
+	const day = String(d.getDate()).padStart(2, '0');
+	return `${y}-${m}-${day}`;
+}
+function getWeekDates(sunday) {
+	return Array.from({ length: 7 }, (_, i) => {
+		const dd = new Date(sunday);
+		dd.setDate(sunday.getDate() + i);
+		return toISODate(dd);
+	});
+}
 
 	// Menu filtering system variables
 	let selectedMenuCategories = {
@@ -2438,99 +2474,70 @@
 				</div>
 
 				{#if shiftsView === 'list'}
+				<!-- Filters -->
+				<div class="flex flex-wrap items-center gap-3 mb-3">
+					<div class="flex items-center gap-2 text-xs">
+						<span class="text-gray-400">Positions:</span>
+						{#each allPositions as p}
+							<button type="button" on:click={() => positionFilters[p] = !positionFilters[p]}
+								class={`px-2 py-1 border rounded ${positionFilters[p] ? getPosChip(p) : 'border-gray-600 text-gray-400'}`}
+								title={p}
+							>
+								{positionMeta[p].icon} {p}
+							</button>
+						{/each}
+					</div>
+					<div class="flex items-center gap-2 text-xs">
+						<span class="text-gray-400">Type:</span>
+						{#each ['brunch','lunch','dinner'] as t}
+							<button type="button" on:click={() => shiftTypeFilters[t] = !shiftTypeFilters[t]}
+								class={`px-2 py-1 border rounded ${shiftTypeFilters[t] ? 'bg-gray-700/40 text-gray-200 border-gray-500' : 'border-gray-600 text-gray-400'}`}
+							>
+								{t}
+							</button>
+						{/each}
+					</div>
+					<div class="flex items-center gap-2 text-xs">
+						<span class="text-gray-400">Section:</span>
+						<select bind:value={sectionFilter} class="px-2 py-1 bg-gray-700 border border-gray-600 rounded text-gray-200">
+							<option value="all">All</option>
+							{#each $sections as sec}
+								<option value={sec.id}>{sec.name || sec.section_code}</option>
+							{/each}
+						</select>
+					</div>
+				</div>
 				<div
 					class="bg-gray-800/50 rounded-xl border border-gray-700 overflow-hidden"
 				>
 					<table class="w-full">
 						<thead class="bg-gray-700/50">
 							<tr>
-								<th
-									class="px-6 py-4 text-left text-sm font-medium text-gray-300"
-									>Staff Member</th
-								>
-								<th
-									class="px-6 py-4 text-left text-sm font-medium text-gray-300"
-									>Section</th
-								>
-								<th
-									class="px-6 py-4 text-left text-sm font-medium text-gray-300"
-									>Date</th
-								>
-								<th
-									class="px-6 py-4 text-left text-sm font-medium text-gray-300"
-									>Time</th
-								>
-								<th
-									class="px-6 py-4 text-left text-sm font-medium text-gray-300"
-									>Position</th
-								>
-								<th
-									class="px-6 py-4 text-left text-sm font-medium text-gray-300"
-									>Status</th
-								>
-								<th
-									class="px-6 py-4 text-left text-sm font-medium text-gray-300"
-									>Actions</th
-								>
+								<th class="px-6 py-4 text-left text-sm font-medium text-gray-300">Staff Member</th>
+								<th class="px-6 py-4 text-left text-sm font-medium text-gray-300">Section</th>
+								<th class="px-6 py-4 text-left text-sm font-medium text-gray-300">Date</th>
+								<th class="px-6 py-4 text-left text-sm font-medium text-gray-300">Time</th>
+								<th class="px-6 py-4 text-left text-sm font-medium text-gray-300">Position</th>
+								<th class="px-6 py-4 text-left text-sm font-medium text-gray-300">Status</th>
+								<th class="px-6 py-4 text-left text-sm font-medium text-gray-300">Actions</th>
 							</tr>
 						</thead>
 						<tbody class="divide-y divide-gray-700">
-							{#each $shifts as shift}
-								<tr class="hover:bg-gray-700/30">
+							{#each filteredShifts as shift}
+								<tr class={`hover:bg-gray-700/30 border-l-4 ${getPosBg(shift.position)}`}>
 									<td class="px-6 py-4 text-sm text-white">
-										{getStaffMemberName(shift)}
+										<span class="mr-1">{getPosIcon(shift.position)}</span>{getStaffMemberName(shift)}
 									</td>
-									<td class="px-6 py-4 text-sm text-gray-300">
-										{#if shift.assigned_section && getSectionName(shift.assigned_section)}
-											<span class="px-2 py-1 rounded-full text-xs bg-blue-900/50 text-blue-300">
-												{getSectionName(shift.assigned_section)}
-											</span>
-										{:else}
-											<span class="text-gray-500">No Section</span>
-										{/if}
-									</td>
-									<td class="px-6 py-4 text-sm text-gray-300">
-										{formatShortDate(shift.shift_date)}
-									</td>
-									<td class="px-6 py-4 text-sm text-gray-300">
-										{formatTime12Hour(shift.start_time)} - {formatTime12Hour(
-											shift.end_time
-										)}
-									</td>
-									<td
-										class="px-6 py-4 text-sm text-gray-300 capitalize"
-									>
-										{shift.position}
+									<td class="px-6 py-4 text-sm text-gray-300">{getSectionName(shift.assigned_section) || 'No Section'}</td>
+									<td class="px-6 py-4 text-sm text-gray-300">{formatShortDate(shift.shift_date)}</td>
+									<td class="px-6 py-4 text-sm text-gray-300">{formatTime12Hour(shift.start_time)} - {formatTime12Hour(shift.end_time)}</td>
+									<td class="px-6 py-4 text-sm text-gray-300 capitalize">{shift.position}</td>
+									<td class="px-6 py-4 text-sm">
+										<span class="px-2 py-1 rounded-full text-xs {shift.status === 'confirmed' ? 'bg-green-900/50 text-green-300' : shift.status === 'scheduled' ? 'bg-blue-900/50 text-blue-300' : shift.status === 'completed' ? 'bg-gray-900/50 text-gray-300' : 'bg-red-900/50 text-red-300'}">{shift.status}</span>
 									</td>
 									<td class="px-6 py-4 text-sm">
-										<span
-											class="px-2 py-1 rounded-full text-xs {shift.status ===
-											'confirmed'
-												? 'bg-green-900/50 text-green-300'
-												: shift.status === 'scheduled'
-												? 'bg-blue-900/50 text-blue-300'
-												: shift.status === 'completed'
-												? 'bg-gray-900/50 text-gray-300'
-												: 'bg-red-900/50 text-red-300'}"
-										>
-											{shift.status}
-										</span>
-									</td>
-									<td class="px-6 py-4 text-sm">
-										<button
-											on:click={() =>
-												openShiftModal(shift)}
-											class="text-blue-400 hover:text-blue-300 mr-3"
-										>
-											Edit
-										</button>
-										<button
-											on:click={() =>
-												handleDeleteShift(shift)}
-											class="text-red-400 hover:text-red-300"
-										>
-											Cancel
-										</button>
+										<button on:click={() => openShiftModal(shift)} class="text-blue-400 hover:text-blue-300 mr-3">Edit</button>
+										<button on:click={() => handleDeleteShift(shift)} class="text-red-400 hover:text-red-300">Cancel</button>
 									</td>
 								</tr>
 							{/each}
@@ -2544,12 +2551,10 @@
 						{#each getWeekDates(getWeekSunday(new Date())) as day}
 							<div class="border border-gray-700 rounded p-2 min-h-[140px]">
 								<div class="text-xs text-gray-400 mb-2">{toISODate(new Date(day))}</div>
-								{#each $shifts.filter(s => (s.shift_date || '').slice(0,10) === toISODate(new Date(day))) as s}
-									<div class="mb-2 bg-gray-700 rounded p-2">
-										<div class="text-xs text-gray-300 truncate">{getStaffMemberName(s)} • {s.position}</div>
-										<div class="text-xs">
-											{formatTime12Hour(s.start_time)}–{formatTime12Hour(s.end_time)} • {getSectionName(s.assigned_section) || 'No Section'}
-										</div>
+								{#each filteredShifts.filter(s => (s.shift_date || '').slice(0,10) === toISODate(new Date(day))) as s}
+									<div class={`mb-2 rounded p-2 border ${getPosBg(s.position)}`}>
+										<div class="text-xs text-gray-300 truncate">{getPosIcon(s.position)} {getStaffMemberName(s)} • {s.position}</div>
+										<div class="text-xs">{formatTime12Hour(s.start_time)}–{formatTime12Hour(s.end_time)} • {getSectionName(s.assigned_section) || 'No Section'}</div>
 									</div>
 								{/each}
 							</div>
