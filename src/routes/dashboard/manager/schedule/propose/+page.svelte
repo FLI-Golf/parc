@@ -1,4 +1,5 @@
 <script>
+  // @ts-nocheck
   import { onMount } from 'svelte';
   import { goto } from '$app/navigation';
   import { collections, staff as staffStore } from '$lib/stores/collections.js';
@@ -28,12 +29,63 @@
     sat: true
   };
   let brunchOnSunday = true;
-  let weekdayLunch = false;
-  let weekdayDinner = true;
-  let friSatBar = true;
-  let serversLunchCount = 1;
-  let serversDinnerCount = 2;
-  let bartendersWeekendCount = 1;
+  // Positions (tabs) — ordered as requested
+  const positions = [
+    'manager', 'server', 'chef', 'bartender', 'host', 'busser', 'dishwasher', 'kitchen_prep', 'owner'
+  ];
+  let activePosition = 'server';
+
+  // Per-position configuration
+  // Weekday toggles (Mon–Thu) + counts; Weekend counts (Fri–Sun)
+  // Special bartender settings include bar nights
+  let roleConfigs = {
+    manager: {
+      weekdayLunchEnabled: false, weekdayLunchCount: 0,
+      weekdayDinnerEnabled: true,  weekdayDinnerCount: 1,
+      weekendLunchCount: 0, weekendDinnerCount: 1,
+    },
+    server: {
+      weekdayLunchEnabled: false, weekdayLunchCount: 1,
+      weekdayDinnerEnabled: true,  weekdayDinnerCount: 2,
+      weekendLunchCount: 1, weekendDinnerCount: 3,
+    },
+    chef: {
+      weekdayLunchEnabled: false, weekdayLunchCount: 0,
+      weekdayDinnerEnabled: true,  weekdayDinnerCount: 1,
+      weekendLunchCount: 0, weekendDinnerCount: 1,
+    },
+    bartender: {
+      weekdayLunchEnabled: false, weekdayLunchCount: 0,
+      weekdayDinnerEnabled: true,  weekdayDinnerCount: 1,
+      weekendLunchCount: 0, weekendDinnerCount: 1,
+      barNights: { fri: true, sat: true, sun: true, start: '18:00', end: '24:00', bartenders: 1 }
+    },
+    host: {
+      weekdayLunchEnabled: false, weekdayLunchCount: 0,
+      weekdayDinnerEnabled: true,  weekdayDinnerCount: 1,
+      weekendLunchCount: 0, weekendDinnerCount: 1,
+    },
+    busser: {
+      weekdayLunchEnabled: false, weekdayLunchCount: 0,
+      weekdayDinnerEnabled: true,  weekdayDinnerCount: 1,
+      weekendLunchCount: 0, weekendDinnerCount: 1,
+    },
+    dishwasher: {
+      weekdayLunchEnabled: false, weekdayLunchCount: 0,
+      weekdayDinnerEnabled: true,  weekdayDinnerCount: 1,
+      weekendLunchCount: 0, weekendDinnerCount: 1,
+    },
+    kitchen_prep: {
+      weekdayLunchEnabled: false, weekdayLunchCount: 0,
+      weekdayDinnerEnabled: true,  weekdayDinnerCount: 1,
+      weekendLunchCount: 0, weekendDinnerCount: 1,
+    },
+    owner: {
+      weekdayLunchEnabled: false, weekdayLunchCount: 0,
+      weekdayDinnerEnabled: false, weekdayDinnerCount: 0,
+      weekendLunchCount: 0, weekendDinnerCount: 0,
+    }
+  };
 
   // Generator: 'local' (no POST) or 'ai' (calls /api/schedule/propose)
   let generator = 'local';
@@ -139,7 +191,7 @@
 
     const shifts = [];
 
-    // Sunday brunch
+    // Sunday brunch (servers)
     if (dayFlags[0] && brunchOnSunday) {
       const st = pickStaff(staffList, 'server', 0);
       shifts.push({
@@ -148,43 +200,77 @@
       });
     }
 
-    // Weekday lunch/dinner
-    for (let i = 1; i <= 5; i++) {
-      if (!dayFlags[i]) continue;
-      if (weekdayLunch) {
-        for (let c = 0; c < serversLunchCount; c++) {
-          const st = pickStaff(staffList, 'server', i * 10 + c);
-          shifts.push({
-            staff_id: st.id, staff_name: st.name, shift_date: week[i], start_time: '11:00', end_time: '15:00',
-            position: 'server', section_code: c % 2 ? 'B' : 'A', shift_type: 'regular', notes: 'Lunch service'
-          });
-        }
-      }
-      if (weekdayDinner) {
-        for (let c = 0; c < serversDinnerCount; c++) {
-          const start = c === 0 ? '16:00' : '17:00';
-          const end = c === 0 ? '22:00' : '23:00';
-          const st = pickStaff(staffList, 'server', i * 100 + c);
-          shifts.push({
-            staff_id: st.id, staff_name: st.name, shift_date: week[i], start_time: start, end_time: end,
-            position: 'server', section_code: c % 2 ? 'B' : 'A', shift_type: 'regular', notes: 'Dinner service'
-          });
-        }
-      }
-    }
+    // Generate per position
+    for (const pos of positions) {
+      const cfg = roleConfigs[pos] || {};
 
-    // Fri/Sat bar
-    if (friSatBar) {
-      [5,6].forEach((idx) => {
-        if (!dayFlags[idx]) return;
-        for (let b = 0; b < bartendersWeekendCount; b++) {
-          const st = pickStaff(staffList, 'bartender', idx * 1000 + b);
-          shifts.push({
-            staff_id: st.id, staff_name: st.name, shift_date: week[idx], start_time: '18:00', end_time: '24:00',
-            position: 'bartender', section_code: 'BAR', shift_type: 'regular', notes: 'Bar rush'
-          });
+      // Weekdays: Mon(1)-Thu(4)
+      for (let i = 1; i <= 4; i++) {
+        if (!dayFlags[i]) continue;
+        if (cfg.weekdayLunchEnabled && (cfg.weekdayLunchCount || 0) > 0) {
+          for (let c = 0; c < (cfg.weekdayLunchCount || 0); c++) {
+            const st = pickStaff(staffList, pos, i * 10 + c);
+            shifts.push({
+              staff_id: st.id, staff_name: st.name, shift_date: week[i], start_time: '11:00', end_time: '15:00',
+              position: pos, section_code: c % 2 ? 'B' : (pos === 'bartender' ? 'BAR' : 'A'), shift_type: 'regular', notes: 'Lunch (weekday)'
+            });
+          }
         }
-      });
+        if (cfg.weekdayDinnerEnabled && (cfg.weekdayDinnerCount || 0) > 0) {
+          for (let c = 0; c < (cfg.weekdayDinnerCount || 0); c++) {
+            const start = c === 0 ? '16:00' : '17:00';
+            const end = c === 0 ? '22:00' : '23:00';
+            const st = pickStaff(staffList, pos, i * 100 + c);
+            shifts.push({
+              staff_id: st.id, staff_name: st.name, shift_date: week[i], start_time: start, end_time: end,
+              position: pos, section_code: c % 2 ? 'B' : (pos === 'bartender' ? 'BAR' : 'A'), shift_type: 'regular', notes: 'Dinner (weekday)'
+            });
+          }
+        }
+      }
+
+      // Weekend: Fri(5), Sat(6), Sun(0)
+      const weekendIdx = [5, 6, 0];
+      for (const i of weekendIdx) {
+        if (!dayFlags[i]) continue;
+        if ((cfg.weekendLunchCount || 0) > 0) {
+          for (let c = 0; c < (cfg.weekendLunchCount || 0); c++) {
+            const st = pickStaff(staffList, pos, i * 20 + c);
+            shifts.push({
+              staff_id: st.id, staff_name: st.name, shift_date: week[i], start_time: '11:00', end_time: '15:00',
+              position: pos, section_code: c % 2 ? 'B' : (pos === 'bartender' ? 'BAR' : 'A'), shift_type: 'regular', notes: 'Lunch (weekend)'
+            });
+          }
+        }
+        if ((cfg.weekendDinnerCount || 0) > 0) {
+          for (let c = 0; c < (cfg.weekendDinnerCount || 0); c++) {
+            const start = c === 0 ? '16:00' : '17:00';
+            const end = c === 0 ? '23:00' : '24:00';
+            const st = pickStaff(staffList, pos, i * 200 + c);
+            shifts.push({
+              staff_id: st.id, staff_name: st.name, shift_date: week[i], start_time: start, end_time: end,
+              position: pos, section_code: c % 2 ? 'B' : (pos === 'bartender' ? 'BAR' : 'A'), shift_type: 'regular', notes: 'Dinner (weekend)'
+            });
+          }
+        }
+      }
+
+      // Bartender bar nights (Fri/Sat/Sun)
+      if (pos === 'bartender' && cfg.barNights) {
+        const barMap = { 0: 'sun', 5: 'fri', 6: 'sat' };
+        for (const idx of [0, 5, 6]) {
+          const key = barMap[idx];
+          if (!dayFlags[idx]) continue;
+          if (!cfg.barNights[key]) continue;
+          for (let b = 0; b < (cfg.barNights.bartenders || 0); b++) {
+            const st = pickStaff(staffList, 'bartender', idx * 1000 + b);
+            shifts.push({
+              staff_id: st.id, staff_name: st.name, shift_date: week[idx], start_time: cfg.barNights.start || '18:00', end_time: cfg.barNights.end || '24:00',
+              position: 'bartender', section_code: 'BAR', shift_type: 'regular', notes: 'Bar night'
+            });
+          }
+        }
+      }
     }
 
     return { shifts };
@@ -277,7 +363,64 @@
       </label>
 
       <div class="mt-4 border-t border-gray-700 pt-4 space-y-3">
-        <div class="text-sm font-semibold">Days to include</div>
+        <div class="text-sm font-semibold">By position</div>
+        <!-- Tabs -->
+        <div class="flex flex-wrap gap-2 mb-2">
+          {#each positions as p}
+            <button type="button"
+              class={`px-2 py-1 text-xs rounded border ${activePosition === p ? 'bg-indigo-600 border-indigo-500' : 'bg-gray-700 border-gray-600 hover:bg-gray-600'}`}
+              on:click={() => activePosition = p}
+            >{p}</button>
+          {/each}
+        </div>
+        <!-- Active tab content -->
+        {#if roleConfigs[activePosition]}
+          <div class="space-y-2 text-xs">
+            <div class="text-gray-300">Weekday (Mon–Thu)</div>
+            <label class="inline-flex items-center gap-2 text-sm">
+              <input type="checkbox" bind:checked={roleConfigs[activePosition].weekdayLunchEnabled} /> Lunch
+            </label>
+            <div class="grid grid-cols-2 gap-3 text-xs">
+              <label class="inline-flex items-center gap-2">
+                Staff at lunch <input type="number" min="0" bind:value={roleConfigs[activePosition].weekdayLunchCount} class="w-16 bg-gray-700 border border-gray-600 rounded px-2 py-1" />
+              </label>
+            </div>
+            <label class="inline-flex items-center gap-2 text-sm">
+              <input type="checkbox" bind:checked={roleConfigs[activePosition].weekdayDinnerEnabled} /> Dinner
+            </label>
+            <div class="grid grid-cols-2 gap-3 text-xs">
+              <label class="inline-flex items-center gap-2">
+                Staff at dinner <input type="number" min="0" bind:value={roleConfigs[activePosition].weekdayDinnerCount} class="w-16 bg-gray-700 border border-gray-600 rounded px-2 py-1" />
+              </label>
+            </div>
+
+            <div class="text-gray-300 mt-2">Weekend (Fri–Sun)</div>
+            <div class="grid grid-cols-2 gap-3 text-xs">
+              <label class="inline-flex items-center gap-2">
+                Staff at lunch <input type="number" min="0" bind:value={roleConfigs[activePosition].weekendLunchCount} class="w-16 bg-gray-700 border border-gray-600 rounded px-2 py-1" />
+              </label>
+              <label class="inline-flex items-center gap-2">
+                Staff at dinner <input type="number" min="0" bind:value={roleConfigs[activePosition].weekendDinnerCount} class="w-16 bg-gray-700 border border-gray-600 rounded px-2 py-1" />
+              </label>
+            </div>
+
+            {#if activePosition === 'bartender'}
+              <div class="text-gray-300 mt-2">Bar nights</div>
+              <div class="grid grid-cols-3 gap-2 text-xs">
+                <label class="inline-flex items-center gap-1"><input type="checkbox" bind:checked={roleConfigs.bartender.barNights.fri} />Fri</label>
+                <label class="inline-flex items-center gap-1"><input type="checkbox" bind:checked={roleConfigs.bartender.barNights.sat} />Sat</label>
+                <label class="inline-flex items-center gap-1"><input type="checkbox" bind:checked={roleConfigs.bartender.barNights.sun} />Sun</label>
+              </div>
+              <div class="grid grid-cols-3 gap-3 text-xs items-center">
+                <label class="inline-flex items-center gap-2">Start <input type="time" bind:value={roleConfigs.bartender.barNights.start} class="bg-gray-700 border border-gray-600 rounded px-2 py-1" /></label>
+                <label class="inline-flex items-center gap-2">End <input type="time" bind:value={roleConfigs.bartender.barNights.end} class="bg-gray-700 border border-gray-600 rounded px-2 py-1" /></label>
+                <label class="inline-flex items-center gap-2">Bartenders <input type="number" min="0" bind:value={roleConfigs.bartender.barNights.bartenders} class="w-16 bg-gray-700 border border-gray-600 rounded px-2 py-1" /></label>
+              </div>
+            {/if}
+          </div>
+        {/if}
+
+        <div class="text-sm font-semibold mt-4">Days to include</div>
         <div class="grid grid-cols-7 gap-2 text-xs">
           <label class="inline-flex items-center gap-1"><input type="checkbox" bind:checked={includeDays.sun} />Sun</label>
           <label class="inline-flex items-center gap-1"><input type="checkbox" bind:checked={includeDays.mon} />Mon</label>
@@ -287,20 +430,7 @@
           <label class="inline-flex items-center gap-1"><input type="checkbox" bind:checked={includeDays.fri} />Fri</label>
           <label class="inline-flex items-center gap-1"><input type="checkbox" bind:checked={includeDays.sat} />Sat</label>
         </div>
-        <div class="text-sm font-semibold">Defaults</div>
-        <label class="inline-flex items-center gap-2 text-sm"><input type="checkbox" bind:checked={brunchOnSunday} /> Include Sunday brunch</label>
-        <label class="inline-flex items-center gap-2 text-sm"><input type="checkbox" bind:checked={weekdayLunch} /> Weekday lunch</label>
-        <div class="grid grid-cols-2 gap-3 text-xs">
-          <label class="inline-flex items-center gap-2">Servers at lunch <input type="number" min="0" bind:value={serversLunchCount} class="w-16 bg-gray-700 border border-gray-600 rounded px-2 py-1" /></label>
-        </div>
-        <label class="inline-flex items-center gap-2 text-sm"><input type="checkbox" bind:checked={weekdayDinner} /> Weekday dinner</label>
-        <div class="grid grid-cols-2 gap-3 text-xs">
-          <label class="inline-flex items-center gap-2">Servers at dinner <input type="number" min="0" bind:value={serversDinnerCount} class="w-16 bg-gray-700 border border-gray-600 rounded px-2 py-1" /></label>
-        </div>
-        <label class="inline-flex items-center gap-2 text-sm"><input type="checkbox" bind:checked={friSatBar} /> Friday/Saturday bar</label>
-        <div class="grid grid-cols-2 gap-3 text-xs">
-          <label class="inline-flex items-center gap-2">Bartenders (Fri/Sat) <input type="number" min="0" bind:value={bartendersWeekendCount} class="w-16 bg-gray-700 border border-gray-600 rounded px-2 py-1" /></label>
-        </div>
+        <label class="inline-flex items-center gap-2 text-sm mt-2"><input type="checkbox" bind:checked={brunchOnSunday} /> Include Sunday brunch</label>
       </div>
 
       <button on:click={generateProposal} class="w-full mt-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 rounded-lg text-sm font-medium">Generate proposal</button>
@@ -337,7 +467,7 @@
               <tbody class="text-gray-200">
                 {#each proposal.shifts as s}
                   <tr class="border-t border-gray-700">
-                    <td class="p-2">{s.staff_id}</td>
+                    <td class="p-2">{s.staff_name || s.staff_id}</td>
                     <td class="p-2">
                       <input type="date" bind:value={s.shift_date} class="bg-gray-700 border border-gray-600 rounded px-2 py-1" />
                       {#if s.shift_type === 'brunch' && !isSunday(s.shift_date)}

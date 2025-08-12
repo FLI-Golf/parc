@@ -42,10 +42,12 @@ PARC Portal is designed for restaurants to manage daily operations efficiently w
 - Review in List or Calendar view; edit rows inline.
 - Approve and Create performs PocketBase writes and is allowed only on Sundays. Brunch shifts must be on Sunday.
 - Options include:
-  - Days to include (Sun–Sat)
-  - Include Sunday brunch
-  - Weekday lunch/dinner toggles with server counts
-  - Friday/Saturday bar with bartender count
+  - By position tabs (manager, server, chef, bartender, host, busser, dishwasher, kitchen_prep, owner)
+    - Weekday (Mon–Thu): Lunch enabled + count; Dinner enabled + count
+    - Weekend (Fri–Sun): Lunch count; Dinner count
+    - Bartender tab: Bar nights (Fri/Sat/Sun toggles), Start/End time, Bartenders count
+  - Global: Days to include (Sun–Sat), Include Sunday brunch
+- Staff assignment uses PocketBase staff records by position/role; cycles through matches and falls back to mock if none.
 
 Setup notes:
 - Set `OPENAI_API_KEY` in a local `.env` for AI mode (do not commit secrets). If missing/invalid, the UI uses Local fallback.
