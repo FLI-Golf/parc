@@ -286,7 +286,9 @@
 
     try {
       for (const row of proposal.shifts) {
-        await collections.createShift(row);
+        // Map staff_id -> staff_member as expected by PocketBase
+        const payload = { ...row, staff_member: row.staff_id };
+        await collections.createShift(payload);
       }
       await collections.getShifts();
       alert('Shifts created.');

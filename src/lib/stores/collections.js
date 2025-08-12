@@ -183,14 +183,31 @@ export const collections = {
 	async createShift(data) {
 		try {
 			// Approvals allowed any day; enforce brunch-on-Sunday via caller
+			// Map UI draft fields to PocketBase schema and strip unknowns
+			const payload = {
+				staff_member: data.staff_member || data.staff_id || null,
+				shift_date: data.shift_date,
+				start_time: data.start_time,
+				end_time: data.end_time,
+				break_duration: data.break_duration ?? 0,
+				position: data.position || 'server',
+				status: data.status || 'scheduled',
+				notes: data.notes || '',
+				assigned_section: data.assigned_section || null,
+				shift_type: data.shift_type || 'regular'
+			};
+			// Basic required validation to avoid 400s
+			if (!payload.staff_member || !payload.shift_date || !payload.start_time || !payload.end_time || !payload.position || !payload.status) {
+				throw new Error('Missing required shift fields');
+			}
 			let record;
 			let collectionUsed = 'shifts_collection';
 			try {
-				record = await pb.collection(collectionUsed).create(data);
+				record = await pb.collection(collectionUsed).create(payload);
 			} catch (firstError) {
 				console.warn('shifts_collection create failed, trying shifts:', firstError?.message);
 				collectionUsed = 'shifts';
-				record = await pb.collection(collectionUsed).create(data);
+				record = await pb.collection(collectionUsed).create(payload);
 			}
 			// Fetch the record with expanded relations from the collection used
 			const expandedRecord = await pb.collection(collectionUsed).getOne(record.id, {
