@@ -459,7 +459,7 @@
               <tbody class="text-gray-200">
                 {#each proposal.shifts as s}
                   <tr class="border-t border-gray-700">
-                    <td class="p-2">{s.staff_name || s.staff_id}</td>
+                    <td class="p-2">{(s.staff_name || s.staff_id) + ' • ' + (s.position || '')}</td>
                     <td class="p-2">
                       <input type="date" bind:value={s.shift_date} class="bg-gray-700 border border-gray-600 rounded px-2 py-1" />
                       {#if s.shift_type === 'brunch' && !isSunday(s.shift_date)}
