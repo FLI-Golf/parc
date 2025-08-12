@@ -295,7 +295,8 @@
       goto('/dashboard/manager');
     } catch (e) {
       console.error('Approval error:', e);
-      alert(e?.message || 'Failed to create some shifts');
+      const detail = e?.data?.message || e?.message || e;
+      alert(detail || 'Failed to create some shifts');
     }
   }
 </script>

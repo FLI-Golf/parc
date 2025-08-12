@@ -205,9 +205,21 @@ export const collections = {
 			try {
 				record = await pb.collection(collectionUsed).create(payload);
 			} catch (firstError) {
-				console.warn('shifts_collection create failed, trying shifts:', firstError?.message);
+				console.warn('shifts_collection create failed, trying shifts:', firstError?.message || firstError?.data?.message, firstError?.data || firstError);
 				collectionUsed = 'shifts';
-				record = await pb.collection(collectionUsed).create(payload);
+				try {
+					record = await pb.collection(collectionUsed).create(payload);
+				} catch (secondError) {
+					console.warn('shifts create failed:', secondError?.message || secondError?.data?.message, secondError?.data || secondError);
+					// Retry with date-time if shift_date may require time
+					if (/^\d{4}-\d{2}-\d{2}$/.test(payload.shift_date || '')) {
+						const retryPayload = { ...payload, shift_date: `${payload.shift_date} 00:00:00` };
+						console.warn('Retrying create with date-time shift_date:', retryPayload.shift_date);
+						record = await pb.collection(collectionUsed).create(retryPayload);
+					} else {
+						throw secondError;
+					}
+				}
 			}
 			// Fetch the record with expanded relations from the collection used
 			const expandedRecord = await pb.collection(collectionUsed).getOne(record.id, {
