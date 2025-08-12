@@ -54,6 +54,29 @@
 	let floorPlanFilter = "all"; // For floor plan filtering
 	let filteredSections = []; // Filtered sections based on floor plan filter
 	let showDetailedMenuView = false; // For detailed menu items view
+	let shiftsView = 'list'; // 'list' | 'calendar'
+
+	function getWeekSunday(d) {
+		const dt = new Date(d);
+		const day = dt.getDay();
+		const sunday = new Date(dt);
+		sunday.setDate(dt.getDate() - day);
+		sunday.setHours(0, 0, 0, 0);
+		return sunday;
+	}
+	function toISODate(d) {
+		const y = d.getFullYear();
+		const m = String(d.getMonth() + 1).padStart(2, '0');
+		const day = String(d.getDate()).padStart(2, '0');
+		return `${y}-${m}-${day}`;
+	}
+	function getWeekDates(sunday) {
+		return Array.from({ length: 7 }, (_, i) => {
+			const dd = new Date(sunday);
+			dd.setDate(sunday.getDate() + i);
+			return toISODate(dd);
+		});
+	}
 
 	// Menu filtering system variables
 	let selectedMenuCategories = {
@@ -2400,6 +2423,10 @@
 				<div class="flex justify-between items-center">
 					<h2 class="text-2xl font-bold">Shifts Management</h2>
 					<div class="flex items-center gap-2">
+						<div class="text-xs bg-gray-700 rounded px-2 py-1 mr-2">
+							<label class="mr-2"><input type="radio" name="shiftsView" value="list" bind:group={shiftsView} /> List</label>
+							<label><input type="radio" name="shiftsView" value="calendar" bind:group={shiftsView} /> Calendar</label>
+						</div>
 						<button
 							on:click={() => openShiftModal()}
 							class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
@@ -2418,6 +2445,7 @@
 					</div>
 				</div>
 
+				{#if shiftsView === 'list'}
 				<div
 					class="bg-gray-800/50 rounded-xl border border-gray-700 overflow-hidden"
 				>
@@ -2517,6 +2545,26 @@
 						</tbody>
 					</table>
 				</div>
+				{:else}
+				<!-- Calendar view (current week) -->
+				<div class="bg-gray-800/50 rounded-xl border border-gray-700 p-4">
+					<div class="grid grid-cols-7 gap-2">
+						{#each getWeekDates(getWeekSunday(new Date())) as day}
+							<div class="border border-gray-700 rounded p-2 min-h-[140px]">
+								<div class="text-xs text-gray-400 mb-2">{toISODate(new Date(day))}</div>
+								{#each $shifts.filter(s => (s.shift_date || '').slice(0,10) === toISODate(new Date(day))) as s}
+									<div class="mb-2 bg-gray-700 rounded p-2">
+										<div class="text-xs text-gray-300 truncate">{getStaffMemberName(s)} • {s.position}</div>
+										<div class="text-xs">
+											{formatTime12Hour(s.start_time)}–{formatTime12Hour(s.end_time)} • {getSectionName(s.assigned_section) || 'No Section'}
+										</div>
+									</div>
+								{/each}
+							</div>
+						{/each}
+					</div>
+				</div>
+				{/if}
 			</div>
 		{:else if activeTab === "menu"}
 			<!-- Menu Management -->
