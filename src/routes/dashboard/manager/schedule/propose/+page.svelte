@@ -277,11 +277,7 @@
   }
 
   async function approveSelected() {
-    const todayIsSunday = new Date().getDay() === 0;
-    if (!todayIsSunday) {
-      alert('Approvals are only allowed on Sunday.');
-      return;
-    }
+    // Approvals allowed any day; retain brunch validation
     if (!proposal?.shifts?.length) return;
 
     // Simple brunch validation
