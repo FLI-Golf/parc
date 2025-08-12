@@ -2433,15 +2433,7 @@
 						>
 							Schedule Shift
 						</button>
-						<button
-							on:click={() => { console.log('open modal'); showScheduleModal = true; }}
-							class="px-4 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700 transition-colors"
-						>
-							AI Propose Week
-						</button>
-						{#if showScheduleModal}
-							<span class="ml-2 text-teal-300 text-sm">Opening…</span>
-						{/if}
+
 					</div>
 				</div>
 
