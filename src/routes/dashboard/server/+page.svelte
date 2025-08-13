@@ -203,8 +203,11 @@ function hasConflictWithMyShifts(shift) {
 	}
 
 	function setActiveTab(tab) {
-		activeTab = tab;
+	activeTab = tab;
+	if (tab === 'trades') {
+		try { collections.getShiftTrades?.(); } catch {}
 	}
+}
 
 	async function updateShiftStatus(shiftId, status) {
 		try {
@@ -3994,7 +3997,10 @@ function hasConflictWithMyShifts(shift) {
 				</div>
 				<!-- Available Trade Offers (from others) -->
 				<div class="bg-gray-800/50 rounded-xl border border-gray-700 p-4">
-					<h3 class="text-lg font-semibold mb-3">Available Trade Offers</h3>
+					<div class="flex items-center justify-between mb-3">
+						<h3 class="text-lg font-semibold">Available Trade Offers</h3>
+						<button class="px-2 py-1 text-xs bg-gray-700 hover:bg-gray-600 rounded" on:click={() => collections.getShiftTrades?.()}>Refresh</button>
+					</div>
 					{#each availableTrades as t}
 						<div class="flex items-center justify-between p-3 bg-gray-700/30 rounded-lg text-sm">
 							<div>
