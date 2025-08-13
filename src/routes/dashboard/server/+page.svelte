@@ -3993,19 +3993,18 @@ function hasConflictWithMyShifts(shift) {
 				<div class="bg-gray-800/50 rounded-xl border border-gray-700 p-4">
 					<h3 class="text-lg font-semibold mb-3">Available Trade Offers</h3>
 					{#each availableTrades as t}
-						{@const s = t.expand?.shift_id}
 						<div class="flex items-center justify-between p-3 bg-gray-700/30 rounded-lg text-sm">
 							<div>
 								<div class="font-medium">
-									{#if s}
-										{formatDate(s.shift_date)} • {s.position}
+									{#if t.expand?.shift_id}
+										{formatDate(t.expand.shift_id.shift_date)} • {t.expand.shift_id.position}
 									{:else}
 										Shift #{t.shift_id}
 									{/if}
 								</div>
 								<div class="text-gray-400">
-									{#if s}
-										{formatTime(s.start_time)} - {formatTime(s.end_time)} • {getSectionName(s.assigned_section) || 'No Section'}
+									{#if t.expand?.shift_id}
+										{formatTime(t.expand.shift_id.start_time)} - {formatTime(t.expand.shift_id.end_time)} • {getSectionName(t.expand.shift_id.assigned_section) || 'No Section'}
 									{:else}
 										Offered by: {t.expand?.current_staff ? (t.expand.current_staff.first_name + ' ' + t.expand.current_staff.last_name) : t.current_staff}
 									{/if}
@@ -4015,10 +4014,9 @@ function hasConflictWithMyShifts(shift) {
 								</div>
 							</div>
 							<div class="flex gap-2">
-								{@const conflict = s ? hasConflictWithMyShifts(s) : false}
-								<button class="px-2 py-1 rounded {conflict ? 'bg-gray-700 text-gray-400 cursor-not-allowed' : 'bg-green-600 hover:bg-green-700'}" disabled={conflict}
-									on:click={async ()=>{ if (conflict) return; await collections.updateShiftTrade(t.id,{ status:'accepted', offered_to: myStaffId }); await collections.getShiftTrades(); alert('Offer accepted. Pending manager approval.'); }}>
-									{conflict ? 'Unavailable (conflict)' : 'Accept'}
+								<button class="px-2 py-1 rounded {t.expand?.shift_id && hasConflictWithMyShifts(t.expand.shift_id) ? 'bg-gray-700 text-gray-400 cursor-not-allowed' : 'bg-green-600 hover:bg-green-700'}" disabled={t.expand?.shift_id && hasConflictWithMyShifts(t.expand.shift_id)}
+									on:click={async ()=>{ if (t.expand?.shift_id && hasConflictWithMyShifts(t.expand.shift_id)) return; await collections.updateShiftTrade(t.id,{ status:'accepted', offered_to: myStaffId }); await collections.getShiftTrades(); alert('Offer accepted. Pending manager approval.'); }}>
+									{t.expand?.shift_id && hasConflictWithMyShifts(t.expand.shift_id) ? 'Unavailable (conflict)' : 'Accept'}
 								</button>
 							</div>
 						</div>
