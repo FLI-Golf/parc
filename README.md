@@ -282,6 +282,29 @@ The system uses 14+ PocketBase collections including:
 - Collection-based CRUD operations
 - Automatic data synchronization
 
+## ✅ Recent Updates
+
+### Manager Shift Trades Approval
+- Manager dashboard shows a pulsing badge with pending trade approvals next to the avatar
+- New Approve Trades button in Shifts header opens a Trades panel
+- Trades panel lists pending trades (status `accepted`) with shift/time/position and from → to staff
+- Approvals:
+  - Approve per-row, Approve selected, Approve all
+  - Auto-approve toggle persists; when enabled, newly accepted trades are approved automatically and the panel collapses
+
+### Server My Profile (display-only)
+- Server dashboard My Profile shows Email, Role, and Phone
+- Phone is derived from the Staff record, not the auth record
+- The old Update Profile button was removed here to keep this display-only
+
+### Profile Editor Improvements
+- Dedicated Profile editor at `/dashboard/profile` now loads phone from the Staff collection
+- Staff lookup tries `staff_collection` then `staff` by `user_id`, then falls back to email
+- On save: updates `users.name` and `staff.phone` (creates staff record if missing)
+
+Notes:
+- If your deployment uses the `staff` collection name instead of `staff_collection`, the app detects and updates accordingly.
+
 ## 📖 Documentation
 
 For detailed technical documentation, see [`AGENT.md`](./AGENT.md) which includes:

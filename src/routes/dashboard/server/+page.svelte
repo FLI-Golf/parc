@@ -10,6 +10,7 @@
 let orderTab = 'current'; // 'current' or 'history'
 /** @type {any[]} */ let completedOrders = []; // Store completed order history
 let myStaffId = null;
+let myPhone = '';
 
 // Trades derived helpers
 $: allTrades = (get(shiftTrades) || []);
@@ -57,15 +58,28 @@ function hasConflictWithMyShifts(shift) {
 	let currentTime = new Date();
 	/** @type {any} */ let timeInterval;
 
-	// Reactive declarations
-	$: myShifts = $shifts.filter(shift => {
-		// Try matching by email as fallback
-		const emailMatch = shift.expand?.staff_member?.email === user?.email;
-		const userIdMatch = shift.expand?.staff_member?.user_id === user?.id;
-		
-		return userIdMatch || emailMatch;
-	});
-	
+// Reactive declarations
+$: myShifts = $shifts.filter(shift => {
+// Try matching by email as fallback
+const emailMatch = shift.expand?.staff_member?.email === user?.email;
+const userIdMatch = shift.expand?.staff_member?.user_id === user?.id;
+
+return userIdMatch || emailMatch;
+});
+
+// Derive my phone from staff store if available
+$: myPhone = (() => {
+	try {
+		const uid = user?.id;
+		const uemail = user?.email;
+		const list = get(staffStore) || [];
+		const me = list.find(s => (s.user_id === uid) || (s.expand?.user_id?.id === uid) || (s.email === uemail));
+		return me?.phone || '';
+	} catch {
+		return '';
+	}
+})();
+
 	// Get today's date in local timezone
 	function getTodayString() {
 		const today = new Date();
@@ -4148,10 +4162,6 @@ function hasConflictWithMyShifts(shift) {
 			<div class="bg-gray-800/50 backdrop-blur-sm rounded-xl border border-gray-700 p-6 max-w-2xl">
 				<div class="space-y-6">
 					<div>
-						<label class="block text-sm font-medium text-gray-300 mb-2">Name</label>
-						<p class="text-lg">{user?.name || 'Not provided'}</p>
-					</div>
-					<div>
 						<label class="block text-sm font-medium text-gray-300 mb-2">Email</label>
 						<p class="text-lg">{user?.email || 'Not provided'}</p>
 					</div>
@@ -4163,15 +4173,11 @@ function hasConflictWithMyShifts(shift) {
 					</div>
 					<div>
 						<label class="block text-sm font-medium text-gray-300 mb-2">Phone</label>
-						<p class="text-lg">{user?.phone || 'Not provided'}</p>
+						<p class="text-lg">{myPhone || 'Not provided'}</p>
 					</div>
 				</div>
 
-				<div class="mt-8 pt-6 border-t border-gray-700">
-					<button class="px-4 py-2 bg-green-600 hover:bg-green-700 rounded-lg font-medium">
-						Update Profile
-					</button>
-				</div>
+				<!-- Display-only: removed update button per requirements -->
 			</div>
 		{/if}
 	</main>

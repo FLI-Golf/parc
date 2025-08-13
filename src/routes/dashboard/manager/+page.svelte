@@ -35,8 +35,6 @@ import {
 let showScheduleModal = false;
 let autoApproveTrades = false;
 
-$: pendingTrades = (/** @type {any[]} */(shiftTrades && $shiftTrades ? $shiftTrades : [])).filter(t => t.status === 'accepted');
-$: pendingTradesCount = pendingTrades.length;
 let activeTab = "overview";
 let user = null;
 let showImportModal = false;
@@ -59,6 +57,60 @@ let floorPlanFilter = "all"; // For floor plan filtering
 let filteredSections = []; // Filtered sections based on floor plan filter
 let showDetailedMenuView = false; // For detailed menu items view
 let shiftsView = 'list'; // 'list' | 'calendar'
+// Trades approval UI state
+let showTradesPanel = false;
+let selectedTradeIds = new Set();
+let selectAllTrades = false;
+
+function toggleTradeSelection(id) {
+	if (selectedTradeIds.has(id)) selectedTradeIds.delete(id);
+	else selectedTradeIds.add(id);
+	selectedTradeIds = new Set(selectedTradeIds);
+}
+
+$: pendingTrades = (/** @type {any[]} */(shiftTrades && $shiftTrades ? $shiftTrades : [])).filter(t => t.status === 'accepted');
+$: pendingTradesCount = pendingTrades.length;
+
+$: if (selectAllTrades) {
+	selectedTradeIds = new Set(pendingTrades.map(t => t.id));
+}
+
+async function approveSelectedTrades() {
+	if (selectedTradeIds.size === 0) return;
+	const ids = Array.from(selectedTradeIds);
+	await approveTrades(ids);
+}
+
+async function approveAllTrades() {
+	const ids = pendingTrades.map(t => t.id);
+	if (ids.length === 0) return;
+	await approveTrades(ids);
+}
+
+async function approveTrades(ids) {
+	for (const id of ids) {
+		try {
+			const trade = pendingTrades.find(t => t.id === id) || ($shiftTrades || []).find(t => t.id === id);
+			if (!trade) continue;
+			// Determine shift id and target staff id (offered_to)
+			const shiftId = trade.shift_id || trade.expand?.shift_id?.id;
+			const targetStaff = trade.offered_to || trade.expand?.offered_to?.id;
+			// Reassign shift if possible
+			if (shiftId && targetStaff) {
+				try { await collections.updateShift(shiftId, { staff_member: targetStaff, status: 'confirmed' }); } catch (e) { console.warn('Failed to update shift for trade', id, e); }
+			}
+			// Mark trade approved
+			try { await collections.updateShiftTrade(id, { status: 'approved', approved_at: new Date().toISOString() }); } catch (e) { console.warn('Failed to mark trade approved', id, e); }
+		} catch (e) {
+			console.error('Error approving trade', id, e);
+		}
+	}
+	// Refresh
+	try { await Promise.all([collections.getShifts(), collections.getShiftTrades()]); } catch {}
+	// Reset UI state
+	selectedTradeIds = new Set();
+	selectAllTrades = false;
+}
 
 // Position visuals and filters
 const positionMeta = {
@@ -1014,9 +1066,9 @@ function getWeekDates(sunday) {
 						<div class="flex items-center space-x-3">
 						<!-- Trades badge -->
 						{#if pendingTradesCount > 0}
-						 <span class="px-2 py-1 text-xs rounded-full bg-yellow-900/60 text-yellow-300 border border-yellow-700 animate-pulse" title="Shift trades awaiting approval">
+						 <button class="px-2 py-1 text-xs rounded-full bg-yellow-900/60 text-yellow-300 border border-yellow-700 animate-pulse hover:bg-yellow-800/60" title="View shift trades awaiting approval" on:click={() => { activeTab = 'shifts'; showTradesPanel = true; }}>
 						 🔁 {pendingTradesCount}
-						</span>
+						</button>
 						{/if}
 						<div class="w-10 h-10 rounded-full bg-gray-700 flex items-center justify-center">
 						<span class="font-medium">{user.name?.charAt(0) || user.email?.charAt(0) || "M"}</span>
@@ -2463,9 +2515,15 @@ function getWeekDates(sunday) {
 			<!-- Shifts Management -->
 			<div class="space-y-6">
 				<div class="flex justify-between items-center">
-					<h2 class="text-2xl font-bold">Shifts Management</h2>
-					<div class="flex items-center gap-2">
-						<div class="text-xs bg-gray-700 rounded px-2 py-1 mr-2">
+				<h2 class="text-2xl font-bold">Shifts Management</h2>
+				<div class="flex items-center gap-2">
+				<button class="text-xs px-2 py-1 rounded border {pendingTradesCount > 0 ? 'bg-yellow-800/50 border-yellow-700 text-yellow-300' : autoApproveTrades ? 'bg-green-800/40 border-green-700 text-green-200' : 'bg-gray-700/50 border-gray-600 text-gray-300'}" on:click={() => showTradesPanel = !showTradesPanel} aria-label="Approve Trades">
+				🔁 <span class="font-medium">Approve Trades</span>
+				{#if pendingTradesCount > 0}
+					<span class="ml-2 px-1.5 py-0.5 rounded bg-yellow-700/60 border border-yellow-600 text-[10px]">{pendingTradesCount}</span>
+				{/if}
+				</button>
+				<div class="text-xs bg-gray-700 rounded px-2 py-1 mr-2">
 							<label class="mr-2"><input type="radio" name="shiftsView" value="list" bind:group={shiftsView} /> List</label>
 							<label><input type="radio" name="shiftsView" value="calendar" bind:group={shiftsView} /> Calendar</label>
 						</div>
@@ -2480,6 +2538,62 @@ function getWeekDates(sunday) {
 				</div>
 
 				{#if shiftsView === 'list'}
+				{#if showTradesPanel}
+				<div class="p-4 rounded-lg border border-yellow-700 bg-yellow-900/20 mb-3">
+					<div class="flex items-center justify-between mb-3">
+						<h3 class="font-semibold text-yellow-200 flex items-center gap-2">🔁 Pending Shift Trades <span class="text-xs px-2 py-0.5 rounded bg-yellow-800/40 border border-yellow-700">{pendingTradesCount}</span></h3>
+						<div class="flex items-center gap-3 text-sm">
+							<label class="flex items-center gap-2 text-yellow-200"><input type="checkbox" bind:checked={selectAllTrades} on:change={() => { if (!selectAllTrades) selectedTradeIds = new Set(); }} /> Select all</label>
+							<button class="px-3 py-1 rounded bg-green-700 text-white hover:bg-green-600 disabled:opacity-50" on:click={approveSelectedTrades} disabled={selectedTradeIds.size === 0}>Approve selected</button>
+							<button class="px-3 py-1 rounded bg-green-800/60 text-green-200 hover:bg-green-700/60" on:click={approveAllTrades}>Approve all</button>
+							<label class="flex items-center gap-2 text-yellow-200 ml-3">
+								<input type="checkbox" bind:checked={autoApproveTrades} on:change={() => { try { localStorage.setItem('autoApproveTrades', String(autoApproveTrades)); } catch {} if (autoApproveTrades && pendingTradesCount > 0) approveAllTrades().then(() => { showTradesPanel = false; }); }} /> Always approve
+							</label>
+						</div>
+					</div>
+					{#if pendingTradesCount === 0}
+						<p class="text-sm text-yellow-300">No trades awaiting approval.</p>
+					{:else}
+						<div class="overflow-x-auto -mx-1 px-1">
+							<table class="w-full text-sm">
+								<thead class="text-yellow-300/90">
+									<tr>
+										<th class="text-left py-2">Select</th>
+										<th class="text-left py-2">Shift</th>
+										<th class="text-left py-2">From → To</th>
+										<th class="text-left py-2">Notes</th>
+										<th class="text-left py-2">Action</th>
+									</tr>
+								</thead>
+								<tbody>
+									{#each pendingTrades as trade}
+										{@const s = trade.expand?.shift_id}
+										{@const from = trade.expand?.offered_by || trade.expand?.current_staff}
+										{@const to = trade.expand?.offered_to}
+										<tr class="border-t border-yellow-800/30">
+											<td class="py-2"><input type="checkbox" checked={selectedTradeIds.has(trade.id)} on:change={() => toggleTradeSelection(trade.id)} /></td>
+											<td class="py-2 text-yellow-100">
+												<span class="font-medium">{formatShortDate((s?.shift_date || trade.shift_date || ''))}</span>
+												• {formatTime12Hour((s?.start_time || trade.start_time || ''))}–{formatTime12Hour((s?.end_time || trade.end_time || ''))}
+												• {(s?.position || trade.position || '')}
+											</td>
+											<td class="py-2 text-yellow-100">
+												<span class="capitalize">{from ? `${from.first_name || ''} ${from.last_name || ''}`.trim() : (trade.current_staff || 'Current')}</span>
+												→
+												<span class="capitalize">{to ? `${to.first_name || ''} ${to.last_name || ''}`.trim() : (trade.offered_to || 'Target')}</span>
+											</td>
+											<td class="py-2 text-yellow-200/90">{trade.notes || ''}</td>
+											<td class="py-2">
+												<button class="px-2 py-1 rounded bg-green-700 text-white hover:bg-green-600" on:click={() => approveTrades([trade.id])}>Approve</button>
+											</td>
+										</tr>
+									{/each}
+								</tbody>
+							</table>
+						</div>
+					{/if}
+				</div>
+				{/if}
 				<!-- Filters -->
 				<div class="flex flex-wrap items-center gap-3 mb-3">
 					<div class="flex items-center gap-2 text-xs">
