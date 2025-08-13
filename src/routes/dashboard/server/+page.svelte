@@ -4,29 +4,82 @@
 	import { get } from 'svelte/store';
 	import { authStore } from '$lib/auth.js';
 	import pb from '$lib/pocketbase.js';
-	import { collections, shifts, menuItems, sections, tables, tickets, ticketItems, loading } from '$lib/stores/collections.js';
+	import { collections, shifts, menuItems, sections, tables, tickets, ticketItems, loading, staff as staffStore, shiftTrades } from '$lib/stores/collections.js';
 
 	let activeTab = 'today';
-	let orderTab = 'current'; // 'current' or 'history'
-	let completedOrders = []; // Store completed order history
+let orderTab = 'current'; // 'current' or 'history'
+/** @type {any[]} */ let completedOrders = []; // Store completed order history
+let myStaffId = null;
+let myPhone = '';
+
+// Trades derived helpers
+$: allTrades = (get(shiftTrades) || []);
+$: myTrades = allTrades.filter(t => (t.current_staff === myStaffId || t.offered_by === myStaffId || t.expand?.current_staff?.id === myStaffId || t.expand?.offered_by?.id === myStaffId));
+$: availableTrades = allTrades.filter(t => t.status === 'open' && !(t.current_staff === myStaffId || t.expand?.current_staff?.id === myStaffId));
+function myExistingTradeFor(shiftId) {
+  try {
+    return allTrades.find(t => (t.shift_id === shiftId) && ((t.current_staff === myStaffId) || (t.expand?.current_staff?.id === myStaffId)) && ['open','offered'].includes(t.status));
+  } catch { return null; }
+}
+
+function getDateOnly(str) {
+  if (!str) return '';
+  return String(str).slice(0, 10);
+}
+function timeToMinutes(str) {
+  if (!str) return 0;
+  const [h, m] = String(str).split(':').map((n) => parseInt(n, 10));
+  return (h || 0) * 60 + (m || 0);
+}
+function rangesOverlap(s1, e1, s2, e2) {
+  return Math.max(s1, s2) < Math.min(e1, e2);
+}
+function hasConflictWithMyShifts(shift) {
+  try {
+    const date = getDateOnly(shift.shift_date);
+    const s1 = timeToMinutes(shift.start_time);
+    const e1 = timeToMinutes(shift.end_time);
+    return (get(myShifts) || myShifts || []).some((mine) => {
+      const d2 = getDateOnly(mine.shift_date);
+      if (d2 !== date) return false;
+      const s2 = timeToMinutes(mine.start_time);
+      const e2 = timeToMinutes(mine.end_time);
+      return rangesOverlap(s1, e1, s2, e2);
+    });
+  } catch { return false; }
+}
 	let showHistoryModal = false;
-	let user = null;
+	/** @type {any} */ let user = null;
 	let forcePaymentEnabled = false; // Server override for payment when items aren't ready
 
 	// Shift timer state
+	/** @type {Map<string, { startTime: Date, breakNotified?: boolean }>} */
 	let shiftTimers = new Map(); // Map of shiftId -> timer data
 	let currentTime = new Date();
-	let timeInterval;
+	/** @type {any} */ let timeInterval;
 
-	// Reactive declarations
-	$: myShifts = $shifts.filter(shift => {
-		// Try matching by email as fallback
-		const emailMatch = shift.expand?.staff_member?.email === user?.email;
-		const userIdMatch = shift.expand?.staff_member?.user_id === user?.id;
-		
-		return userIdMatch || emailMatch;
-	});
-	
+// Reactive declarations
+$: myShifts = $shifts.filter(shift => {
+// Try matching by email as fallback
+const emailMatch = shift.expand?.staff_member?.email === user?.email;
+const userIdMatch = shift.expand?.staff_member?.user_id === user?.id;
+
+return userIdMatch || emailMatch;
+});
+
+// Derive my phone from staff store if available
+$: myPhone = (() => {
+	try {
+		const uid = user?.id;
+		const uemail = user?.email;
+		const list = get(staffStore) || [];
+		const me = list.find(s => (s.user_id === uid) || (s.expand?.user_id?.id === uid) || (s.email === uemail));
+		return me?.phone || '';
+	} catch {
+		return '';
+	}
+})();
+
 	// Get today's date in local timezone
 	function getTodayString() {
 		const today = new Date();
@@ -121,11 +174,18 @@
 						collections.getSections(),
 						collections.getTables(),
 						collections.getTickets(),
-						collections.getTicketItems()
+						collections.getTicketItems(),
+						collections.getStaff?.() || Promise.resolve(),
+						collections.getShiftTrades?.() || Promise.resolve()
 					]);
 					
-					// Table updates collection is optional for server dashboard
-					// Skipping to avoid console errors - not needed for core functionality
+					// Resolve my staff id
+					try {
+						const allStaff = get(staffStore) || [];
+						const authUserId = auth?.user?.id || pb?.authStore?.model?.id;
+						const me = allStaff.find(s => (s.user_id === authUserId) || (s.expand?.user_id?.id === authUserId));
+						myStaffId = me?.id || null;
+					} catch {}
 					
 					// Load any existing shift timers
 					loadShiftTimers();
@@ -157,8 +217,11 @@
 	}
 
 	function setActiveTab(tab) {
-		activeTab = tab;
+	activeTab = tab;
+	if (tab === 'trades') {
+		try { collections.getShiftTrades?.(); } catch {}
 	}
+}
 
 	async function updateShiftStatus(shiftId, status) {
 		try {
@@ -235,7 +298,7 @@
 		const timer = shiftTimers.get(shiftId);
 		if (!timer) return null;
 		
-		const duration = currentTime - timer.startTime;
+		const duration = (currentTime.getTime() - timer.startTime.getTime());
 		const hours = Math.floor(duration / (1000 * 60 * 60));
 		const minutes = Math.floor((duration % (1000 * 60 * 60)) / (1000 * 60));
 		return { hours, minutes, duration };
@@ -246,7 +309,9 @@
 		const shift = todayShifts.find(s => s.id === shiftId);
 		if (!timer || !shift) return null;
 		
-		const elapsed = currentTime - timer.startTime;
+		const currentMs = (currentTime instanceof Date) ? currentTime.getTime() : new Date(currentTime).getTime();
+		const startMs = (timer.startTime instanceof Date) ? timer.startTime.getTime() : new Date(timer.startTime).getTime();
+		const elapsed = currentMs - startMs;
 		const threeHours = 3 * 60 * 60 * 1000; // 3 hours in milliseconds
 		
 		// Calculate elapsed time
@@ -315,7 +380,7 @@
 					};
 				}
 				
-				const timeToEnd = endTime - currentTime;
+				const timeToEnd = (endTime.getTime() - currentTime.getTime());
 				const hours = Math.floor(timeToEnd / (1000 * 60 * 60));
 				const minutes = Math.floor((timeToEnd % (1000 * 60 * 60)) / (1000 * 60));
 				const seconds = Math.floor((timeToEnd % (1000 * 60)) / 1000);
@@ -352,7 +417,7 @@
 		const timer = shiftTimers.get(shiftId);
 		if (!timer || timer.breakReminded) return false;
 		
-		const duration = currentTime - timer.startTime;
+		const duration = (currentTime.getTime() - timer.startTime.getTime());
 		const threeHours = 3 * 60 * 60 * 1000; // 3 hours in milliseconds
 		
 		if (duration >= threeHours && !timer.breakReminded) {
@@ -374,7 +439,7 @@
 		const timer = shiftTimers.get(shiftId);
 		if (!timer) return false;
 		
-		const duration = currentTime - timer.startTime;
+		const duration = (currentTime.getTime() - timer.startTime.getTime());
 		const threeHours = 3 * 60 * 60 * 1000; // 3 hours in milliseconds
 		return duration > threeHours;
 	}
@@ -413,15 +478,20 @@
 	}
 
 	function formatDate(dateStr) {
-		// Parse as local date to avoid timezone issues
-		const [year, month, day] = dateStr.split('-');
-		const date = new Date(year, month - 1, day);
-		return date.toLocaleDateString('en-US', {
-			weekday: 'long',
-			year: 'numeric',
-			month: 'long',
-			day: 'numeric'
-		});
+		if (!dateStr) return '';
+		// Accept formats: 'YYYY-MM-DD' or 'YYYY-MM-DD HH:MM:SS' or ISO
+		let y, m, d;
+		const justDate = String(dateStr).slice(0, 10);
+		if (/^\d{4}-\d{2}-\d{2}$/.test(justDate)) {
+			[y, m, d] = justDate.split('-').map(Number);
+			const date = new Date(y, m - 1, d);
+			return date.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+		}
+		const date = new Date(dateStr);
+		if (!isNaN(date.getTime())) {
+			return date.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+		}
+		return String(dateStr);
 	}
 
 	function formatTime(timeStr) {
@@ -642,31 +712,31 @@
 	
 	// Ticket management state
 	let showTicketModal = false;
-	let selectedTable = null;
-	let currentTicket = null;
-	let currentTicketItems = [];
-	let selectedMenuItem = null;
+	/** @type {any} */ let selectedTable = null;
+	/** @type {any} */ let currentTicket = null;
+	/** @type {any[]} */ let currentTicketItems = [];
+	/** @type {any} */ let selectedMenuItem = null;
 	let showItemModal = false;
-	let selectedModifiers = [];
+	/** @type {any[]} */ let selectedModifiers = [];
 	let itemQuantity = 1;
 	let specialInstructions = '';
-	let selectedSeat = null;
-	let seatNames = {}; // Map of seat numbers to names
+	/** @type {number | null} */ let selectedSeat = null;
+	/** @type {Record<number, string>} */ let seatNames = {}; // Map of seat numbers to names
 	
 	// Item edit modal state
 	let showEditItemModal = false;
-	let editingItem = null;
+	/** @type {any} */ let editingItem = null;
 	let editQuantity = 1;
-	let editModifiers = [];
+	/** @type {any[]} */ let editModifiers = [];
 	let editSpecialInstructions = '';
-	let editSeat = null;
+	/** @type {number | null} */ let editSeat = null;
 	
 	// Dynamic seat management  
 	let maxSeats = 10; // Default max seats (expandable) - generous for walk-ins
 	
 	// Voice recognition state
 	let isRecording = false;
-	let recognition = null;
+	/** @type {any} */ let recognition = null;
 	let speechSupported = false;
 	let isRecordingEdit = false;
 	let isRecordingSearch = false;
@@ -681,7 +751,7 @@
 	$: calculatedTotal = calculatedSubtotal + calculatedTax;
 	
 	// Reactive: Update bar orders when ticket items change (debounced)
-	let barOrdersUpdateTimeout;
+	/** @type {any} */ let barOrdersUpdateTimeout;
 	$: if ($ticketItems && user?.role?.toLowerCase() === 'bartender') {
 		// Debounce to prevent excessive updates
 		clearTimeout(barOrdersUpdateTimeout);
@@ -712,6 +782,7 @@
 	}
 	let guestCount = 2;
 	// Category selection for filtering (multi-select checkboxes)
+	/** @type {Record<string, boolean>} */
 	let selectedCategories = {
 		brunch: false,
 		lunch: false,
@@ -1447,7 +1518,7 @@
 			const menuItem = $menuItems.find(m => m.id === item.menu_item_id);
 			const prepTime = menuItem?.preparation_time || 12;
 			const orderedAt = new Date(item.ordered_at);
-			const elapsed = Math.floor((now - orderedAt) / (1000 * 60));
+			const elapsed = Math.floor((now.getTime() - orderedAt.getTime()) / (1000 * 60));
 			return Math.max(0, prepTime - elapsed);
 		}));
 		
@@ -1583,20 +1654,20 @@
 	}
 
 	// Show table order details modal
-	let showTableDetailsModal = false;
-	let selectedTableDetails = null;
+	/** @type {boolean} */ let showTableDetailsModal = false;
+	/** @type {any} */ let selectedTableDetails = null;
 	
 	// Bar orders for bartenders
-	let barOrders = [];
+	/** @type {any[]} */ let barOrders = [];
 	
 	// Payment processing
-	let showPaymentModal = false;
-	let selectedTableForPayment = null;
+	/** @type {boolean} */ let showPaymentModal = false;
+	/** @type {any} */ let selectedTableForPayment = null;
 	let paymentAmount = 0;
 	let paymentMethod = 'card';
-	let stripe = null;
-	let cardElement = null;
-	let stripeElements = null;
+	/** @type {any} */ let stripe = null;
+	/** @type {any} */ let cardElement = null;
+	/** @type {any} */ let stripeElements = null;
 	
 	// Tip handling
 	let tipAmount = 0;
@@ -1611,7 +1682,7 @@
 	
 	// Payment workflow state
 	let paymentWorkflowStep = 'initial'; // 'initial', 'card_authorized', 'awaiting_tip', 'finalizing'
-	let authorizedPaymentIntent = null;
+	/** @type {any} */ let authorizedPaymentIntent = null;
 	let authorizedAmount = 0;
 
 	function showTableOrderDetails(table) {
@@ -1664,7 +1735,7 @@
 				.map(item => {
 					const orderedAt = new Date(item.ordered_at);
 					const preparedAt = item.prepared_at ? new Date(item.prepared_at) : null;
-					const elapsedMinutes = Math.floor((now - orderedAt) / (1000 * 60));
+					const elapsedMinutes = Math.floor((now.getTime() - orderedAt.getTime()) / (1000 * 60));
 					const estimatedMinutes = 3; // Bar items typically 3 minutes
 					const remainingMinutes = Math.max(0, estimatedMinutes - elapsedMinutes);
 					
@@ -1674,7 +1745,7 @@
 						new Date(orderedAt.getTime() + 10 * 60 * 1000); // 10 minutes after ordered if not ready yet
 					
 					const shouldDisplay = now < displayUntil;
-					const minutesUntilHidden = Math.max(0, Math.floor((displayUntil - now) / (1000 * 60)));
+					const minutesUntilHidden = Math.max(0, Math.floor((displayUntil.getTime() - now.getTime()) / (1000 * 60)));
 					
 					console.log(`🍹 DEBUG Item ${item.id}:`, {
 						status: item.status,
@@ -3050,6 +3121,7 @@
 				{#each [
 					{ id: 'today', name: 'Today\'s Shifts', icon: '📅' },
 					{ id: 'schedule', name: 'My Schedule', icon: '🗓️' },
+					{ id: 'trades', name: 'Shift Trades', icon: '🔁' },
 					{ id: 'menu', name: 'Menu Reference', icon: '🍽️' },
 					{ id: 'profile', name: 'My Profile', icon: '👤' }
 				] as tab}
@@ -3639,7 +3711,7 @@
 											</button>
 										{:else}
 											{@const timer = shiftTimers.get(shift.id)}
-											{@const elapsed = currentTime - timer.startTime}
+											{@const elapsed = (currentTime.getTime() - timer.startTime.getTime())}
 											{@const threeHours = 3 * 60 * 60 * 1000}
 											{@const atBreakTime = elapsed >= threeHours && !timer.breakReminded}
 											
@@ -3866,7 +3938,117 @@
 				</div>
 			{/if}
 
-		{:else if activeTab === 'schedule'}
+		{:else if activeTab === 'trades'}
+			<!-- Shift Trades -->
+			<div class="mb-8">
+				<h2 class="text-3xl font-bold">Shift Trades</h2>
+				<p class="text-gray-400 mt-2">Offer your shift or accept offers to cover.</p>
+			</div>
+			<div class="grid gap-4">
+				<!-- My upcoming shifts with Offer Trade -->
+				<div class="bg-gray-800/50 rounded-xl border border-gray-700 p-4">
+					<h3 class="text-lg font-semibold mb-3">My Upcoming Shifts</h3>
+					{#if upcomingShifts.length === 0}
+						<p class="text-gray-400 text-sm">No upcoming shifts.</p>
+					{:else}
+						<div class="grid gap-3">
+							{#each upcomingShifts as shift}
+								<div class="flex justify-between items-center p-3 bg-gray-700/30 rounded-lg">
+									<div class="text-sm text-gray-300">
+										<div class="font-medium">{formatDate(shift.shift_date)} • {shift.position}</div>
+										<div>{formatTime(shift.start_time)} - {formatTime(shift.end_time)} • {getSectionName(shift.assigned_section) || 'No Section'}</div>
+									</div>
+																		<button class="px-3 py-1 rounded text-xs {myExistingTradeFor(shift.id) ? 'bg-gray-700 text-gray-400 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-700'}"
+										disabled={!myStaffId || !!myExistingTradeFor(shift.id)}
+										on:click={async () => {
+											try {
+												await collections.createShiftTrade({
+													shift_id: shift.id,
+													current_staff: myStaffId,
+													offered_by: myStaffId,
+													status: 'open'
+												});
+												await collections.getShiftTrades();
+												alert('Trade offer created.');
+											} catch (e) {
+												console.error('Failed to create trade:', e);
+												alert(e?.message || 'Failed to create trade');
+											}
+										}}
+									>
+										{myExistingTradeFor(shift.id) ? 'Pending Offer' : 'Offer Trade'}
+									</button>
+								</div>
+							{/each}
+						</div>
+					{/if}
+				</div>
+				<!-- My Trade Offers -->
+				<div class="bg-gray-800/50 rounded-xl border border-gray-700 p-4">
+					<h3 class="text-lg font-semibold mb-3">My Trade Offers</h3>
+					{#each myTrades as t}
+						<div class="flex items-center justify-between p-3 bg-gray-700/30 rounded-lg text-sm">
+						<div>
+						<div class="font-medium">Shift #{t.shift_id}</div>
+						<div class="text-gray-400">Status: {t.status}</div>
+						</div>
+						<div class="flex gap-2 items-center">
+						{#if t.status === 'open' && (t.current_staff === myStaffId || t.expand?.current_staff?.id === myStaffId)}
+						<button class="px-2 py-1 bg-gray-600 hover:bg-gray-500 rounded" on:click={async ()=>{ await collections.updateShiftTrade(t.id,{ status:'canceled'}); await collections.getShiftTrades(); }}>Cancel</button>
+						{/if}
+						{#if t.status === 'offered' && (t.offered_to === myStaffId || t.expand?.offered_to?.id === myStaffId)}
+						<button class="px-2 py-1 bg-green-600 hover:bg-green-700 rounded" on:click={async ()=>{ await collections.updateShiftTrade(t.id,{ status:'accepted'}); await collections.getShiftTrades(); }}>Accept</button>
+						<button class="px-2 py-1 bg-red-600 hover:bg-red-700 rounded" on:click={async ()=>{ await collections.updateShiftTrade(t.id,{ status:'denied'}); await collections.getShiftTrades(); }}>Decline</button>
+						{/if}
+						 {#if t.status === 'accepted' && (t.offered_to === myStaffId || t.expand?.offered_to?.id === myStaffId)}
+						    <span class="px-2 py-1 text-xs rounded bg-blue-900/50 text-blue-300">Accepted (Manager approval pending)</span>
+									{/if}
+								</div>
+							</div>
+					{:else}
+						<p class="text-gray-400 text-sm">No trade offers yet.</p>
+					{/each}
+				</div>
+				<!-- Available Trade Offers (from others) -->
+				<div class="bg-gray-800/50 rounded-xl border border-gray-700 p-4">
+					<div class="flex items-center justify-between mb-3">
+						<h3 class="text-lg font-semibold">Available Trade Offers</h3>
+						<button class="px-2 py-1 text-xs bg-gray-700 hover:bg-gray-600 rounded" on:click={() => collections.getShiftTrades?.()}>Refresh</button>
+					</div>
+					{#each availableTrades as t}
+						<div class="flex items-center justify-between p-3 bg-gray-700/30 rounded-lg text-sm">
+							<div>
+								<div class="font-medium">
+									{#if t.expand?.shift_id}
+										{formatDate(t.expand.shift_id.shift_date)} • {t.expand.shift_id.position}
+									{:else}
+										Shift #{t.shift_id}
+									{/if}
+								</div>
+								<div class="text-gray-400">
+									{#if t.expand?.shift_id}
+										{formatTime(t.expand.shift_id.start_time)} - {formatTime(t.expand.shift_id.end_time)} • {getSectionName(t.expand.shift_id.assigned_section) || 'No Section'}
+									{:else}
+										Offered by: {t.expand?.current_staff ? (t.expand.current_staff.first_name + ' ' + t.expand.current_staff.last_name) : t.current_staff}
+									{/if}
+								</div>
+								<div class="text-gray-500">
+									Offered by: {t.expand?.current_staff ? (t.expand.current_staff.first_name + ' ' + t.expand.current_staff.last_name) : t.current_staff}
+								</div>
+							</div>
+							<div class="flex gap-2">
+								<button class="px-2 py-1 rounded {t.expand?.shift_id && hasConflictWithMyShifts(t.expand.shift_id) ? 'bg-gray-700 text-gray-400 cursor-not-allowed' : 'bg-green-600 hover:bg-green-700'}" disabled={t.expand?.shift_id && hasConflictWithMyShifts(t.expand.shift_id)}
+									on:click={async ()=>{ if (t.expand?.shift_id && hasConflictWithMyShifts(t.expand.shift_id)) return; await collections.updateShiftTrade(t.id,{ status:'accepted', offered_to: myStaffId }); await collections.getShiftTrades(); alert('Offer accepted. Pending manager approval.'); }}>
+									{t.expand?.shift_id && hasConflictWithMyShifts(t.expand.shift_id) ? 'Unavailable (conflict)' : 'Accept'}
+								</button>
+							</div>
+						</div>
+					{:else}
+						<p class="text-gray-400 text-sm">No available offers.</p>
+					{/each}
+				</div>
+			</div>
+{:else if activeTab === 'schedule'}
 			<!-- My Schedule -->
 			<div class="mb-8">
 				<h2 class="text-3xl font-bold">My Schedule</h2>
@@ -3980,10 +4162,6 @@
 			<div class="bg-gray-800/50 backdrop-blur-sm rounded-xl border border-gray-700 p-6 max-w-2xl">
 				<div class="space-y-6">
 					<div>
-						<label class="block text-sm font-medium text-gray-300 mb-2">Name</label>
-						<p class="text-lg">{user?.name || 'Not provided'}</p>
-					</div>
-					<div>
 						<label class="block text-sm font-medium text-gray-300 mb-2">Email</label>
 						<p class="text-lg">{user?.email || 'Not provided'}</p>
 					</div>
@@ -3995,15 +4173,11 @@
 					</div>
 					<div>
 						<label class="block text-sm font-medium text-gray-300 mb-2">Phone</label>
-						<p class="text-lg">{user?.phone || 'Not provided'}</p>
+						<p class="text-lg">{myPhone || 'Not provided'}</p>
 					</div>
 				</div>
 
-				<div class="mt-8 pt-6 border-t border-gray-700">
-					<button class="px-4 py-2 bg-green-600 hover:bg-green-700 rounded-lg font-medium">
-						Update Profile
-					</button>
-				</div>
+				<!-- Display-only: removed update button per requirements -->
 			</div>
 		{/if}
 	</main>
@@ -4058,7 +4232,7 @@
 									
 									const orderedAt = new Date(item.ordered_at);
 									const now = new Date();
-									const elapsed = Math.floor((now - orderedAt) / (1000 * 60));
+									const elapsed = Math.floor((now.getTime() - orderedAt.getTime()) / (1000 * 60));
 									const remaining = Math.max(0, prepTime - elapsed);
 									
 									// Calculate realistic status based on elapsed time
@@ -5166,7 +5340,7 @@
 							}
 						})()}
 						{@const orderedAt = new Date(item.ordered_at)}
-						{@const elapsed = Math.floor((currentTime - orderedAt) / (1000 * 60))}
+						{@const elapsed = Math.floor((currentTime.getTime() - orderedAt.getTime()) / (1000 * 60))}
 						{@const remaining = Math.max(0, prepTime - elapsed)}
 						{@const calculatedStatus = (() => {
 							if (item.status !== 'sent_to_kitchen') return item.status;

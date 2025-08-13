@@ -35,6 +35,28 @@ PARC Portal is designed for restaurants to manage daily operations efficiently w
 
 #### Manager Workflows
 
+##### AI Schedule Proposal (Manager Overview → AI Propose Week)
+- Generate a draft schedule using either Local or AI generator.
+- Local generator: no network calls; builds a client-side draft you can edit.
+- AI generator: calls `/api/schedule/propose` to fetch a proposal; still client-side until approval.
+- Review in List or Calendar view; edit rows inline.
+- Approve and Create performs PocketBase writes and is allowed only on Sundays. Brunch shifts must be on Sunday.
+- Options include:
+  - By position tabs (manager, server, chef, bartender, host, busser, dishwasher, kitchen_prep, owner)
+    - Weekday (Mon–Thu): Lunch enabled + count; Dinner enabled + count
+    - Weekend (Fri–Sun): Lunch count; Dinner count
+    - Bartender tab: Bar nights (Fri/Sat/Sun toggles), Start/End time, Bartenders count
+  - Global: Days to include (Sun–Sat), Include Sunday brunch
+- Default time blocks used by Local generator:
+  - Brunch: 8:00–1:00
+  - Lunch: 11:00–5:00
+  - Dinner: 2:00–11:00
+- Staff assignment uses PocketBase staff records by position/role; cycles through matches and falls back to mock if none.
+
+Setup notes:
+- Set `OPENAI_API_KEY` in a local `.env` for AI mode (do not commit secrets). If missing/invalid, the UI uses Local fallback.
+- Environment keys sample in `.env.example`.
+
 **Daily Operations Checklist:**
 1. **Morning Review** (5-10 minutes)
    - Check overnight alerts and notifications
@@ -259,6 +281,29 @@ The system uses 14+ PocketBase collections including:
 - Real-time updates with WebSocket support
 - Collection-based CRUD operations
 - Automatic data synchronization
+
+## ✅ Recent Updates
+
+### Manager Shift Trades Approval
+- Manager dashboard shows a pulsing badge with pending trade approvals next to the avatar
+- New Approve Trades button in Shifts header opens a Trades panel
+- Trades panel lists pending trades (status `accepted`) with shift/time/position and from → to staff
+- Approvals:
+  - Approve per-row, Approve selected, Approve all
+  - Auto-approve toggle persists; when enabled, newly accepted trades are approved automatically and the panel collapses
+
+### Server My Profile (display-only)
+- Server dashboard My Profile shows Email, Role, and Phone
+- Phone is derived from the Staff record, not the auth record
+- The old Update Profile button was removed here to keep this display-only
+
+### Profile Editor Improvements
+- Dedicated Profile editor at `/dashboard/profile` now loads phone from the Staff collection
+- Staff lookup tries `staff_collection` then `staff` by `user_id`, then falls back to email
+- On save: updates `users.name` and `staff.phone` (creates staff record if missing)
+
+Notes:
+- If your deployment uses the `staff` collection name instead of `staff_collection`, the app detects and updates accordingly.
 
 ## 📖 Documentation
 

@@ -1,26 +1,27 @@
 <script>
 	import { onMount } from "svelte";
-	import { goto } from "$app/navigation";
-	import { authStore, isManager } from "$lib/auth.js";
-	import {
-		collections,
-		inventoryItems,
-		staff,
-		shifts,
-		menuItems,
-		vendors,
-		events,
-		maintenanceTasks,
-		maintenanceSchedules,
-		maintenanceRecords,
-		sections,
-		tables,
-		tableUpdates,
-		tickets,
-		ticketItems,
-		spoils,
-		loading,
-	} from "$lib/stores/collections.js";
+import { goto } from "$app/navigation";
+import { authStore, isManager } from "$lib/auth.js";
+import {
+	collections,
+	inventoryItems,
+	staff,
+	shifts,
+	menuItems,
+	vendors,
+	events,
+	maintenanceTasks,
+	maintenanceSchedules,
+	maintenanceRecords,
+	sections,
+	tables,
+	tableUpdates,
+	tickets,
+	ticketItems,
+	spoils,
+	loading,
+	shiftTrades
+} from "$lib/stores/collections.js";
 	import ImportModal from "$lib/components/ImportModal.svelte";
 	import InventoryModal from "$lib/components/InventoryModal.svelte";
 	import StaffModal from "$lib/components/StaffModal.svelte";
@@ -29,28 +30,145 @@
 	import VendorModal from "$lib/components/VendorModal.svelte";
 	import EventModal from "$lib/components/EventModal.svelte";
 	import MaintenanceModal from "$lib/components/MaintenanceModal.svelte";
+	import ScheduleProposeModal from "$lib/components/ScheduleProposeModal.svelte";
+	import { portal } from "$lib/actions/portal";
+let showScheduleModal = false;
+let autoApproveTrades = false;
 
-	let activeTab = "overview";
-	let user = null;
-	let showImportModal = false;
-	let showInventoryModal = false;
-	let editInventoryItem = null;
-	let showStaffModal = false;
-	let editStaffItem = null;
-	let showShiftModal = false;
-	let editShiftItem = null;
-	let showMenuModal = false;
-	let editMenuItem = null;
-	let showVendorModal = false;
-	let editVendorItem = null;
-	let showEventModal = false;
-	let editEventItem = null;
-	let showMaintenanceModal = false;
-	let editMaintenanceItem = null;
-	let maintenanceFilter = "all"; // For maintenance task filtering
-	let floorPlanFilter = "all"; // For floor plan filtering
-	let filteredSections = []; // Filtered sections based on floor plan filter
-	let showDetailedMenuView = false; // For detailed menu items view
+let activeTab = "overview";
+let user = null;
+let showImportModal = false;
+let showInventoryModal = false;
+let editInventoryItem = null;
+let showStaffModal = false;
+let editStaffItem = null;
+let showShiftModal = false;
+let editShiftItem = null;
+let showMenuModal = false;
+let editMenuItem = null;
+let showVendorModal = false;
+let editVendorItem = null;
+let showEventModal = false;
+let editEventItem = null;
+let showMaintenanceModal = false;
+let editMaintenanceItem = null;
+let maintenanceFilter = "all"; // For maintenance task filtering
+let floorPlanFilter = "all"; // For floor plan filtering
+let filteredSections = []; // Filtered sections based on floor plan filter
+let showDetailedMenuView = false; // For detailed menu items view
+let shiftsView = 'list'; // 'list' | 'calendar'
+// Trades approval UI state
+let showTradesPanel = false;
+let selectedTradeIds = new Set();
+let selectAllTrades = false;
+
+function toggleTradeSelection(id) {
+	if (selectedTradeIds.has(id)) selectedTradeIds.delete(id);
+	else selectedTradeIds.add(id);
+	selectedTradeIds = new Set(selectedTradeIds);
+}
+
+$: pendingTrades = (/** @type {any[]} */(shiftTrades && $shiftTrades ? $shiftTrades : [])).filter(t => t.status === 'accepted');
+$: pendingTradesCount = pendingTrades.length;
+
+$: if (selectAllTrades) {
+	selectedTradeIds = new Set(pendingTrades.map(t => t.id));
+}
+
+async function approveSelectedTrades() {
+	if (selectedTradeIds.size === 0) return;
+	const ids = Array.from(selectedTradeIds);
+	await approveTrades(ids);
+}
+
+async function approveAllTrades() {
+	const ids = pendingTrades.map(t => t.id);
+	if (ids.length === 0) return;
+	await approveTrades(ids);
+}
+
+async function approveTrades(ids) {
+	for (const id of ids) {
+		try {
+			const trade = pendingTrades.find(t => t.id === id) || ($shiftTrades || []).find(t => t.id === id);
+			if (!trade) continue;
+			// Determine shift id and target staff id (offered_to)
+			const shiftId = trade.shift_id || trade.expand?.shift_id?.id;
+			const targetStaff = trade.offered_to || trade.expand?.offered_to?.id;
+			// Reassign shift if possible
+			if (shiftId && targetStaff) {
+				try { await collections.updateShift(shiftId, { staff_member: targetStaff, status: 'confirmed' }); } catch (e) { console.warn('Failed to update shift for trade', id, e); }
+			}
+			// Mark trade approved
+			try { await collections.updateShiftTrade(id, { status: 'approved', approved_at: new Date().toISOString() }); } catch (e) { console.warn('Failed to mark trade approved', id, e); }
+		} catch (e) {
+			console.error('Error approving trade', id, e);
+		}
+	}
+	// Refresh
+	try { await Promise.all([collections.getShifts(), collections.getShiftTrades()]); } catch {}
+	// Reset UI state
+	selectedTradeIds = new Set();
+	selectAllTrades = false;
+}
+
+// Position visuals and filters
+const positionMeta = {
+	server:      { icon: '🧑‍🍳', bg: 'bg-green-900/40 border-green-700', chip: 'bg-green-700/40 text-green-300 border-green-600' },
+	bartender:   { icon: '🍸',    bg: 'bg-blue-900/40 border-blue-700',  chip: 'bg-blue-700/40 text-blue-300 border-blue-600' },
+	host:        { icon: '🪑',    bg: 'bg-amber-900/40 border-amber-700', chip: 'bg-amber-700/40 text-amber-300 border-amber-600' },
+	busser:      { icon: '🧹',    bg: 'bg-emerald-900/40 border-emerald-700', chip: 'bg-emerald-700/40 text-emerald-300 border-emerald-600' },
+	dishwasher:  { icon: '🧼',    bg: 'bg-slate-900/40 border-slate-700', chip: 'bg-slate-700/40 text-slate-300 border-slate-600' },
+	kitchen_prep:{ icon: '🔪',    bg: 'bg-orange-900/40 border-orange-700', chip: 'bg-orange-700/40 text-orange-300 border-orange-600' },
+	chef:        { icon: '👨‍🍳',  bg: 'bg-red-900/40 border-red-700',    chip: 'bg-red-700/40 text-red-300 border-red-600' },
+	manager:     { icon: '🧭',    bg: 'bg-indigo-900/40 border-indigo-700', chip: 'bg-indigo-700/40 text-indigo-300 border-indigo-600' },
+	owner:       { icon: '⭐',    bg: 'bg-purple-900/40 border-purple-700', chip: 'bg-purple-700/40 text-purple-300 border-purple-600' },
+};
+const allPositions = Object.keys(positionMeta);
+let positionFilters = Object.fromEntries(allPositions.map(p => [p, true]));
+let shiftTypeFilters = { brunch: true, lunch: true, dinner: true };
+let sectionFilter = 'all';
+
+$: filteredShifts = ($shifts || []).filter(s => {
+	const pos = String(s.position || '').toLowerCase();
+	const st  = String(s.shift_type || '').toLowerCase();
+	const posOk = positionFilters[pos] !== false || !pos;
+	const typeOk = shiftTypeFilters[st] !== false || !st;
+	const secOk = sectionFilter === 'all' || s.assigned_section === sectionFilter;
+	return posOk && typeOk && secOk;
+});
+
+function getPosIcon(pos) {
+	return positionMeta[pos?.toLowerCase()]?.icon || '';
+}
+function getPosBg(pos) {
+	return positionMeta[pos?.toLowerCase()]?.bg || 'bg-gray-700/40 border-gray-600';
+}
+function getPosChip(pos) {
+	return positionMeta[pos?.toLowerCase()]?.chip || 'bg-gray-700/40 text-gray-300 border-gray-600';
+}
+
+function getWeekSunday(d) {
+	const dt = new Date(d);
+	const day = dt.getDay();
+	const sunday = new Date(dt);
+	sunday.setDate(dt.getDate() - day);
+	sunday.setHours(0, 0, 0, 0);
+	return sunday;
+}
+function toISODate(d) {
+	const y = d.getFullYear();
+	const m = String(d.getMonth() + 1).padStart(2, '0');
+	const day = String(d.getDate()).padStart(2, '0');
+	return `${y}-${m}-${day}`;
+}
+function getWeekDates(sunday) {
+	return Array.from({ length: 7 }, (_, i) => {
+		const dd = new Date(sunday);
+		dd.setDate(sunday.getDate() + i);
+		return toISODate(dd);
+	});
+}
 
 	// Menu filtering system variables
 	let selectedMenuCategories = {
@@ -82,9 +200,13 @@
 			if (savedShow !== null) showMenuFilters = savedShow === 'true';
 			const savedQuick = localStorage.getItem('mgrMenuQuickFilter');
 			if (savedQuick) menuQuickFilter = savedQuick;
+			const savedAuto = localStorage.getItem('autoApproveTrades');
+			autoApproveTrades = savedAuto === 'true';
 		} catch (e) {
 			console.warn('Could not load manager menu filter prefs:', e);
 		}
+		// Preload shift trades for header badge
+		try { collections.getShiftTrades?.(); } catch {}
 		// Setup Web Speech API if available
 		if (typeof window !== 'undefined') {
 			const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
@@ -624,13 +746,15 @@
 									"Tables collection not yet set up"
 								)
 							),
-						collections
-							.getTableUpdates()
-							.catch(() =>
-								console.log(
-									"Table updates collection not yet set up"
-								)
-							),
+						// Defer table updates on overview to avoid unnecessary load
+						// (Enable when a Table Activity panel is opened)
+						// collections
+						// 	.getTableUpdates()
+						// 	.catch(() =>
+						// 		console.log(
+						// 			"Table updates collection not yet set up"
+						// 		)
+						// ),
 						// Load maintenance data if collections exist
 						collections
 							.getMaintenanceTasks()
@@ -939,22 +1063,20 @@
 				</div>
 				<div class="flex items-center space-x-4">
 					{#if user}
-						<div class="flex items-center space-x-2">
-							<div
-								class="w-10 h-10 rounded-full bg-gray-700 flex items-center justify-center"
-							>
-								<span class="font-medium"
-									>{user.name?.charAt(0) ||
-										user.email?.charAt(0) ||
-										"M"}</span
-								>
-							</div>
-							<div class="hidden md:block">
-								<p class="font-medium">
-									{user.name || user.email}
-								</p>
-								<p class="text-sm text-green-400">Manager</p>
-							</div>
+						<div class="flex items-center space-x-3">
+						<!-- Trades badge -->
+						{#if pendingTradesCount > 0}
+						 <button class="px-2 py-1 text-xs rounded-full bg-yellow-900/60 text-yellow-300 border border-yellow-700 animate-pulse hover:bg-yellow-800/60" title="View shift trades awaiting approval" on:click={() => { activeTab = 'shifts'; showTradesPanel = true; }}>
+						 🔁 {pendingTradesCount}
+						</button>
+						{/if}
+						<div class="w-10 h-10 rounded-full bg-gray-700 flex items-center justify-center">
+						<span class="font-medium">{user.name?.charAt(0) || user.email?.charAt(0) || "M"}</span>
+						</div>
+						<div class="hidden md:block">
+						<p class="font-medium">{user.name || user.email}</p>
+						<p class="text-sm text-green-400">Manager</p>
+						</div>
 						</div>
 					{/if}
 
@@ -1036,8 +1158,22 @@
 						</svg>
 						Import Data
 					</button>
+					<button
+						on:click={() => goto('/dashboard/manager/schedule/propose')}
+						class="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 rounded-lg text-sm font-medium transition-colors flex items-center gap-2"
+						aria-label="AI Propose Week"
+					>
+						<svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+							<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
+						</svg>
+						AI Propose Week
+					</button>
 				</div>
-			</div>
+</div>
+
+<div use:portal>
+  <ScheduleProposeModal bind:open={showScheduleModal} on:approved={() => collections.getShifts()} />
+</div>
 
 			<!-- Enhanced Key Metrics -->
 			<div
@@ -2379,113 +2515,211 @@
 			<!-- Shifts Management -->
 			<div class="space-y-6">
 				<div class="flex justify-between items-center">
-					<h2 class="text-2xl font-bold">Shifts Management</h2>
-					<button
-						on:click={() => openShiftModal()}
-						class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-					>
-						Schedule Shift
-					</button>
+				<h2 class="text-2xl font-bold">Shifts Management</h2>
+				<div class="flex items-center gap-2">
+				<button class="text-xs px-2 py-1 rounded border {pendingTradesCount > 0 ? 'bg-yellow-800/50 border-yellow-700 text-yellow-300' : autoApproveTrades ? 'bg-green-800/40 border-green-700 text-green-200' : 'bg-gray-700/50 border-gray-600 text-gray-300'}" on:click={() => showTradesPanel = !showTradesPanel} aria-label="Approve Trades">
+				🔁 <span class="font-medium">Approve Trades</span>
+				{#if pendingTradesCount > 0}
+					<span class="ml-2 px-1.5 py-0.5 rounded bg-yellow-700/60 border border-yellow-600 text-[10px]">{pendingTradesCount}</span>
+				{/if}
+				</button>
+				<div class="text-xs bg-gray-700 rounded px-2 py-1 mr-2">
+							<label class="mr-2"><input type="radio" name="shiftsView" value="list" bind:group={shiftsView} /> List</label>
+							<label><input type="radio" name="shiftsView" value="calendar" bind:group={shiftsView} /> Calendar</label>
+						</div>
+						<button
+							on:click={() => openShiftModal()}
+							class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+						>
+							Schedule Shift
+						</button>
+
+					</div>
 				</div>
 
+				{#if shiftsView === 'list'}
+				{#if showTradesPanel}
+				<div class="p-4 rounded-lg border border-yellow-700 bg-yellow-900/20 mb-3">
+					<div class="flex items-center justify-between mb-3">
+						<h3 class="font-semibold text-yellow-200 flex items-center gap-2">🔁 Pending Shift Trades <span class="text-xs px-2 py-0.5 rounded bg-yellow-800/40 border border-yellow-700">{pendingTradesCount}</span></h3>
+						<div class="flex items-center gap-3 text-sm">
+							<label class="flex items-center gap-2 text-yellow-200"><input type="checkbox" bind:checked={selectAllTrades} on:change={() => { if (!selectAllTrades) selectedTradeIds = new Set(); }} /> Select all</label>
+							<button class="px-3 py-1 rounded bg-green-700 text-white hover:bg-green-600 disabled:opacity-50" on:click={approveSelectedTrades} disabled={selectedTradeIds.size === 0}>Approve selected</button>
+							<button class="px-3 py-1 rounded bg-green-800/60 text-green-200 hover:bg-green-700/60" on:click={approveAllTrades}>Approve all</button>
+							<label class="flex items-center gap-2 text-yellow-200 ml-3">
+								<input type="checkbox" bind:checked={autoApproveTrades} on:change={() => { try { localStorage.setItem('autoApproveTrades', String(autoApproveTrades)); } catch {} if (autoApproveTrades && pendingTradesCount > 0) approveAllTrades().then(() => { showTradesPanel = false; }); }} /> Always approve
+							</label>
+						</div>
+					</div>
+					{#if pendingTradesCount === 0}
+						<p class="text-sm text-yellow-300">No trades awaiting approval.</p>
+					{:else}
+						<div class="overflow-x-auto -mx-1 px-1">
+							<table class="w-full text-sm">
+								<thead class="text-yellow-300/90">
+									<tr>
+										<th class="text-left py-2">Select</th>
+										<th class="text-left py-2">Shift</th>
+										<th class="text-left py-2">From → To</th>
+										<th class="text-left py-2">Notes</th>
+										<th class="text-left py-2">Action</th>
+									</tr>
+								</thead>
+								<tbody>
+									{#each pendingTrades as trade}
+										{@const s = trade.expand?.shift_id}
+										{@const from = trade.expand?.offered_by || trade.expand?.current_staff}
+										{@const to = trade.expand?.offered_to}
+										<tr class="border-t border-yellow-800/30">
+											<td class="py-2"><input type="checkbox" checked={selectedTradeIds.has(trade.id)} on:change={() => toggleTradeSelection(trade.id)} /></td>
+											<td class="py-2 text-yellow-100">
+												<span class="font-medium">{formatShortDate((s?.shift_date || trade.shift_date || ''))}</span>
+												• {formatTime12Hour((s?.start_time || trade.start_time || ''))}–{formatTime12Hour((s?.end_time || trade.end_time || ''))}
+												• {(s?.position || trade.position || '')}
+											</td>
+											<td class="py-2 text-yellow-100">
+												<span class="capitalize">{from ? `${from.first_name || ''} ${from.last_name || ''}`.trim() : (trade.current_staff || 'Current')}</span>
+												→
+												<span class="capitalize">{to ? `${to.first_name || ''} ${to.last_name || ''}`.trim() : (trade.offered_to || 'Target')}</span>
+											</td>
+											<td class="py-2 text-yellow-200/90">{trade.notes || ''}</td>
+											<td class="py-2">
+												<button class="px-2 py-1 rounded bg-green-700 text-white hover:bg-green-600" on:click={() => approveTrades([trade.id])}>Approve</button>
+											</td>
+										</tr>
+									{/each}
+								</tbody>
+							</table>
+						</div>
+					{/if}
+				</div>
+				{/if}
+				<!-- Filters -->
+				<div class="flex flex-wrap items-center gap-3 mb-3">
+					<div class="flex items-center gap-2 text-xs">
+						<span class="text-gray-400">Positions:</span>
+						{#each allPositions as p}
+							<button type="button" on:click={() => positionFilters[p] = !positionFilters[p]}
+								class={`px-2 py-1 border rounded ${positionFilters[p] ? getPosChip(p) : 'border-gray-600 text-gray-400'}`}
+								title={p}
+							>
+								{positionMeta[p].icon} {p}
+							</button>
+						{/each}
+					</div>
+					<div class="flex items-center gap-2 text-xs">
+						<span class="text-gray-400">Type:</span>
+						{#each ['brunch','lunch','dinner'] as t}
+							<button type="button" on:click={() => shiftTypeFilters[t] = !shiftTypeFilters[t]}
+								class={`px-2 py-1 border rounded ${shiftTypeFilters[t] ? 'bg-gray-700/40 text-gray-200 border-gray-500' : 'border-gray-600 text-gray-400'}`}
+							>
+								{t}
+							</button>
+						{/each}
+					</div>
+					<div class="flex items-center gap-2 text-xs">
+						<span class="text-gray-400">Section:</span>
+						<select bind:value={sectionFilter} class="px-2 py-1 bg-gray-700 border border-gray-600 rounded text-gray-200">
+							<option value="all">All</option>
+							{#each $sections as sec}
+								<option value={sec.id}>{sec.name || sec.section_code}</option>
+							{/each}
+						</select>
+					</div>
+				</div>
 				<div
 					class="bg-gray-800/50 rounded-xl border border-gray-700 overflow-hidden"
 				>
 					<table class="w-full">
 						<thead class="bg-gray-700/50">
 							<tr>
-								<th
-									class="px-6 py-4 text-left text-sm font-medium text-gray-300"
-									>Staff Member</th
-								>
-								<th
-									class="px-6 py-4 text-left text-sm font-medium text-gray-300"
-									>Section</th
-								>
-								<th
-									class="px-6 py-4 text-left text-sm font-medium text-gray-300"
-									>Date</th
-								>
-								<th
-									class="px-6 py-4 text-left text-sm font-medium text-gray-300"
-									>Time</th
-								>
-								<th
-									class="px-6 py-4 text-left text-sm font-medium text-gray-300"
-									>Position</th
-								>
-								<th
-									class="px-6 py-4 text-left text-sm font-medium text-gray-300"
-									>Status</th
-								>
-								<th
-									class="px-6 py-4 text-left text-sm font-medium text-gray-300"
-									>Actions</th
-								>
+								<th class="px-6 py-4 text-left text-sm font-medium text-gray-300">Staff Member</th>
+								<th class="px-6 py-4 text-left text-sm font-medium text-gray-300">Section</th>
+								<th class="px-6 py-4 text-left text-sm font-medium text-gray-300">Date</th>
+								<th class="px-6 py-4 text-left text-sm font-medium text-gray-300">Time</th>
+								<th class="px-6 py-4 text-left text-sm font-medium text-gray-300">Position</th>
+								<th class="px-6 py-4 text-left text-sm font-medium text-gray-300">Status</th>
+								<th class="px-6 py-4 text-left text-sm font-medium text-gray-300">Actions</th>
 							</tr>
 						</thead>
 						<tbody class="divide-y divide-gray-700">
-							{#each $shifts as shift}
-								<tr class="hover:bg-gray-700/30">
+							{#each filteredShifts as shift}
+								<tr class={`hover:bg-gray-700/30 border-l-4 ${getPosBg(shift.position)}`}>
 									<td class="px-6 py-4 text-sm text-white">
-										{getStaffMemberName(shift)}
+										<span class="mr-1">{getPosIcon(shift.position)}</span>{getStaffMemberName(shift)}
 									</td>
-									<td class="px-6 py-4 text-sm text-gray-300">
-										{#if shift.assigned_section && getSectionName(shift.assigned_section)}
-											<span class="px-2 py-1 rounded-full text-xs bg-blue-900/50 text-blue-300">
-												{getSectionName(shift.assigned_section)}
-											</span>
-										{:else}
-											<span class="text-gray-500">No Section</span>
-										{/if}
-									</td>
-									<td class="px-6 py-4 text-sm text-gray-300">
-										{formatShortDate(shift.shift_date)}
-									</td>
-									<td class="px-6 py-4 text-sm text-gray-300">
-										{formatTime12Hour(shift.start_time)} - {formatTime12Hour(
-											shift.end_time
-										)}
-									</td>
-									<td
-										class="px-6 py-4 text-sm text-gray-300 capitalize"
-									>
-										{shift.position}
+									<td class="px-6 py-4 text-sm text-gray-300">{getSectionName(shift.assigned_section) || 'No Section'}</td>
+									<td class="px-6 py-4 text-sm text-gray-300">{formatShortDate(shift.shift_date)}</td>
+									<td class="px-6 py-4 text-sm text-gray-300">{formatTime12Hour(shift.start_time)} - {formatTime12Hour(shift.end_time)}</td>
+									<td class="px-6 py-4 text-sm text-gray-300 capitalize">{shift.position}</td>
+									<td class="px-6 py-4 text-sm">
+										<span class="px-2 py-1 rounded-full text-xs {shift.status === 'confirmed' ? 'bg-green-900/50 text-green-300' : shift.status === 'scheduled' ? 'bg-blue-900/50 text-blue-300' : shift.status === 'completed' ? 'bg-gray-900/50 text-gray-300' : 'bg-red-900/50 text-red-300'}">{shift.status}</span>
 									</td>
 									<td class="px-6 py-4 text-sm">
-										<span
-											class="px-2 py-1 rounded-full text-xs {shift.status ===
-											'confirmed'
-												? 'bg-green-900/50 text-green-300'
-												: shift.status === 'scheduled'
-												? 'bg-blue-900/50 text-blue-300'
-												: shift.status === 'completed'
-												? 'bg-gray-900/50 text-gray-300'
-												: 'bg-red-900/50 text-red-300'}"
-										>
-											{shift.status}
-										</span>
-									</td>
-									<td class="px-6 py-4 text-sm">
-										<button
-											on:click={() =>
-												openShiftModal(shift)}
-											class="text-blue-400 hover:text-blue-300 mr-3"
-										>
-											Edit
-										</button>
-										<button
-											on:click={() =>
-												handleDeleteShift(shift)}
-											class="text-red-400 hover:text-red-300"
-										>
-											Cancel
-										</button>
+										<button on:click={() => openShiftModal(shift)} class="text-blue-400 hover:text-blue-300 mr-3">Edit</button>
+										<button on:click={() => handleDeleteShift(shift)} class="text-red-400 hover:text-red-300">Cancel</button>
 									</td>
 								</tr>
 							{/each}
 						</tbody>
 					</table>
+				</div>
+				{:else}
+				<!-- Calendar view (current week) -->
+				<div class="bg-gray-800/50 rounded-xl border border-gray-700 p-4">
+					<div class="grid grid-cols-7 gap-2">
+						{#each getWeekDates(getWeekSunday(new Date())) as day}
+							<div class="border border-gray-700 rounded p-2 min-h-[140px]">
+								<div class="text-xs text-gray-400 mb-2">{toISODate(new Date(day))}</div>
+								{#each filteredShifts.filter(s => (s.shift_date || '').slice(0,10) === toISODate(new Date(day))) as s}
+									<div class={`mb-2 rounded p-2 border ${getPosBg(s.position)}`}>
+										<div class="text-xs text-gray-300 truncate">{getPosIcon(s.position)} {getStaffMemberName(s)} • {s.position}</div>
+										<div class="text-xs">{formatTime12Hour(s.start_time)}–{formatTime12Hour(s.end_time)} • {getSectionName(s.assigned_section) || 'No Section'}</div>
+									</div>
+								{/each}
+							</div>
+						{/each}
+					</div>
+				</div>
+				{/if}
+
+				<!-- Operational Summary (MVP) -->
+				<div class="mt-6 bg-gray-800/50 rounded-xl border border-gray-700 p-4">
+					<div class="flex items-center justify-between mb-3">
+						<h3 class="text-lg font-semibold">Operational Summary</h3>
+						<span class="text-xs text-gray-400">Demand uses placeholders until Reservations are wired</span>
+					</div>
+					<div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+						{#each ['brunch','lunch','dinner'] as dp}
+							<div class="bg-gray-900/40 border border-gray-700 rounded p-3">
+								<div class="text-sm font-medium capitalize mb-2">{dp}</div>
+								{#each allPositions as rp}
+									{@const coverage = filteredShifts.filter(s => (s.shift_type||'').toLowerCase() === dp && (s.position||'').toLowerCase() === rp).length}
+									{@const demand = 0}
+									{@const ok = coverage >= demand}
+									<div class="flex items-center justify-between text-xs py-1">
+										<div class={`px-2 py-1 rounded border ${getPosChip(rp)}`}>
+											{positionMeta[rp].icon} {rp}
+										</div>
+										<div class="text-gray-300">{coverage} / {demand}</div>
+										<button class="ml-2 px-2 py-1 bg-blue-700 hover:bg-blue-600 rounded"
+											on:click={() => collections.createWorkRequest({
+												request_date: toISODate(new Date()),
+												start_time: dp === 'brunch' ? '08:00' : dp === 'lunch' ? '11:00' : '17:00',
+												end_time: dp === 'brunch' ? '13:00' : dp === 'lunch' ? '17:00' : '23:00',
+												role: rp,
+												quantity: 1,
+												reason: `Manual request for ${rp} (${dp})`,
+												status: 'open'
+											})}
+										>
+											Create request
+										</button>
+									</div>
+								{/each}
+							</div>
+						{/each}
+					</div>
 				</div>
 			</div>
 		{:else if activeTab === "menu"}

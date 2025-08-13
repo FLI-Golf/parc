@@ -1,28 +1,33 @@
-import { writable } from 'svelte/store';
+// @ts-nocheck
+import { writable, get } from 'svelte/store';
 import pb from '../pocketbase.js';
 
-// Collection stores
-export const inventoryItems = writable([]);
-export const staff = writable([]);
-export const shifts = writable([]);
-export const menuItems = writable([]);
-export const menuCategories = writable([]);
-export const menuModifiers = writable([]);
-export const vendors = writable([]);
-export const events = writable([]);
-export const maintenanceTasks = writable([]);
-export const maintenanceSchedules = writable([]);
-export const maintenanceRecords = writable([]);
-export const sections = writable([]);
-export const tables = writable([]);
-export const tableUpdates = writable([]);
-export const tickets = writable([]);
-export const ticketItems = writable([]);
-export const payments = writable([]);
-export const completedOrders = writable([]);
-export const spoils = writable([]);
+// Collection stores (typed to avoid never[] inference)
+/** @type {import('svelte/store').Writable<any[]>} */ export const inventoryItems = writable([]);
+/** @type {import('svelte/store').Writable<any[]>} */ export const staff = writable([]);
+/** @type {import('svelte/store').Writable<any[]>} */ export const shifts = writable([]);
+/** @type {import('svelte/store').Writable<any[]>} */ export const menuItems = writable([]);
+/** @type {import('svelte/store').Writable<any[]>} */ export const menuCategories = writable([]);
+/** @type {import('svelte/store').Writable<any[]>} */ export const menuModifiers = writable([]);
+/** @type {import('svelte/store').Writable<any[]>} */ export const vendors = writable([]);
+/** @type {import('svelte/store').Writable<any[]>} */ export const events = writable([]);
+/** @type {import('svelte/store').Writable<any[]>} */ export const maintenanceTasks = writable([]);
+/** @type {import('svelte/store').Writable<any[]>} */ export const maintenanceSchedules = writable([]);
+/** @type {import('svelte/store').Writable<any[]>} */ export const maintenanceRecords = writable([]);
+/** @type {import('svelte/store').Writable<any[]>} */ export const sections = writable([]);
+/** @type {import('svelte/store').Writable<any[]>} */ export const tables = writable([]);
+/** @type {import('svelte/store').Writable<any[]>} */ export const tableUpdates = writable([]);
+/** @type {import('svelte/store').Writable<any[]>} */ export const tickets = writable([]);
+/** @type {import('svelte/store').Writable<any[]>} */ export const ticketItems = writable([]);
+/** @type {import('svelte/store').Writable<any[]>} */ export const payments = writable([]);
+/** @type {import('svelte/store').Writable<any[]>} */ export const completedOrders = writable([]);
+/** @type {import('svelte/store').Writable<any[]>} */ export const spoils = writable([]);
+/** @type {import('svelte/store').Writable<any[]>} */ export const scheduleProposals = writable([]);
+/** @type {import('svelte/store').Writable<any[]>} */ export const workRequests = writable([]);
+/** @type {import('svelte/store').Writable<any[]>} */ export const shiftTrades = writable([]);
 
 // Loading states
+/** @type {import('svelte/store').Writable<Record<string, boolean>>} */
 export const loading = writable({
 	inventory: false,
 	staff: false,
@@ -39,10 +44,13 @@ export const loading = writable({
 	tables: false,
 	tableUpdates: false,
 	tickets: false,
-	ticketItems: false,
+		// svelte-check sometimes flags these as never without explicit types
+		// casting the store above avoids that, but keeping keys explicit here
+		ticketItems: false,
 	payments: false,
 	completedOrders: false,
-		spoils: false
+	spoils: false,
+	scheduleProposals: false
 });
 
 // Collection service functions
@@ -153,9 +161,17 @@ export const collections = {
 	async getShifts() {
 		try {
 			loading.update(state => ({ ...state, shifts: true }));
-			const records = await pb.collection('shifts_collection').getFullList({
-				expand: 'staff_member,assigned_section'
-			});
+			let records;
+			try {
+				records = await pb.collection('shifts_collection').getFullList({
+					expand: 'staff_member,assigned_section'
+				});
+			} catch (firstError) {
+				console.warn('shifts_collection not found, trying shifts:', firstError?.message);
+				records = await pb.collection('shifts').getFullList({
+					expand: 'staff_member,assigned_section'
+				});
+			}
 			shifts.set(records);
 			return records;
 		} catch (error) {
@@ -168,26 +184,123 @@ export const collections = {
 
 	async createShift(data) {
 		try {
-			const record = await pb.collection('shifts_collection').create(data);
-			// Fetch the record with expanded relations
-			const expandedRecord = await pb.collection('shifts_collection').getOne(record.id, {
+			// Approvals allowed any day; enforce brunch-on-Sunday via caller
+			// Map UI draft fields to PocketBase schema and strip unknowns
+			let payload = {
+				staff_member: data.staff_member || data.staff_id || null,
+				shift_date: data.shift_date,
+				start_time: data.start_time,
+				end_time: data.end_time,
+				break_duration: data.break_duration ?? 0,
+				position: data.position || 'server',
+				status: data.status || 'scheduled',
+				notes: data.notes || '',
+				assigned_section: data.assigned_section || null,
+				shift_type: data.shift_type || 'regular'
+			};
+			// Map section_code -> assigned_section id if available
+			if (!payload.assigned_section && data.section_code) {
+				try {
+					const allSections = get(sections) || [];
+					const code = String(data.section_code).toUpperCase();
+					const aliases = {
+						A: ['A','MAIN DINING','SECTION A'],
+						B: ['B','SECTION B'],
+						BAR: ['BAR','BAR AREA']
+					};
+					const names = aliases[code] || [code];
+					const match = allSections.find(s => {
+						const cand = String(s.section_code || s.code || s.name || '').toUpperCase();
+						const name = String(s.name || '').toUpperCase();
+						return names.includes(cand) || names.includes(name);
+					});
+					if (match?.id) payload.assigned_section = match.id;
+				} catch {}
+			}
+			// Prune null/undefined optional fields
+			payload = Object.fromEntries(Object.entries(payload).filter(([k, v]) => v !== null && v !== undefined));
+			// Basic required validation to avoid 400s
+			if (!payload.staff_member || !payload.shift_date || !payload.start_time || !payload.end_time || !payload.position || !payload.status) {
+				const missing = ['staff_member','shift_date','start_time','end_time','position','status'].filter(k => !payload[k]);
+				throw Object.assign(new Error(`Missing required shift fields: ${missing.join(', ')}`), { data: { missing } });
+			}
+			// Sanitize shift_type to allowed values if present
+			const allowedShiftTypes = new Set(['brunch','lunch','dinner']);
+			if (payload.shift_type) {
+				const st = String(payload.shift_type).toLowerCase();
+				if (st === 'bar') payload.shift_type = 'dinner';
+				else if (!allowedShiftTypes.has(st)) delete payload.shift_type;
+			}
+			let record;
+			let collectionUsed = 'shifts_collection';
+			try {
+				// Idempotency: skip if identical shift already exists
+				try {
+					const existing = await pb.collection(collectionUsed).getList(1, 1, {
+						filter: `staff_member = "${payload.staff_member}" && shift_date = "${payload.shift_date}" && start_time = "${payload.start_time}" && position = "${payload.position}"`
+					});
+					if (existing?.items?.length) {
+						console.warn('Duplicate shift detected in', collectionUsed, 'skipping create');
+						return existing.items[0];
+					}
+				} catch {}
+				record = await pb.collection(collectionUsed).create(payload);
+			} catch (firstError) {
+				console.warn('shifts_collection create failed, trying shifts:', firstError?.message || firstError?.data?.message, firstError?.data || firstError);
+				collectionUsed = 'shifts';
+				try {
+					// Idempotency check in fallback collection
+					try {
+						const existing = await pb.collection(collectionUsed).getList(1, 1, {
+							filter: `staff_member = "${payload.staff_member}" && shift_date = "${payload.shift_date}" && start_time = "${payload.start_time}" && position = "${payload.position}"`
+						});
+						if (existing?.items?.length) {
+							console.warn('Duplicate shift detected in', collectionUsed, 'skipping create');
+							return existing.items[0];
+						}
+					} catch {}
+					record = await pb.collection(collectionUsed).create(payload);
+				} catch (secondError) {
+					console.warn('shifts create failed:', secondError?.message || secondError?.data?.message, secondError?.data || secondError);
+					// Retry with date-time if shift_date may require time
+					if (/^\d{4}-\d{2}-\d{2}$/.test(payload.shift_date || '')) {
+						const retryPayload = { ...payload, shift_date: `${payload.shift_date} 00:00:00` };
+						console.warn('Retrying create with date-time shift_date:', retryPayload.shift_date);
+						record = await pb.collection(collectionUsed).create(retryPayload);
+					} else {
+						throw secondError;
+					}
+				}
+			}
+			// Fetch the record with expanded relations from the collection used
+			const expandedRecord = await pb.collection(collectionUsed).getOne(record.id, {
 				expand: 'staff_member,assigned_section'
 			});
 			shifts.update(items => [...items, expandedRecord]);
 			return expandedRecord;
 		} catch (error) {
 			console.error('Error creating shift:', error);
-			throw error;
+			// Bubble up with PB error details when available
+			const message = error?.data ? JSON.stringify(error.data) : (error?.message || 'Failed to create shift');
+			throw Object.assign(new Error(message), { data: error?.data || null });
 		}
 	},
 
 	async updateShift(id, data) {
 		try {
 			console.log('updateShift called with:', { id, data });
-			const record = await pb.collection('shifts_collection').update(id, data);
+			let collectionUsed = 'shifts_collection';
+			let record;
+			try {
+				record = await pb.collection(collectionUsed).update(id, data);
+			} catch (firstError) {
+				console.warn('shifts_collection update failed, trying shifts:', firstError?.message);
+				collectionUsed = 'shifts';
+				record = await pb.collection(collectionUsed).update(id, data);
+			}
 			console.log('Update response:', record);
-			// Fetch the record with expanded relations
-			const expandedRecord = await pb.collection('shifts_collection').getOne(id, {
+			// Fetch the record with expanded relations from the collection used
+			const expandedRecord = await pb.collection(collectionUsed).getOne(id, {
 				expand: 'staff_member,assigned_section'
 			});
 			console.log('Expanded record:', expandedRecord);
@@ -648,6 +761,94 @@ export const collections = {
 		}
 	},
 
+	// Work Requests
+	async getWorkRequests() {
+		try {
+			loading.update(s => ({ ...s, records: true }));
+			const records = await pb.collection('work_requests').getFullList();
+			workRequests.set(records);
+			return records;
+		} catch (error) {
+			console.error('Error fetching work requests:', error);
+			throw error;
+		} finally {
+			loading.update(s => ({ ...s, records: false }));
+		}
+	},
+	async createWorkRequest(data) {
+		try {
+			const record = await pb.collection('work_requests').create(data);
+			workRequests.update(items => [record, ...items]);
+			return record;
+		} catch (error) {
+			console.error('Error creating work request:', error);
+			throw error;
+		}
+	},
+	async updateWorkRequest(id, data) {
+		try {
+			const record = await pb.collection('work_requests').update(id, data);
+			workRequests.update(items => items.map(r => r.id === id ? record : r));
+			return record;
+		} catch (error) {
+			console.error('Error updating work request:', error);
+			throw error;
+		}
+	},
+	async deleteWorkRequest(id) {
+		try {
+			await pb.collection('work_requests').delete(id);
+			workRequests.update(items => items.filter(r => r.id !== id));
+		} catch (error) {
+			console.error('Error deleting work request:', error);
+			throw error;
+		}
+	},
+
+	// Shift Trades
+	async getShiftTrades() {
+		try {
+			loading.update(s => ({ ...s, records: true }));
+			const records = await pb.collection('shift_trades').getFullList({ expand: 'shift_id,current_staff,offered_by,offered_to' });
+			shiftTrades.set(records);
+			return records;
+		} catch (error) {
+			console.error('Error fetching shift trades:', error);
+			throw error;
+		} finally {
+			loading.update(s => ({ ...s, records: false }));
+		}
+	},
+	async createShiftTrade(data) {
+		try {
+			const record = await pb.collection('shift_trades').create(data);
+			shiftTrades.update(items => [record, ...items]);
+			return record;
+		} catch (error) {
+			console.error('Error creating shift trade:', error);
+			throw error;
+		}
+	},
+	async updateShiftTrade(id, data) {
+		try {
+			const record = await pb.collection('shift_trades').update(id, data);
+			shiftTrades.update(items => items.map(r => r.id === id ? record : r));
+			return record;
+		} catch (error) {
+			console.error('Error updating shift trade:', error);
+			throw error;
+		}
+	},
+	async deleteShiftTrade(id) {
+		try {
+			await pb.collection('shift_trades').delete(id);
+			shiftTrades.update(items => items.filter(r => r.id !== id));
+		} catch (error) {
+			console.error('Error deleting shift trade:', error);
+			throw error;
+		}
+	},
+
 	// Tables
 	async getTables() {
 		try {
@@ -689,14 +890,19 @@ export const collections = {
 	async getTableUpdates() {
 		try {
 			loading.update(state => ({ ...state, tableUpdates: true }));
-			const records = await pb.collection('table_updates_collection').getFullList({
-				sort: '-created'
-			});
+			let records;
+			try {
+				records = await pb.collection('table_updates_collection').getFullList({ sort: '-created' });
+			} catch (firstError) {
+				console.log('table_updates_collection not found, trying table_updates:', firstError?.message);
+				records = await pb.collection('table_updates').getFullList({ sort: '-created' });
+			}
 			tableUpdates.set(records);
 			return records;
 		} catch (error) {
-			console.error('Error fetching table updates:', error);
-			throw error;
+			console.warn('Table updates collection not available, returning empty list:', error?.message || error);
+			tableUpdates.set([]);
+			return [];
 		} finally {
 			loading.update(state => ({ ...state, tableUpdates: false }));
 		}
@@ -704,7 +910,13 @@ export const collections = {
 
 	async createTableUpdate(data) {
 		try {
-			const record = await pb.collection('table_updates_collection').create(data);
+			let record;
+			try {
+				record = await pb.collection('table_updates_collection').create(data);
+			} catch (firstError) {
+				console.log('table_updates_collection not found, trying table_updates:', firstError?.message);
+				record = await pb.collection('table_updates').create(data);
+			}
 			tableUpdates.update(items => [record, ...items]);
 			return record;
 		} catch (error) {
@@ -1017,6 +1229,21 @@ export const collections = {
 		} catch (error) {
 			try { console.error('Error creating spoil record:', error?.data || error); } catch {}
 			throw error;
+		}
+	},
+
+	// Schedule Proposals
+	async getScheduleProposals() {
+		try {
+			loading.update(s => ({ ...s, scheduleProposals: true }));
+			const records = await pb.collection('schedule_proposals').getFullList({ sort: '-created' }).catch(() => []);
+			scheduleProposals.set(records);
+			return records;
+		} catch (error) {
+			console.error('Error fetching schedule proposals:', error);
+			throw error;
+		} finally {
+			loading.update(s => ({ ...s, scheduleProposals: false }));
 		}
 	}
 };
