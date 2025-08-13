@@ -2562,6 +2562,45 @@ function getWeekDates(sunday) {
 					</div>
 				</div>
 				{/if}
+
+				<!-- Operational Summary (MVP) -->
+				<div class="mt-6 bg-gray-800/50 rounded-xl border border-gray-700 p-4">
+					<div class="flex items-center justify-between mb-3">
+						<h3 class="text-lg font-semibold">Operational Summary</h3>
+						<span class="text-xs text-gray-400">Demand uses placeholders until Reservations are wired</span>
+					</div>
+					<div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+						{#each ['brunch','lunch','dinner'] as dp}
+							<div class="bg-gray-900/40 border border-gray-700 rounded p-3">
+								<div class="text-sm font-medium capitalize mb-2">{dp}</div>
+								{#each allPositions as rp}
+									{@const coverage = filteredShifts.filter(s => (s.shift_type||'').toLowerCase() === dp && (s.position||'').toLowerCase() === rp).length}
+									{@const demand = 0}
+									{@const ok = coverage >= demand}
+									<div class="flex items-center justify-between text-xs py-1">
+										<div class={`px-2 py-1 rounded border ${getPosChip(rp)}`}>
+											{positionMeta[rp].icon} {rp}
+										</div>
+										<div class="text-gray-300">{coverage} / {demand}</div>
+										<button class="ml-2 px-2 py-1 bg-blue-700 hover:bg-blue-600 rounded"
+											on:click={() => collections.createWorkRequest({
+												request_date: toISODate(new Date()),
+												start_time: dp === 'brunch' ? '08:00' : dp === 'lunch' ? '11:00' : '17:00',
+												end_time: dp === 'brunch' ? '13:00' : dp === 'lunch' ? '17:00' : '23:00',
+												role: rp,
+												quantity: 1,
+												reason: `Manual request for ${rp} (${dp})`,
+												status: 'open'
+											})}
+										>
+											Create request
+										</button>
+									</div>
+								{/each}
+							</div>
+						{/each}
+					</div>
+				</div>
 			</div>
 		{:else if activeTab === "menu"}
 			<!-- Menu Management -->

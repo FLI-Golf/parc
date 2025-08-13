@@ -23,6 +23,8 @@ import pb from '../pocketbase.js';
 /** @type {import('svelte/store').Writable<any[]>} */ export const completedOrders = writable([]);
 /** @type {import('svelte/store').Writable<any[]>} */ export const spoils = writable([]);
 /** @type {import('svelte/store').Writable<any[]>} */ export const scheduleProposals = writable([]);
+/** @type {import('svelte/store').Writable<any[]>} */ export const workRequests = writable([]);
+/** @type {import('svelte/store').Writable<any[]>} */ export const shiftTrades = writable([]);
 
 // Loading states
 /** @type {import('svelte/store').Writable<Record<string, boolean>>} */
@@ -755,6 +757,94 @@ export const collections = {
 			return record;
 		} catch (error) {
 			console.error('Error creating section:', error);
+			throw error;
+		}
+	},
+
+	// Work Requests
+	async getWorkRequests() {
+		try {
+			loading.update(s => ({ ...s, records: true }));
+			const records = await pb.collection('work_requests').getFullList();
+			workRequests.set(records);
+			return records;
+		} catch (error) {
+			console.error('Error fetching work requests:', error);
+			throw error;
+		} finally {
+			loading.update(s => ({ ...s, records: false }));
+		}
+	},
+	async createWorkRequest(data) {
+		try {
+			const record = await pb.collection('work_requests').create(data);
+			workRequests.update(items => [record, ...items]);
+			return record;
+		} catch (error) {
+			console.error('Error creating work request:', error);
+			throw error;
+		}
+	},
+	async updateWorkRequest(id, data) {
+		try {
+			const record = await pb.collection('work_requests').update(id, data);
+			workRequests.update(items => items.map(r => r.id === id ? record : r));
+			return record;
+		} catch (error) {
+			console.error('Error updating work request:', error);
+			throw error;
+		}
+	},
+	async deleteWorkRequest(id) {
+		try {
+			await pb.collection('work_requests').delete(id);
+			workRequests.update(items => items.filter(r => r.id !== id));
+		} catch (error) {
+			console.error('Error deleting work request:', error);
+			throw error;
+		}
+	},
+
+	// Shift Trades
+	async getShiftTrades() {
+		try {
+			loading.update(s => ({ ...s, records: true }));
+			const records = await pb.collection('shift_trades').getFullList({ expand: 'shift_id,current_staff,offered_by,offered_to' });
+			shiftTrades.set(records);
+			return records;
+		} catch (error) {
+			console.error('Error fetching shift trades:', error);
+			throw error;
+		} finally {
+			loading.update(s => ({ ...s, records: false }));
+		}
+	},
+	async createShiftTrade(data) {
+		try {
+			const record = await pb.collection('shift_trades').create(data);
+			shiftTrades.update(items => [record, ...items]);
+			return record;
+		} catch (error) {
+			console.error('Error creating shift trade:', error);
+			throw error;
+		}
+	},
+	async updateShiftTrade(id, data) {
+		try {
+			const record = await pb.collection('shift_trades').update(id, data);
+			shiftTrades.update(items => items.map(r => r.id === id ? record : r));
+			return record;
+		} catch (error) {
+			console.error('Error updating shift trade:', error);
+			throw error;
+		}
+	},
+	async deleteShiftTrade(id) {
+		try {
+			await pb.collection('shift_trades').delete(id);
+			shiftTrades.update(items => items.filter(r => r.id !== id));
+		} catch (error) {
+			console.error('Error deleting shift trade:', error);
 			throw error;
 		}
 	},
