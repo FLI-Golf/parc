@@ -4,11 +4,12 @@
 	import { get } from 'svelte/store';
 	import { authStore } from '$lib/auth.js';
 	import pb from '$lib/pocketbase.js';
-	import { collections, shifts, menuItems, sections, tables, tickets, ticketItems, loading } from '$lib/stores/collections.js';
+	import { collections, shifts, menuItems, sections, tables, tickets, ticketItems, loading, staff as staffStore, shiftTrades } from '$lib/stores/collections.js';
 
 	let activeTab = 'today';
-	let orderTab = 'current'; // 'current' or 'history'
-	/** @type {any[]} */ let completedOrders = []; // Store completed order history
+let orderTab = 'current'; // 'current' or 'history'
+/** @type {any[]} */ let completedOrders = []; // Store completed order history
+let myStaffId = null;
 	let showHistoryModal = false;
 	/** @type {any} */ let user = null;
 	let forcePaymentEnabled = false; // Server override for payment when items aren't ready
@@ -122,11 +123,18 @@
 						collections.getSections(),
 						collections.getTables(),
 						collections.getTickets(),
-						collections.getTicketItems()
+						collections.getTicketItems(),
+						collections.getStaff?.() || Promise.resolve(),
+						collections.getShiftTrades?.() || Promise.resolve()
 					]);
 					
-					// Table updates collection is optional for server dashboard
-					// Skipping to avoid console errors - not needed for core functionality
+					// Resolve my staff id
+					try {
+						const allStaff = get(staffStore) || [];
+						const authUserId = auth?.user?.id || pb?.authStore?.model?.id;
+						const me = allStaff.find(s => (s.user_id === authUserId) || (s.expand?.user_id?.id === authUserId));
+						myStaffId = me?.id || null;
+					} catch {}
 					
 					// Load any existing shift timers
 					loadShiftTimers();
@@ -3054,6 +3062,7 @@
 				{#each [
 					{ id: 'today', name: 'Today\'s Shifts', icon: '📅' },
 					{ id: 'schedule', name: 'My Schedule', icon: '🗓️' },
+					{ id: 'trades', name: 'Shift Trades', icon: '🔁' },
 					{ id: 'menu', name: 'Menu Reference', icon: '🍽️' },
 					{ id: 'profile', name: 'My Profile', icon: '👤' }
 				] as tab}
@@ -3870,7 +3879,76 @@
 				</div>
 			{/if}
 
-		{:else if activeTab === 'schedule'}
+		{:else if activeTab === 'trades'}
+			<!-- Shift Trades -->
+			<div class="mb-8">
+				<h2 class="text-3xl font-bold">Shift Trades</h2>
+				<p class="text-gray-400 mt-2">Offer your shift or accept offers to cover.</p>
+			</div>
+			<div class="grid gap-4">
+				<!-- My upcoming shifts with Offer Trade -->
+				<div class="bg-gray-800/50 rounded-xl border border-gray-700 p-4">
+					<h3 class="text-lg font-semibold mb-3">My Upcoming Shifts</h3>
+					{#if upcomingShifts.length === 0}
+						<p class="text-gray-400 text-sm">No upcoming shifts.</p>
+					{:else}
+						<div class="grid gap-3">
+							{#each upcomingShifts as shift}
+								<div class="flex justify-between items-center p-3 bg-gray-700/30 rounded-lg">
+									<div class="text-sm text-gray-300">
+										<div class="font-medium">{formatDate(shift.shift_date)} • {shift.position}</div>
+										<div>{formatTime(shift.start_time)} - {formatTime(shift.end_time)} • {getSectionName(shift.assigned_section) || 'No Section'}</div>
+									</div>
+									<button class="px-3 py-1 bg-blue-600 hover:bg-blue-700 rounded text-xs"
+										disabled={!myStaffId}
+										on:click={async () => {
+											try {
+												await collections.createShiftTrade({
+													shift_id: shift.id,
+													current_staff: myStaffId,
+													offered_by: myStaffId,
+													status: 'open'
+												});
+												await collections.getShiftTrades();
+												alert('Trade offer created.');
+											} catch (e) {
+												console.error('Failed to create trade:', e);
+												alert(e?.message || 'Failed to create trade');
+											}
+										}}
+									>
+										Offer Trade
+									</button>
+								</div>
+							{/each}
+						</div>
+					{/if}
+				</div>
+				<!-- My Trade Offers -->
+				<div class="bg-gray-800/50 rounded-xl border border-gray-700 p-4">
+					<h3 class="text-lg font-semibold mb-3">My Trade Offers</h3>
+					{#each (get(shiftTrades) || []).filter(t => t.current_staff === myStaffId || t.offered_by === myStaffId || t.expand?.current_staff?.id === myStaffId || t.expand?.offered_by?.id === myStaffId) as t}
+						<div class="flex items-center justify-between p-3 bg-gray-700/30 rounded-lg text-sm">
+							<div>
+								<div class="font-medium">Shift #{t.shift_id}</div>
+								<div class="text-gray-400">Status: {t.status}</div>
+							</div>
+							<div class="flex gap-2">
+								{#if t.status === 'open' && (t.current_staff === myStaffId || t.expand?.current_staff?.id === myStaffId)}
+									<button class="px-2 py-1 bg-gray-600 hover:bg-gray-500 rounded" on:click={async ()=>{ await collections.updateShiftTrade(t.id,{ status:'canceled'}); await collections.getShiftTrades(); }}>Cancel</button>
+								{/if}
+								{#if t.status === 'offered' && (t.offered_to === myStaffId || t.expand?.offered_to?.id === myStaffId)}
+									<button class="px-2 py-1 bg-green-600 hover:bg-green-700 rounded" on:click={async ()=>{ await collections.updateShiftTrade(t.id,{ status:'accepted'}); await collections.getShiftTrades(); }}>Accept</button>
+									<button class="px-2 py-1 bg-red-600 hover:bg-red-700 rounded" on:click={async ()=>{ await collections.updateShiftTrade(t.id,{ status:'denied'}); await collections.getShiftTrades(); }}>Decline</button>
+								{/if}
+							</div>
+						</div>
+					{:else}
+						<p class="text-gray-400 text-sm">No trade offers yet.</p>
+					{/each}
+				</div>
+			</div>
+{:else if activeTab === 'schedule'}
 			<!-- My Schedule -->
 			<div class="mb-8">
 				<h2 class="text-3xl font-bold">My Schedule</h2>
