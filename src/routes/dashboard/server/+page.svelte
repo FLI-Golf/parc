@@ -424,15 +424,20 @@ let myStaffId = null;
 	}
 
 	function formatDate(dateStr) {
-		// Parse as local date to avoid timezone issues
-		const [year, month, day] = dateStr.split('-');
-		const date = new Date(year, month - 1, day);
-		return date.toLocaleDateString('en-US', {
-			weekday: 'long',
-			year: 'numeric',
-			month: 'long',
-			day: 'numeric'
-		});
+		if (!dateStr) return '';
+		// Accept formats: 'YYYY-MM-DD' or 'YYYY-MM-DD HH:MM:SS' or ISO
+		let y, m, d;
+		const justDate = String(dateStr).slice(0, 10);
+		if (/^\d{4}-\d{2}-\d{2}$/.test(justDate)) {
+			[y, m, d] = justDate.split('-').map(Number);
+			const date = new Date(y, m - 1, d);
+			return date.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+		}
+		const date = new Date(dateStr);
+		if (!isNaN(date.getTime())) {
+			return date.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+		}
+		return String(dateStr);
 	}
 
 	function formatTime(timeStr) {
