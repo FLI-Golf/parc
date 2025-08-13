@@ -247,7 +247,9 @@
 		const shift = todayShifts.find(s => s.id === shiftId);
 		if (!timer || !shift) return null;
 		
-		const elapsed = ((currentTime as any as Date).getTime() - (timer.startTime as any as Date).getTime());
+		const currentMs = (currentTime instanceof Date) ? currentTime.getTime() : new Date(currentTime).getTime();
+		const startMs = (timer.startTime instanceof Date) ? timer.startTime.getTime() : new Date(timer.startTime).getTime();
+		const elapsed = currentMs - startMs;
 		const threeHours = 3 * 60 * 60 * 1000; // 3 hours in milliseconds
 		
 		// Calculate elapsed time
