@@ -1,26 +1,27 @@
 <script>
 	import { onMount } from "svelte";
-	import { goto } from "$app/navigation";
-	import { authStore, isManager } from "$lib/auth.js";
-	import {
-		collections,
-		inventoryItems,
-		staff,
-		shifts,
-		menuItems,
-		vendors,
-		events,
-		maintenanceTasks,
-		maintenanceSchedules,
-		maintenanceRecords,
-		sections,
-		tables,
-		tableUpdates,
-		tickets,
-		ticketItems,
-		spoils,
-		loading,
-	} from "$lib/stores/collections.js";
+import { goto } from "$app/navigation";
+import { authStore, isManager } from "$lib/auth.js";
+import {
+	collections,
+	inventoryItems,
+	staff,
+	shifts,
+	menuItems,
+	vendors,
+	events,
+	maintenanceTasks,
+	maintenanceSchedules,
+	maintenanceRecords,
+	sections,
+	tables,
+	tableUpdates,
+	tickets,
+	ticketItems,
+	spoils,
+	loading,
+	shiftTrades
+} from "$lib/stores/collections.js";
 	import ImportModal from "$lib/components/ImportModal.svelte";
 	import InventoryModal from "$lib/components/InventoryModal.svelte";
 	import StaffModal from "$lib/components/StaffModal.svelte";
@@ -32,7 +33,10 @@
 	import ScheduleProposeModal from "$lib/components/ScheduleProposeModal.svelte";
 	import { portal } from "$lib/actions/portal";
 let showScheduleModal = false;
+let autoApproveTrades = false;
 
+$: pendingTrades = (/** @type {any[]} */(shiftTrades && $shiftTrades ? $shiftTrades : [])).filter(t => t.status === 'accepted');
+$: pendingTradesCount = pendingTrades.length;
 let activeTab = "overview";
 let user = null;
 let showImportModal = false;
@@ -144,9 +148,13 @@ function getWeekDates(sunday) {
 			if (savedShow !== null) showMenuFilters = savedShow === 'true';
 			const savedQuick = localStorage.getItem('mgrMenuQuickFilter');
 			if (savedQuick) menuQuickFilter = savedQuick;
+			const savedAuto = localStorage.getItem('autoApproveTrades');
+			autoApproveTrades = savedAuto === 'true';
 		} catch (e) {
 			console.warn('Could not load manager menu filter prefs:', e);
 		}
+		// Preload shift trades for header badge
+		try { collections.getShiftTrades?.(); } catch {}
 		// Setup Web Speech API if available
 		if (typeof window !== 'undefined') {
 			const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
@@ -1003,22 +1011,20 @@ function getWeekDates(sunday) {
 				</div>
 				<div class="flex items-center space-x-4">
 					{#if user}
-						<div class="flex items-center space-x-2">
-							<div
-								class="w-10 h-10 rounded-full bg-gray-700 flex items-center justify-center"
-							>
-								<span class="font-medium"
-									>{user.name?.charAt(0) ||
-										user.email?.charAt(0) ||
-										"M"}</span
-								>
-							</div>
-							<div class="hidden md:block">
-								<p class="font-medium">
-									{user.name || user.email}
-								</p>
-								<p class="text-sm text-green-400">Manager</p>
-							</div>
+						<div class="flex items-center space-x-3">
+						<!-- Trades badge -->
+						{#if pendingTradesCount > 0}
+						 <span class="px-2 py-1 text-xs rounded-full bg-yellow-900/60 text-yellow-300 border border-yellow-700 animate-pulse" title="Shift trades awaiting approval">
+						 🔁 {pendingTradesCount}
+						</span>
+						{/if}
+						<div class="w-10 h-10 rounded-full bg-gray-700 flex items-center justify-center">
+						<span class="font-medium">{user.name?.charAt(0) || user.email?.charAt(0) || "M"}</span>
+						</div>
+						<div class="hidden md:block">
+						<p class="font-medium">{user.name || user.email}</p>
+						<p class="text-sm text-green-400">Manager</p>
+						</div>
 						</div>
 					{/if}
 
