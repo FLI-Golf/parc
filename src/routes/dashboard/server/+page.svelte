@@ -3914,9 +3914,8 @@ function myExistingTradeFor(shiftId) {
 										<div class="font-medium">{formatDate(shift.shift_date)} • {shift.position}</div>
 										<div>{formatTime(shift.start_time)} - {formatTime(shift.end_time)} • {getSectionName(shift.assigned_section) || 'No Section'}</div>
 									</div>
-																		{@const myExisting = myExistingTradeFor(shift.id)}
-									<button class="px-3 py-1 rounded text-xs {myExisting ? 'bg-gray-700 text-gray-400 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-700'}"
-										disabled={!myStaffId || !!myExisting}
+																		<button class="px-3 py-1 rounded text-xs {myExistingTradeFor(shift.id) ? 'bg-gray-700 text-gray-400 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-700'}"
+										disabled={!myStaffId || !!myExistingTradeFor(shift.id)}
 										on:click={async () => {
 											try {
 												await collections.createShiftTrade({
@@ -3933,7 +3932,7 @@ function myExistingTradeFor(shiftId) {
 											}
 										}}
 									>
-										{myExisting ? 'Pending Offer' : 'Offer Trade'}
+										{myExistingTradeFor(shift.id) ? 'Pending Offer' : 'Offer Trade'}
 									</button>
 								</div>
 							{/each}
