@@ -20,6 +20,33 @@ function myExistingTradeFor(shiftId) {
     return allTrades.find(t => (t.shift_id === shiftId) && ((t.current_staff === myStaffId) || (t.expand?.current_staff?.id === myStaffId)) && ['open','offered'].includes(t.status));
   } catch { return null; }
 }
+
+function getDateOnly(str) {
+  if (!str) return '';
+  return String(str).slice(0, 10);
+}
+function timeToMinutes(str) {
+  if (!str) return 0;
+  const [h, m] = String(str).split(':').map((n) => parseInt(n, 10));
+  return (h || 0) * 60 + (m || 0);
+}
+function rangesOverlap(s1, e1, s2, e2) {
+  return Math.max(s1, s2) < Math.min(e1, e2);
+}
+function hasConflictWithMyShifts(shift) {
+  try {
+    const date = getDateOnly(shift.shift_date);
+    const s1 = timeToMinutes(shift.start_time);
+    const e1 = timeToMinutes(shift.end_time);
+    return (get(myShifts) || myShifts || []).some((mine) => {
+      const d2 = getDateOnly(mine.shift_date);
+      if (d2 !== date) return false;
+      const s2 = timeToMinutes(mine.start_time);
+      const e2 = timeToMinutes(mine.end_time);
+      return rangesOverlap(s1, e1, s2, e2);
+    });
+  } catch { return false; }
+}
 	let showHistoryModal = false;
 	/** @type {any} */ let user = null;
 	let forcePaymentEnabled = false; // Server override for payment when items aren't ready
@@ -3988,7 +4015,11 @@ function myExistingTradeFor(shiftId) {
 								</div>
 							</div>
 							<div class="flex gap-2">
-								<button class="px-2 py-1 bg-green-600 hover:bg-green-700 rounded" on:click={async ()=>{ await collections.updateShiftTrade(t.id,{ status:'accepted', offered_to: myStaffId }); await collections.getShiftTrades(); alert('Offer accepted. Pending manager approval.'); }}>Accept</button>
+								{@const conflict = s ? hasConflictWithMyShifts(s) : false}
+								<button class="px-2 py-1 rounded {conflict ? 'bg-gray-700 text-gray-400 cursor-not-allowed' : 'bg-green-600 hover:bg-green-700'}" disabled={conflict}
+									on:click={async ()=>{ if (conflict) return; await collections.updateShiftTrade(t.id,{ status:'accepted', offered_to: myStaffId }); await collections.getShiftTrades(); alert('Offer accepted. Pending manager approval.'); }}>
+									{conflict ? 'Unavailable (conflict)' : 'Accept'}
+								</button>
 							</div>
 						</div>
 					{:else}
