@@ -3971,20 +3971,23 @@ function hasConflictWithMyShifts(shift) {
 					<h3 class="text-lg font-semibold mb-3">My Trade Offers</h3>
 					{#each myTrades as t}
 						<div class="flex items-center justify-between p-3 bg-gray-700/30 rounded-lg text-sm">
-							<div>
-								<div class="font-medium">Shift #{t.shift_id}</div>
-								<div class="text-gray-400">Status: {t.status}</div>
-							</div>
-							<div class="flex gap-2">
-								{#if t.status === 'open' && (t.current_staff === myStaffId || t.expand?.current_staff?.id === myStaffId)}
-									<button class="px-2 py-1 bg-gray-600 hover:bg-gray-500 rounded" on:click={async ()=>{ await collections.updateShiftTrade(t.id,{ status:'canceled'}); await collections.getShiftTrades(); }}>Cancel</button>
-								{/if}
-								{#if t.status === 'offered' && (t.offered_to === myStaffId || t.expand?.offered_to?.id === myStaffId)}
-									<button class="px-2 py-1 bg-green-600 hover:bg-green-700 rounded" on:click={async ()=>{ await collections.updateShiftTrade(t.id,{ status:'accepted'}); await collections.getShiftTrades(); }}>Accept</button>
-									<button class="px-2 py-1 bg-red-600 hover:bg-red-700 rounded" on:click={async ()=>{ await collections.updateShiftTrade(t.id,{ status:'denied'}); await collections.getShiftTrades(); }}>Decline</button>
-								{/if}
-							</div>
+						<div>
+						<div class="font-medium">Shift #{t.shift_id}</div>
+						<div class="text-gray-400">Status: {t.status}</div>
 						</div>
+						<div class="flex gap-2 items-center">
+						{#if t.status === 'open' && (t.current_staff === myStaffId || t.expand?.current_staff?.id === myStaffId)}
+						<button class="px-2 py-1 bg-gray-600 hover:bg-gray-500 rounded" on:click={async ()=>{ await collections.updateShiftTrade(t.id,{ status:'canceled'}); await collections.getShiftTrades(); }}>Cancel</button>
+						{/if}
+						{#if t.status === 'offered' && (t.offered_to === myStaffId || t.expand?.offered_to?.id === myStaffId)}
+						<button class="px-2 py-1 bg-green-600 hover:bg-green-700 rounded" on:click={async ()=>{ await collections.updateShiftTrade(t.id,{ status:'accepted'}); await collections.getShiftTrades(); }}>Accept</button>
+						<button class="px-2 py-1 bg-red-600 hover:bg-red-700 rounded" on:click={async ()=>{ await collections.updateShiftTrade(t.id,{ status:'denied'}); await collections.getShiftTrades(); }}>Decline</button>
+						{/if}
+						 {#if t.status === 'accepted' && (t.offered_to === myStaffId || t.expand?.offered_to?.id === myStaffId)}
+						    <span class="px-2 py-1 text-xs rounded bg-blue-900/50 text-blue-300">Accepted (Manager approval pending)</span>
+									{/if}
+								</div>
+							</div>
 					{:else}
 						<p class="text-gray-400 text-sm">No trade offers yet.</p>
 					{/each}
