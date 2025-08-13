@@ -169,6 +169,11 @@ function getWeekDates(sunday) {
 		return toISODate(dd);
 	});
 }
+function getWeekdayLabel(d) {
+	try {
+		return new Date(d).toLocaleDateString('en-US', { weekday: 'short' });
+	} catch { return ''; }
+}
 
 	// Menu filtering system variables
 	let selectedMenuCategories = {
@@ -2670,7 +2675,8 @@ function getWeekDates(sunday) {
 					<div class="grid grid-cols-7 gap-2">
 						{#each getWeekDates(getWeekSunday(new Date())) as day}
 							<div class="border border-gray-700 rounded p-2 min-h-[140px]">
-								<div class="text-xs text-gray-400 mb-2">{toISODate(new Date(day))}</div>
+								<div class="text-xs text-gray-400 mb-1"><span class="font-semibold text-gray-200">{getWeekdayLabel(day)}</span></div>
+									<div class="text-xs text-gray-400 mb-2">{toISODate(new Date(day))}</div>
 								{#each filteredShifts.filter(s => (s.shift_date || '').slice(0,10) === toISODate(new Date(day))) as s}
 									<div class={`mb-2 rounded p-2 border ${getPosBg(s.position)}`}>
 										<div class="text-xs text-gray-300 truncate">{getPosIcon(s.position)} {getStaffMemberName(s)} • {s.position}</div>
