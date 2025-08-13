@@ -3904,8 +3904,9 @@ let myStaffId = null;
 										<div class="font-medium">{formatDate(shift.shift_date)} • {shift.position}</div>
 										<div>{formatTime(shift.start_time)} - {formatTime(shift.end_time)} • {getSectionName(shift.assigned_section) || 'No Section'}</div>
 									</div>
-									<button class="px-3 py-1 bg-blue-600 hover:bg-blue-700 rounded text-xs"
-										disabled={!myStaffId}
+									{@const myExisting = (get(shiftTrades) || []).find(t => (t.shift_id === shift.id) && ((t.current_staff === myStaffId) || (t.expand?.current_staff?.id === myStaffId)) && ['open','offered'].includes(t.status))}
+									<button class="px-3 py-1 rounded text-xs {myExisting ? 'bg-gray-700 text-gray-400 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-700'}"
+										disabled={!myStaffId || !!myExisting}
 										on:click={async () => {
 											try {
 												await collections.createShiftTrade({
@@ -3922,7 +3923,7 @@ let myStaffId = null;
 											}
 										}}
 									>
-										Offer Trade
+										{myExisting ? 'Pending Offer' : 'Offer Trade'}
 									</button>
 								</div>
 							{/each}
@@ -3950,6 +3951,23 @@ let myStaffId = null;
 						</div>
 					{:else}
 						<p class="text-gray-400 text-sm">No trade offers yet.</p>
+					{/each}
+				</div>
+				<!-- Available Trade Offers (from others) -->
+				<div class="bg-gray-800/50 rounded-xl border border-gray-700 p-4">
+					<h3 class="text-lg font-semibold mb-3">Available Trade Offers</h3>
+					{#each (get(shiftTrades) || []).filter(t => t.status === 'open' && !(t.current_staff === myStaffId || t.expand?.current_staff?.id === myStaffId)) as t}
+						<div class="flex items-center justify-between p-3 bg-gray-700/30 rounded-lg text-sm">
+							<div>
+								<div class="font-medium">Shift #{t.shift_id}</div>
+								<div class="text-gray-400">Offered by: {t.expand?.current_staff ? `${t.expand.current_staff.first_name} ${t.expand.current_staff.last_name}` : t.current_staff}</div>
+							</div>
+							<div class="flex gap-2">
+								<button class="px-2 py-1 bg-green-600 hover:bg-green-700 rounded" on:click={async ()=>{ await collections.updateShiftTrade(t.id,{ status:'accepted', offered_to: myStaffId }); await collections.getShiftTrades(); alert('Offer accepted. Pending manager approval.'); }}>Accept</button>
+							</div>
+						</div>
+					{:else}
+						<p class="text-gray-400 text-sm">No available offers.</p>
 					{/each}
 				</div>
 			</div>
