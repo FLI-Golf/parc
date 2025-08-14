@@ -29,6 +29,7 @@
 	let usersHasMore = true;
 	let userQuery = '';
 	let userRoleFilter = '';
+	let usersError = '';
 	const roleOptions = [
 		{ value: '', label: 'All roles' },
 		{ value: 'manager', label: 'Manager' },
@@ -88,27 +89,59 @@
 				users = [];
 				usersPage = 1;
 				usersHasMore = true;
+				usersError = '';
 			}
 			if (!usersHasMore) return;
-			// Build filter
-			const parts = [];
-			if (userRoleFilter) parts.push(`role = "${userRoleFilter}"`);
-			if (userQuery) {
-				const q = userQuery.replace(/"/g, '\\"');
-				parts.push(`(name ~ "%${q}%" || email ~ "%${q}%")`);
-			}
-			const filter = parts.join(' && ');
-			const page = await pb.collection('users').getList(usersPage, 20, {
-				filter: filter || undefined,
-				fields: 'id,name,email,role,phone',
-				sort: '+name'
+			// Call server endpoint with filters
+			const params = new URLSearchParams();
+			if (userRoleFilter) params.set('role', userRoleFilter);
+			if (userQuery) params.set('q', userQuery);
+			params.set('page', String(usersPage));
+			params.set('perPage', '20');
+			const res = await fetch(`/api/users/search?${params.toString()}`, {
+				headers: {
+					// Forward PB auth token so the server endpoint can authorize against PocketBase
+					'Authorization': pb?.authStore?.token ? `Bearer ${pb.authStore.token}` : ''
+				}
 			});
-			const mapped = page.items.map(u => ({ id: u.id, name: u.name || '', email: u.email || '', role: u.role || '', phone: u.phone || '' }));
+			if (!res.ok) {
+				let message = `Failed (${res.status})`;
+				try {
+					const data = await res.json();
+					message = data?.error || message;
+				} catch {}
+				// Surface permission errors clearly in the modal
+				if (res.status === 403) {
+					usersError = 'You do not have permission to search users.';
+					usersHasMore = false; // stop further paging attempts
+					return;
+				}
+				throw new Error(message);
+			}
+			const data = await res.json();
+			const mapped = data.items || [];
 			users = users.concat(mapped);
-			usersHasMore = page.page < page.totalPages;
+			// Ensure currently selected user stays visible even if not in the fetched page
+			if (selectedUserId) {
+				const exists = users.some(u => u.id === selectedUserId);
+				if (!exists) {
+					try {
+						const u = await pb.collection('users').getOne(selectedUserId);
+						users = [u, ...users];
+					} catch (e) {
+						// Fallback placeholder so the select retains the value
+						users = [
+							{ id: selectedUserId, email: formData.email || selectedUserId, role: '' },
+							...users
+						];
+					}
+				}
+			}
+			usersHasMore = data.page < data.totalPages;
 			usersPage += 1;
 		} catch (e) {
 			console.error('Failed to load users:', e);
+			usersError = e?.message || 'Failed to load users';
 		} finally {
 			usersLoading = false;
 		}
@@ -306,7 +339,9 @@
 										<option disabled>Loading users...</option>
 									{:else}
 										{#each users as u}
-											<option value={u.id}>{u.name || '(no name)'} ({u.role || 'no role'}) — {u.email}</option>
+											<option value={u.id}>
+												{(u.email || u.id)} ({u.role || 'no role'})
+											</option>
 										{/each}
 									{/if}
 								</select>
@@ -317,6 +352,11 @@
 									<button type="button" class="px-3 py-2 bg-gray-700 text-gray-200 rounded-lg border border-gray-600 hover:bg-gray-600" on:click={() => { selectedUserId=''; formData.user_id=''; }}>Clear</button>
 								{/if}
 							</div>
+							{#if usersError}
+								<div class="mt-2 p-2 bg-red-900/40 border border-red-700 text-red-200 text-xs rounded">
+									{usersError}
+								</div>
+							{/if}
 						</div>
 						<p class="text-xs text-gray-400">Selecting a user will prefill name, email, and phone, and link the staff to the user.</p>
 					</div>

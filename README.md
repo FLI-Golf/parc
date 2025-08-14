@@ -319,6 +319,11 @@ For detailed technical documentation, see [`AGENT.md`](./AGENT.md) which include
 - Testing strategies
 - Deployment procedures
 
+### Documentation TODO
+- StaffModal user picker: document selection persistence behavior and fallback. Note the injected selected user when not present in fetched pages, and the potential extra guard of rendering an explicit `<option value={selectedUserId}>` before `{#each}` to prevent snapping to default during loading.
+- Roles: document extended roles used in UI filters (e.g., `security`, `head_of_security`, `doorman`) and how they map to Staff positions.
+- User search UX: document debounce and pagination expectations for `/api/users/search` and how auth token forwarding works in requests.
+
 ## 🤝 Contributing
 
 1. **Setup Development Environment**
