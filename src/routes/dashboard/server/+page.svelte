@@ -3409,8 +3409,14 @@ $: myPhone = (() => {
 										<p class="text-sm text-green-400">Section assigned (tables loading...)</p>
 									{:else}
 										{#if currentShiftTables.length > 0}
+										 {@const onShiftGlobal = (shiftTimers.size > 0) || todayShifts.some(s => s.status === 'in_progress')}
 										 <div class="space-y-2">
-										 <p class="text-sm text-green-400 font-medium">Your Tables: ({currentShiftTables.length} total, helping {selectedAdditionalSections.size} sections)</p>
+										 <p class="text-sm font-medium {onShiftGlobal ? 'text-green-400' : 'text-gray-400'}">Your Tables: ({currentShiftTables.length} total, helping {selectedAdditionalSections.size} sections)</p>
+										{#if !onShiftGlobal}
+											<div class="p-3 bg-gray-800/60 border border-gray-700 rounded-lg text-sm text-gray-300">
+												Start your shift to view and manage your tables.
+											</div>
+										{:else}
 										<div class="flex flex-wrap gap-2">
 										 {#each currentShiftTables as table}
 										 {@const tableSection = $sections.find(s => s.section_code === table.section_code)}
@@ -3444,6 +3450,7 @@ $: myPhone = (() => {
 										 </button>
 										 {/each}
 												</div>
+											{/if}
 											</div>
 										{:else if !showAllSections}
 										<div class="space-y-2">
