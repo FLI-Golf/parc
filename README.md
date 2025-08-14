@@ -284,6 +284,11 @@ The system uses 14+ PocketBase collections including:
 
 ## ✅ Recent Updates
 
+### Reservations Page Back Button
+- Added a Back button to `/dashboard/reservations`
+- Behavior: uses browser history when available; falls back to `/dashboard`
+- Styling matches dark theme and includes accessible label
+
 ### Manager Shift Trades Approval
 - Manager dashboard shows a pulsing badge with pending trade approvals next to the avatar
 - New Approve Trades button in Shifts header opens a Trades panel

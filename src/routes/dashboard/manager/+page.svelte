@@ -20,7 +20,9 @@ import {
 	ticketItems,
 	spoils,
 	loading,
-	shiftTrades
+	shiftTrades,
+	reservations,
+	workRequests
 } from "$lib/stores/collections.js";
 	import ImportModal from "$lib/components/ImportModal.svelte";
 	import InventoryModal from "$lib/components/InventoryModal.svelte";
@@ -212,6 +214,10 @@ function getWeekdayLabel(d) {
 		}
 		// Preload shift trades for header badge
 		try { collections.getShiftTrades?.(); } catch {}
+		// Preload today's reservations for metrics
+		try { collections.getReservations?.({ startDate: getTodayString(), endDate: getTodayString() }); } catch {}
+		// Preload open work requests for metrics
+		try { collections.getWorkRequests?.(); } catch {}
 		// Setup Web Speech API if available
 		if (typeof window !== 'undefined') {
 			const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
@@ -379,9 +385,15 @@ function getWeekdayLabel(d) {
 
 	$: totalMenuItems = $menuItems.length;
 	$: availableMenuItems = $menuItems.filter((item) => item.available).length;
-	$: activeStaff = $staff.filter((member) => member.status === "active")
-		.length;
+	$: activeStaff = $staff.filter((member) => member.status === "active").length;
 	$: pendingEvents = $events.filter((event) => event.status === "inquiry").length;
+
+	// Reservations metrics (today)
+	$: todayReservations = ($reservations || []).filter(r => r.reservation_date === getTodayString());
+	$: unassignedReservations = todayReservations.filter(r => !r.table_id || (Array.isArray(r.tags) && r.tags.includes('no_table_available'))).length;
+	$: oversizeReservations = todayReservations.filter(r => Array.isArray(r.tags) && r.tags.includes('oversize')).length;
+	// Staff Requests metrics
+	$: openWorkRequestsCount = ($workRequests || []).filter(w => (w.status || '').toLowerCase() === 'open').length;
 
 	// Helper for detailed view category matching (independent of defaults)
 	function itemMatchesDetailedCategory(item, categoryId) {
@@ -1208,6 +1220,33 @@ function getWeekdayLabel(d) {
 					</div>
 				</div>
 
+				<!-- Reservations Today -->
+				<div
+					class="bg-gradient-to-br from-indigo-900/50 to-indigo-800/30 backdrop-blur-sm rounded-xl border border-indigo-700/50 p-6 cursor-pointer"
+					on:click={() => goto('/dashboard/reservations')}
+					role="button"
+					aria-label="Go to Reservations"
+				>
+					<div class="flex items-center justify-between">
+						<div>
+							<p class="text-indigo-200 text-sm font-medium">
+								Reservations
+							</p>
+							<p class="text-3xl font-bold text-white">
+								{todayReservations.length}
+							</p>
+							<p class="text-indigo-300 text-xs mt-1">
+								{unassignedReservations} unassigned{#if oversizeReservations} · {oversizeReservations} oversize{/if}
+							</p>
+						</div>
+						<div
+							class="w-14 h-14 rounded-xl bg-indigo-600/30 flex items-center justify-center"
+						>
+							<span class="text-2xl">📅</span>
+						</div>
+					</div>
+				</div>
+
 				<!-- This Week's Shifts -->
 				<div
 					class="bg-gradient-to-br from-green-900/50 to-green-800/30 backdrop-blur-sm rounded-xl border border-green-700/50 p-6"
@@ -1228,6 +1267,25 @@ function getWeekdayLabel(d) {
 							class="w-14 h-14 rounded-xl bg-green-600/30 flex items-center justify-center"
 						>
 							<span class="text-2xl">🗓️</span>
+						</div>
+					</div>
+				</div>
+
+				<!-- Staff Requests -->
+				<div
+					class="bg-gradient-to-br from-purple-900/50 to-purple-800/30 backdrop-blur-sm rounded-xl border border-purple-700/50 p-6 cursor-pointer"
+					on:click={() => goto('/dashboard/requests')}
+					role="button"
+					aria-label="Go to Staff Requests"
+				>
+					<div class="flex items-center justify-between">
+						<div>
+							<p class="text-purple-200 text-sm font-medium">Staff Requests</p>
+							<p class="text-3xl font-bold text-white">{openWorkRequestsCount}</p>
+							<p class="text-purple-300 text-xs mt-1">open</p>
+						</div>
+						<div class="w-14 h-14 rounded-xl bg-purple-600/30 flex items-center justify-center">
+							<span class="text-2xl">📝</span>
 						</div>
 					</div>
 				</div>

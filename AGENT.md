@@ -160,6 +160,11 @@ Most collections use these rules:
 
 ## Key Server Dashboard Features
 
+### Reservations Navigation
+- The Reservations page (`/dashboard/reservations`) includes a Back button.
+- Behavior: uses browser history when available; falls back to `/dashboard`.
+- Styling matches the dark theme and includes an accessible label.
+
 ### Cross-Section Table Management
 Servers can help other sections by clicking "Help Here" on any section:
 - Tables from helping sections appear in the main "Your Tables" area

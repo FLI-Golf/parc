@@ -25,6 +25,7 @@ import pb from '../pocketbase.js';
 /** @type {import('svelte/store').Writable<any[]>} */ export const scheduleProposals = writable([]);
 /** @type {import('svelte/store').Writable<any[]>} */ export const workRequests = writable([]);
 /** @type {import('svelte/store').Writable<any[]>} */ export const shiftTrades = writable([]);
+/** @type {import('svelte/store').Writable<any[]>} */ export const reservations = writable([]);
 
 // Loading states
 /** @type {import('svelte/store').Writable<Record<string, boolean>>} */
@@ -50,7 +51,8 @@ export const loading = writable({
 	payments: false,
 	completedOrders: false,
 	spoils: false,
-	scheduleProposals: false
+	scheduleProposals: false,
+	reservations: false
 });
 
 // Collection service functions
@@ -1267,5 +1269,71 @@ export const collections = {
 		} finally {
 			loading.update(s => ({ ...s, scheduleProposals: false }));
 		}
+	},
+
+	// Reservations
+	async getReservations({ startDate = null, endDate = null, status = null } = {}) {
+		try {
+			loading.update(s => ({ ...s, reservations: true }));
+			let filterParts = [];
+			if (startDate) filterParts.push(`reservation_date >= "${startDate}"`);
+			if (endDate) filterParts.push(`reservation_date <= "${endDate}"`);
+			if (status) filterParts.push(`status = "${status}"`);
+			const filter = filterParts.join(' && ');
+			const records = await pb.collection('reservations').getFullList({
+				filter,
+				sort: '+reservation_date,+start_time',
+				expand: 'section,table_id,created_by'
+			});
+			reservations.set(records);
+			return records;
+		} catch (error) {
+			console.error('Error fetching reservations:', error);
+			reservations.set([]);
+			return [];
+		} finally {
+			loading.update(s => ({ ...s, reservations: false }));
+		}
+	},
+	async createReservation(data) {
+		try {
+			// Map and sanitize payload
+			const payload = {
+				reservation_date: data.reservation_date,
+				start_time: data.start_time,
+				party_size: Number(data.party_size),
+				customer_name: data.customer_name,
+				customer_phone: data.customer_phone || '',
+				customer_email: data.customer_email || '',
+				source: data.source || 'web',
+				status: data.status || 'booked',
+				notes: data.notes || '',
+				section: data.section || null,
+				table_id: data.table_id || null,
+				created_by: data.created_by || null,
+				tags: data.tags || undefined
+			};
+			// Remove null/undefined
+			const cleaned = Object.fromEntries(Object.entries(payload).filter(([,v]) => v !== null && v !== undefined && v !== ''));
+			const record = await pb.collection('reservations').create(cleaned, { expand: 'section,table_id,created_by' });
+			reservations.update(list => [record, ...list]);
+			return record;
+		} catch (error) {
+			console.error('Error creating reservation:', error?.data || error);
+			throw error;
+		}
+	},
+	async updateReservation(id, data) {
+		try {
+			const record = await pb.collection('reservations').update(id, data, { expand: 'section,table_id,created_by' });
+			reservations.update(list => list.map(r => r.id === id ? record : r));
+			return record;
+		} catch (error) {
+			console.error('Error updating reservation:', error);
+			throw error;
+		}
+	},
+	async cancelReservation(id, reason = '') {
+		return this.updateReservation(id, { status: 'canceled', notes: reason });
 	}
 };
