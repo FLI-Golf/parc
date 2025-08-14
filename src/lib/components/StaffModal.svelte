@@ -98,7 +98,7 @@
 				parts.push(`(name ~ "%${q}%" || email ~ "%${q}%")`);
 			}
 			const filter = parts.join(' && ');
-			const page = await pb.collection('_pb_users_auth_').getList(usersPage, 20, {
+			const page = await pb.collection('users').getList(usersPage, 20, {
 				filter: filter || undefined,
 				fields: 'id,name,email,role,phone',
 				sort: '+name'
