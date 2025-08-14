@@ -21,10 +21,30 @@
 		user_id: ''
 	};
 	
-	// Users for dropdown linking
+	// Users for dropdown linking (with filters and pagination)
 	let users = [];
 	let selectedUserId = '';
 	let usersLoading = false;
+	let usersPage = 1;
+	let usersHasMore = true;
+	let userQuery = '';
+	let userRoleFilter = '';
+	const roleOptions = [
+		{ value: '', label: 'All roles' },
+		{ value: 'manager', label: 'Manager' },
+		{ value: 'general_manager', label: 'General Manager' },
+		{ value: 'owner', label: 'Owner' },
+		{ value: 'server', label: 'Server' },
+		{ value: 'host', label: 'Host' },
+		{ value: 'bartender', label: 'Bartender' },
+		{ value: 'barback', label: 'Barback' },
+		{ value: 'busser', label: 'Busser' },
+		{ value: 'chef', label: 'Chef' },
+		{ value: 'kitchen_prep', label: 'Kitchen Prep' },
+		{ value: 'kitchen', label: 'Kitchen' },
+		{ value: 'dishwasher', label: 'Dishwasher' },
+		{ value: 'security', label: 'Security' }
+	];
 	
 	let isSubmitting = false;
 	let error = '';
@@ -60,14 +80,33 @@
 		loadUsers();
 	}
 	
-	async function loadUsers() {
-		if (usersLoading || users.length) return;
+	async function loadUsers(reset = false) {
+		if (usersLoading) return;
 		try {
 			usersLoading = true;
-			const list = await pb.collection('_pb_users_auth_').getFullList({
-				fields: 'id,name,email,role,phone'
+			if (reset) {
+				users = [];
+				usersPage = 1;
+				usersHasMore = true;
+			}
+			if (!usersHasMore) return;
+			// Build filter
+			const parts = [];
+			if (userRoleFilter) parts.push(`role = "${userRoleFilter}"`);
+			if (userQuery) {
+				const q = userQuery.replace(/"/g, '\\"');
+				parts.push(`(name ~ "%${q}%" || email ~ "%${q}%")`);
+			}
+			const filter = parts.join(' && ');
+			const page = await pb.collection('_pb_users_auth_').getList(usersPage, 20, {
+				filter: filter || undefined,
+				fields: 'id,name,email,role,phone',
+				sort: '+name'
 			});
-			users = list.map(u => ({ id: u.id, name: u.name || '', email: u.email || '', role: u.role || '', phone: u.phone || '' }));
+			const mapped = page.items.map(u => ({ id: u.id, name: u.name || '', email: u.email || '', role: u.role || '', phone: u.phone || '' }));
+			users = users.concat(mapped);
+			usersHasMore = page.page < page.totalPages;
+			usersPage += 1;
 		} catch (e) {
 			console.error('Failed to load users:', e);
 		} finally {
@@ -245,22 +284,41 @@
 				<div class="grid grid-cols-1 gap-4">
 					<div>
 						<label class="block text-sm font-medium text-gray-300 mb-2">Link to User (optional)</label>
-						<div class="flex gap-2">
-							<select bind:value={selectedUserId} class="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500">
-								<option value="">-- Select user to prefill --</option>
-								{#if usersLoading}
-									<option disabled>Loading users...</option>
-								{:else}
-									{#each users as u}
-										<option value={u.id}>{u.name || u.email} — {u.email}</option>
+						<div class="flex flex-col gap-2">
+							<div class="flex gap-2">
+								<input
+									type="text"
+									class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+									placeholder="Search by name or email"
+									bind:value={userQuery}
+									on:input={() => loadUsers(true)}
+								/>
+								<select bind:value={userRoleFilter} on:change={() => loadUsers(true)} class="px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500">
+									{#each roleOptions as r}
+										<option value={r.value}>{r.label}</option>
 									{/each}
+								</select>
+							</div>
+							<div class="flex gap-2">
+								<select bind:value={selectedUserId} class="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500">
+									<option value="">-- Select user to prefill --</option>
+									{#if usersLoading}
+										<option disabled>Loading users...</option>
+									{:else}
+										{#each users as u}
+											<option value={u.id}>{u.name || '(no name)'} ({u.role || 'no role'}) — {u.email}</option>
+										{/each}
+									{/if}
+								</select>
+								{#if usersHasMore}
+									<button type="button" class="px-3 py-2 bg-gray-700 text-gray-200 rounded-lg border border-gray-600 hover:bg-gray-600" on:click={() => loadUsers(false)}>Load more</button>
 								{/if}
-							</select>
-							{#if selectedUserId}
-								<button type="button" class="px-3 py-2 bg-gray-700 text-gray-200 rounded-lg border border-gray-600 hover:bg-gray-600" on:click={() => { selectedUserId=''; formData.user_id=''; }}>Clear</button>
-							{/if}
+								{#if selectedUserId}
+									<button type="button" class="px-3 py-2 bg-gray-700 text-gray-200 rounded-lg border border-gray-600 hover:bg-gray-600" on:click={() => { selectedUserId=''; formData.user_id=''; }}>Clear</button>
+								{/if}
+							</div>
 						</div>
-						<p class="text-xs text-gray-400 mt-1">Selecting a user will prefill name, email, and phone, and link the staff to the user.</p>
+						<p class="text-xs text-gray-400">Selecting a user will prefill name, email, and phone, and link the staff to the user.</p>
 					</div>
 				</div>
 
