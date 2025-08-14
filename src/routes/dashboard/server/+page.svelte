@@ -3482,8 +3482,7 @@ $: myPhone = (() => {
 										{/if}
 
 									<!-- Expanded sections view -->
-									{@const onShiftGlobal = todayShifts.some(s => s.status === 'in_progress')}
-{#if onShiftGlobal && showAllSections}
+									{#if todayShifts.some(s => s.status === 'in_progress') && showAllSections}
 										<div class="mt-4 pt-4 border-t border-green-700/50">
 											<div class="mb-3">
 												<p class="text-sm text-green-400 font-medium">All Restaurant Sections:</p>
