@@ -561,6 +561,44 @@ $: myPhone = (() => {
 		}
 	}
 
+	// Helper: resolve staff display name by user id
+	function getStaffNameByUserId(uid) {
+		try {
+			const list = get(staffStore) || [];
+			const found = list.find(s => (s.user_id === uid) || (s.expand?.user_id?.id === uid));
+			const first = (found?.first_name || '').trim();
+			const last = (found?.last_name || '').trim();
+			return (first || last) ? [first, last].filter(Boolean).join(' ') : '';
+		} catch { return ''; }
+	}
+
+	// Helper: is a given user assigned to this section today?
+	function isUserAssignedToSectionToday(uid, sectionId) {
+		try {
+			const allShifts = get(shifts) || [];
+			const today = getTodayStr();
+			return allShifts.some(s => (
+				String(s.shift_date).slice(0,10) === today &&
+				s.assigned_section === sectionId &&
+				((s.expand?.staff_member?.user_id === uid) || (s.expand?.staff_member?.expand?.user_id?.id === uid))
+			));
+		} catch { return false; }
+	}
+
+	// For a specific table, return helper name if the active ticket belongs to a non-assigned server (i.e., a helper)
+	function getTableHelperName(table, sectionId) {
+		try {
+			// Find an active ticket on this table
+			const ticket = ($tickets || []).find(t => t.table_id === table.id && !['closed','paid'].includes(t.status));
+			if (!ticket || !ticket.server_id) return '';
+			const helperUserId = ticket.server_id;
+			// If the ticket's server is assigned to this section today, not a helper
+			if (isUserAssignedToSectionToday(helperUserId, sectionId)) return '';
+			// Otherwise resolve their name
+			return getStaffNameByUserId(helperUserId) || '';
+		} catch { return ''; }
+	}
+
 	// Helper to get all tables the server is responsible for (assigned + helping sections)
 	function getAllMyTables(assignedSectionId) {
 		// Guard against undefined stores
@@ -3608,6 +3646,12 @@ $: myPhone = (() => {
 																			<div class="text-xs font-medium text-gray-300 mb-2">
 																				{section.area_name || 'Available'}
 																			</div>
+																			<!-- Helper chip (if table has active ticket by a non-assigned server) -->
+																			{#if getTableHelperName(table, section.id)}
+																				<div class="mb-1 flex justify-center">
+																					<span class="text-[10px] px-2 py-0.5 rounded-full bg-blue-900/50 text-blue-300 border border-blue-700" title="Helper who has items on this table">Helping: {getTableHelperName(table, section.id)}</span>
+																				</div>
+																			{/if}
 																			
 																			<!-- Order Status -->
 																			{#if hasOrders && orderStatus}
