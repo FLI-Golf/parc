@@ -234,6 +234,8 @@ $: myPhone = (() => {
 			}
 			
 			await collections.updateShift(shiftId, { status: status });
+			// Refresh shifts so UI reflects new status immediately
+			try { await collections.getShifts?.(); } catch {}
 		} catch (error) {
 			console.error('Error updating shift status:', error);
 			alert('Failed to update shift status');
@@ -3413,7 +3415,7 @@ $: myPhone = (() => {
 										 {#each currentShiftTables as table}
 										 {@const tableSection = $sections.find(s => s.section_code === table.section_code)}
 										 {@const dotStatus = getTableDotStatus(table.id)}
-										 {@const onShift = shift?.status === 'in_progress'}
+										 {@const onShift = todayShifts.some(s => s.status === 'in_progress')}
 										 <button 
 										 on:click={() => {
 											 if (!onShift) return; // must Start Shift first
