@@ -859,7 +859,7 @@ $: myPhone = (() => {
 	// Table click handler for ticket management
 	async function handleTableClick(table) {
 		// Require shift to be started before any table interactions
-		if (shiftTimers.size === 0) {
+		if (!todayShifts.some(s => s.status === 'in_progress')) {
 			alert('Please start your shift to manage tables.');
 			return;
 		}
@@ -3405,7 +3405,7 @@ $: myPhone = (() => {
 										 {#each currentShiftTables as table}
 										 {@const tableSection = $sections.find(s => s.section_code === table.section_code)}
 										 {@const dotStatus = getTableDotStatus(table.id)}
-										 {@const onShift = shiftTimers.size > 0}
+										 {@const onShift = shift?.status === 'in_progress'}
 										 <button 
 										 on:click={() => {
 											 if (!onShift) return; // must Start Shift first
@@ -3513,7 +3513,7 @@ $: myPhone = (() => {
 										return status;
 									})()}
 																	
-																	{@const onShift = !!shiftTimers.get(shift.id)}
+																	{@const onShift = shift?.status === 'in_progress'}
 {@const canInteract = onShift && (section.id === shift.assigned_section || selectedAdditionalSections.has(section.id))}
 																	<button
 																		on:click={() => {
