@@ -20,22 +20,20 @@ export async function POST({ request }) {
 			throw error(400, 'Missing required payment data');
 		}
 
-		// Import Stripe server-side
-		console.log('🔑 Checking Stripe secret key:', process.env.STRIPE_SECRET_KEY ? 'EXISTS' : 'MISSING');
+		// Import Stripe server-side using SvelteKit env (works in dev and prod)
+		const { env } = await import('$env/dynamic/private');
+		console.log('🔑 Checking Stripe secret key:', env.STRIPE_SECRET_KEY ? 'EXISTS' : 'MISSING');
 		console.log('🔍 Debug: Full environment check:', {
-			NODE_ENV: process.env.NODE_ENV,
-			STRIPE_SECRET_KEY_LENGTH: process.env.STRIPE_SECRET_KEY?.length || 0,
-			STRIPE_SECRET_KEY_PREFIX: process.env.STRIPE_SECRET_KEY?.substring(0, 10) || 'NONE',
-			ALL_STRIPE_VARS: Object.keys(process.env).filter(key => key.includes('STRIPE'))
+			NODE_ENV: env.NODE_ENV,
+			STRIPE_SECRET_KEY_LENGTH: env.STRIPE_SECRET_KEY?.length || 0,
+			STRIPE_SECRET_KEY_PREFIX: env.STRIPE_SECRET_KEY?.substring(0, 10) || 'NONE',
 		});
 		
-		// Temporary fallback for debugging
-		const stripeKey = process.env.STRIPE_SECRET_KEY || '[REDACTED:stripe-secret-token]';
-		
+		// Require Stripe secret key to be set in environment
+		const stripeKey = env.STRIPE_SECRET_KEY;
 		if (!stripeKey) {
 			throw new Error('STRIPE_SECRET_KEY environment variable is not set');
 		}
-		
 		const stripe = (await import('stripe')).default(stripeKey);
 
 		// Create payment intent with optional manual capture

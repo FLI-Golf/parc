@@ -392,12 +392,12 @@
 									</div>
 								</div>
 
-								{#if item.modifications}
-									<div class="text-sm text-yellow-300 mb-2">
-										<strong>Mods:</strong> {item.modifications}
-									</div>
+								{#if item.food_modifications || item.drink_modifications}
+								<div class="text-sm text-yellow-300 mb-2">
+								<strong>Mods:</strong> {Array.isArray(item.food_modifications || item.drink_modifications) ? (item.food_modifications || item.drink_modifications).join(', ') : (item.food_modifications || item.drink_modifications)}
+								</div>
 								{/if}
-
+								
 								{#if item.special_instructions}
 									<div class="text-sm text-orange-300 mb-3">
 										<strong>Special:</strong> {item.special_instructions}
@@ -464,12 +464,12 @@
 									</div>
 								</div>
 
-								{#if item.modifications}
-									<div class="text-sm text-yellow-300 mb-2">
-										<strong>Mods:</strong> {item.modifications}
-									</div>
+								{#if item.food_modifications || item.drink_modifications}
+								<div class="text-sm text-yellow-300 mb-2">
+								<strong>Mods:</strong> {Array.isArray(item.food_modifications || item.drink_modifications) ? (item.food_modifications || item.drink_modifications).join(', ') : (item.food_modifications || item.drink_modifications)}
+								</div>
 								{/if}
-
+								
 								{#if item.special_instructions}
 									<div class="text-sm text-orange-300 mb-3">
 										<strong>Special:</strong> {item.special_instructions}
@@ -545,9 +545,9 @@
 										</div>
 									</div>
 
-									{#if item.modifications}
+									{#if item.food_modifications || item.drink_modifications}
 										<div class="text-sm text-yellow-300 mb-2">
-											<strong>Mods:</strong> {item.modifications}
+											<strong>Mods:</strong> {Array.isArray(item.food_modifications || item.drink_modifications) ? (item.food_modifications || item.drink_modifications).join(', ') : (item.food_modifications || item.drink_modifications)}
 										</div>
 									{/if}
 

@@ -719,7 +719,7 @@ $: myPhone = (() => {
 	let showItemModal = false;
 	/** @type {any[]} */ let selectedModifiers = [];
 	let itemQuantity = 1;
-	let specialInstructions = '';
+	let specialInstructions = []; let selectedMod = 'none';
 	/** @type {number | null} */ let selectedSeat = null;
 	/** @type {Record<number, string>} */ let seatNames = {}; // Map of seat numbers to names
 	
@@ -728,7 +728,7 @@ $: myPhone = (() => {
 	/** @type {any} */ let editingItem = null;
 	let editQuantity = 1;
 	/** @type {any[]} */ let editModifiers = [];
-	let editSpecialInstructions = '';
+	let editSpecialInstructions = []; let selectedEditMod = 'none';
 	/** @type {number | null} */ let editSeat = null;
 	
 	// Dynamic seat management  
@@ -908,7 +908,7 @@ $: myPhone = (() => {
 		selectedMenuItem = menuItem;
 		itemQuantity = 1;
 		selectedModifiers = [];
-		specialInstructions = '';
+		specialInstructions = [];
 		selectedSeat = null;
 		showItemModal = true;
 	}
@@ -918,23 +918,22 @@ $: myPhone = (() => {
 		selectedMenuItem = null;
 		itemQuantity = 1;
 		selectedModifiers = [];
-		specialInstructions = '';
+		specialInstructions = [];
 		selectedSeat = null;
 	}
 	
 	function openEditItemModal(item) {
 		editingItem = item;
 		editQuantity = item.quantity;
-		editSpecialInstructions = item.special_instructions || '';
+		editSpecialInstructions = Array.isArray(item.food_modifications) ? item.food_modifications : (Array.isArray(item.drink_modifications) ? item.drink_modifications : []);
 		editSeat = item.seat_number || null;
 		
-		// Parse existing modifiers from modifications string
+		// Parse existing modifiers from new fields (fallback to legacy if present)
 		editModifiers = [];
-		if (item.modifications) {
-			const modifierText = item.modifications.split(' | ')[0]; // Get modifiers part (before special instructions)
-			editModifiers = menuModifiers.filter(mod => 
-				modifierText.includes(mod.name)
-			);
+		const existingMods = item.food_modifications || item.drink_modifications || item.modifications || '';
+		if (existingMods) {
+			const modifierText = existingMods.split(' | ')[0];
+			editModifiers = menuModifiers.filter(mod => modifierText.includes(mod.name));
 		}
 		
 		showEditItemModal = true;
@@ -953,9 +952,8 @@ $: myPhone = (() => {
 		if (!editingItem) return;
 		
 		try {
-			// Build new modifications string
-			const modifierNames = editModifiers.map(m => m.name).join(', ');
-			const modifications = [modifierNames, editSpecialInstructions].filter(Boolean).join(' | ');
+			// Use multi-select modifications array
+			const modifications = Array.isArray(editSpecialInstructions) ? editSpecialInstructions.filter(v => v && v !== 'none') : [];
 			
 			// Calculate new prices with modifiers
 			const basePrice = editingItem.unit_price - (editingItem.modifier_total || 0); // Remove old modifier cost
@@ -968,11 +966,15 @@ $: myPhone = (() => {
 				quantity: editQuantity,
 				unit_price: newUnitPrice,
 				total_price: newTotalPrice,
-				modifications: modifications,
 				seat_number: editSeat,
-				seat_name: editSeat ? seatNames[editSeat] || '' : '',
-				special_instructions: editSpecialInstructions
+				seat_name: editSeat ? seatNames[editSeat] || '' : ''
 			};
+			// Map to new modification fields based on station
+			const station = (editingItem.kitchen_station || '').toLowerCase();
+			if (Array.isArray(modifications) && modifications.length > 0) {
+				if (station === 'bar') updateData.drink_modifications = modifications;
+				else updateData.food_modifications = modifications;
+			}
 			
 			// Update local state immediately
 			currentTicketItems = currentTicketItems.map(item => 
@@ -1067,16 +1069,23 @@ $: myPhone = (() => {
 		
 		try {
 			const category = menuItem.category_field || menuItem.category;
+			const name = menuItem.name_field || menuItem.name;
 			const itemData = {
-				ticket_id: currentTicket.id,
-				menu_item_id: menuItem.id,
-				quantity: quantity,
-				unit_price: menuItem.price_field || menuItem.price || 0,
-				total_price: (menuItem.price_field || menuItem.price || 0) * quantity,
-				modifications: modifications,
-				course: mapCategoryToCourse(category),
-				kitchen_station: getKitchenStation(category)
-			};
+			ticket_id: currentTicket.id,
+			menu_item_id: menuItem.id,
+			quantity: quantity,
+			unit_price: menuItem.price_field || menuItem.price || 0,
+			total_price: (menuItem.price_field || menuItem.price || 0) * quantity,
+			course: mapCategoryToCourse(category),
+			 kitchen_station: getKitchenStation(category, name)
+				};
+			// Map modifications to new fields
+			const station = itemData.kitchen_station?.toLowerCase() || '';
+			if (Array.isArray(modifications) && modifications.length > 0) {
+				if (station === 'bar') itemData.drink_modifications = modifications;
+				else itemData.food_modifications = modifications;
+			}
+			// Do not store special_instructions separately anymore
 			
 			const newItem = await collections.addTicketItem(itemData);
 			currentTicketItems = [...currentTicketItems, newItem];
@@ -1093,9 +1102,8 @@ $: myPhone = (() => {
 	async function addCustomizedItemToTicket() {
 		if (!selectedMenuItem || !currentTicket) return;
 		
-		// Build modifications string
-		const modifierNames = selectedModifiers.map(m => m.name).join(', ');
-		const modifications = [modifierNames, specialInstructions].filter(Boolean).join(' | ');
+		// Use multi-select modifications array
+		const modifications = Array.isArray(specialInstructions) ? specialInstructions.filter(v => v && v !== 'none') : [];
 		
 		// Calculate adjusted price
 		const basePrice = selectedMenuItem.price_field || selectedMenuItem.price || 0;
@@ -1104,18 +1112,25 @@ $: myPhone = (() => {
 		
 		try {
 			const category = selectedMenuItem.category_field || selectedMenuItem.category;
+			const name = selectedMenuItem.name_field || selectedMenuItem.name;
 			const itemData = {
 				ticket_id: currentTicket.id,
 				menu_item_id: selectedMenuItem.id,
 				quantity: itemQuantity,
 				unit_price: unitPrice,
 				total_price: unitPrice * itemQuantity,
-				modifications: modifications,
 				course: mapCategoryToCourse(category),
-				kitchen_station: getKitchenStation(category),
+				kitchen_station: getKitchenStation(category, name),
 				seat_number: selectedSeat,
 				seat_name: selectedSeat ? seatNames[selectedSeat] || '' : ''
 			};
+			// Map modifications to new fields
+			const station2 = itemData.kitchen_station?.toLowerCase() || '';
+			if (Array.isArray(modifications) && modifications.length > 0) {
+				if (station2 === 'bar') itemData.drink_modifications = modifications;
+				else itemData.food_modifications = modifications;
+			}
+			// Do not store special_instructions separately anymore
 			
 			const newItem = await collections.addTicketItem(itemData);
 			currentTicketItems = [...currentTicketItems, newItem];
@@ -1450,8 +1465,8 @@ $: myPhone = (() => {
 		barItems.forEach((item, index) => {
 			const seatInfo = item.seat_number ? `Seat ${item.seat_number}` : '';
 			const guestName = item.seat_name ? `(${item.seat_name})` : '';
-			const modifications = item.modifications || '';
-			const specialInstructions = item.special_instructions || '';
+			const modifications = item.food_modifications || item.drink_modifications || item.modifications || '';
+			const specialInstructions = '';
 
 			content += `
 				<div class="ticket">
@@ -1464,7 +1479,7 @@ $: myPhone = (() => {
 						${seatInfo} ${guestName}
 					</div>
 					${modifications ? `<div class="modifications">Mods: ${modifications}</div>` : ''}
-					${specialInstructions ? `<div class="modifications">Special: ${specialInstructions}</div>` : ''}
+					
 					<div class="footer">
 						Item ${index + 1} of ${barItems.length}
 					</div>
@@ -2994,10 +3009,10 @@ $: myPhone = (() => {
 				recognition.onresult = (event) => {
 					const transcript = event.results[0][0].transcript;
 					if (isRecording) {
-						specialInstructions = (specialInstructions + ' ' + transcript).trim();
+						if (typeof specialInstructions === 'string') { specialInstructions = (specialInstructions + ' ' + transcript).trim(); }
 						isRecording = false;
 					} else if (isRecordingEdit) {
-						editSpecialInstructions = (editSpecialInstructions + ' ' + transcript).trim();
+						if (typeof editSpecialInstructions === 'string') { editSpecialInstructions = (editSpecialInstructions + ' ' + transcript).trim(); }
 						isRecordingEdit = false;
 					} else if (isRecordingSearch) {
 						searchQuery = transcript;
@@ -3491,8 +3506,10 @@ $: myPhone = (() => {
 										return status;
 									})()}
 																	
+																	{@const canInteract = section.id === shift.assigned_section || selectedAdditionalSections.has(section.id)}
 																	<button
 																		on:click={() => {
+																			if (!canInteract) return; // must click Help Here first
 																			console.log('🔥 CLICKED TABLE:', table.table_name || table.table_number_field);
 																			console.log('🔥 HAS ORDERS:', hasOrders);
 																			console.log('🔥 ORDER STATUS:', orderStatus);
@@ -3504,11 +3521,11 @@ $: myPhone = (() => {
 																				return hasOrders ? showTableOrderDetails(table) : handleTableClick(table);
 																			}
 																		}}
-																		class="relative p-4 rounded-xl border-2 transition-all hover:scale-105 bg-gray-800/50 backdrop-blur-sm {
+																		class="relative p-4 rounded-xl border-2 transition-all bg-gray-800/50 backdrop-blur-sm {
 																			section.id === shift.assigned_section ? 'border-green-500' : 
 																			selectedAdditionalSections.has(section.id) ? 'border-blue-500' : 'border-gray-600'
-																		} {hasOrders ? 'cursor-pointer shadow-lg' : 'hover:border-gray-500'}"
-																		title={hasOrders ? 'Click to view order details' : 'Click to create new order'}
+																		} {canInteract && hasOrders ? 'cursor-pointer hover:scale-105 shadow-lg' : canInteract ? 'hover:scale-105 hover:border-gray-500' : 'opacity-60 cursor-not-allowed'}"
+																		title={canInteract ? (hasOrders ? 'Click to view order details' : 'Click to create new order') : 'Click Help Here to assist this section'}
 																	>
 																		<!-- Status Indicator (Top Right) -->
 																		<div class="absolute -top-2 -right-2 w-6 h-6 rounded-full {statusDisplay.color} border-2 border-gray-800 flex items-center justify-center shadow-lg">
@@ -5012,29 +5029,132 @@ $: myPhone = (() => {
 					</div>
 				{/if}
 
-				<!-- Special Instructions -->
+				<!-- Modifications (mapped to food/drink) -->
 				<div>
-					<h3 class="text-lg font-semibold text-white mb-3">Special Instructions</h3>
+					<h3 class="text-lg font-semibold text-white mb-3">
+						{#if selectedMenuItem}
+							{(getKitchenStation(selectedMenuItem.category_field || selectedMenuItem.category, selectedMenuItem.name_field || selectedMenuItem.name) || '').toLowerCase() === 'bar' ? 'Drink Modifications' : 'Food Modifications'}
+						{:else}
+							Modifications
+						{/if}
+					</h3>
 					<div class="relative">
-						<textarea
-							bind:value={specialInstructions}
-							placeholder="Any special requests or notes..."
-							class="w-full p-3 pr-12 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400 resize-none"
-							rows="3"
-						></textarea>
-						{#if speechSupported}
-							<button
-								on:click={() => isRecording ? stopVoiceRecording() : startVoiceRecording(false)}
-								class="absolute right-2 top-2 p-2 rounded-lg transition-colors {isRecording ? 'bg-red-600 hover:bg-red-700 text-white' : 'bg-gray-600 hover:bg-gray-500 text-gray-300'}"
-								title={isRecording ? 'Stop recording' : 'Start voice recording'}
-								type="button"
-							>
-								{#if isRecording}
-									🔴
-								{:else}
-									🎤
-								{/if}
+						<select
+							bind:value={selectedMod}
+							class="w-full p-3 bg-gray-700 border border-gray-600 rounded-lg text-white"
+						>
+							{#if selectedMenuItem && (getKitchenStation(selectedMenuItem.category_field || selectedMenuItem.category, selectedMenuItem.name_field || selectedMenuItem.name) || '').toLowerCase() === 'bar'}
+								<option value="none">none</option>
+								<option value="ice_no_ice">ice_no_ice</option>
+								<option value="ice_light_ice">ice_light_ice</option>
+								<option value="ice_extra_ice">ice_extra_ice</option>
+								<option value="temp_extra_cold">temp_extra_cold</option>
+								<option value="temp_warm">temp_warm</option>
+								<option value="sweetness_dry">sweetness_dry</option>
+								<option value="sweetness_balanced">sweetness_balanced</option>
+								<option value="sweetness_sweet">sweetness_sweet</option>
+								<option value="carbonation_low">carbonation_low</option>
+								<option value="carbonation_medium">carbonation_medium</option>
+								<option value="carbonation_high">carbonation_high</option>
+								<option value="rim_salt">rim_salt</option>
+								<option value="rim_sugar">rim_sugar</option>
+								<option value="rim_tajin">rim_tajin</option>
+								<option value="garnish_lime">garnish_lime</option>
+								<option value="garnish_lemon">garnish_lemon</option>
+								<option value="garnish_orange">garnish_orange</option>
+								<option value="garnish_cherry">garnish_cherry</option>
+								<option value="garnish_olive">garnish_olive</option>
+								<option value="garnish_cucumber">garnish_cucumber</option>
+								<option value="style_neat">style_neat</option>
+								<option value="style_on_the_rocks">style_on_the_rocks</option>
+								<option value="style_up">style_up</option>
+								<option value="double_shot">double_shot</option>
+								<option value="top_shelf_upgrade">top_shelf_upgrade</option>
+								<option value="mixer_soda">mixer_soda</option>
+								<option value="mixer_tonic">mixer_tonic</option>
+								<option value="mixer_ginger_beer">mixer_ginger_beer</option>
+								<option value="mixer_coke">mixer_coke</option>
+								<option value="mixer_sprite">mixer_sprite</option>
+								<option value="espresso_add_shot">espresso_add_shot</option>
+								<option value="coffee_milk_oat">coffee_milk_oat</option>
+								<option value="coffee_milk_almond">coffee_milk_almond</option>
+								<option value="coffee_milk_whole">coffee_milk_whole</option>
+								<option value="coffee_milk_none">coffee_milk_none</option>
+								<option value="beer_pour_pint">beer_pour_pint</option>
+								<option value="beer_pour_half">beer_pour_half</option>
+								<option value="wine_pour_5oz">wine_pour_5oz</option>
+								<option value="wine_pour_9oz">wine_pour_9oz</option>
+								<option value="less_sweet">less_sweet</option>
+								<option value="extra_bitter">extra_bitter</option>
+								<option value="add_angostura">add_angostura</option>
+								<option value="add_simple_syrup">add_simple_syrup</option>
+								<option value="add_lime_juice">add_lime_juice</option>
+								<option value="add_lemon_juice">add_lemon_juice</option>
+							{:else}
+								<option value="none">none</option>
+								<option value="doneness_rare">doneness_rare</option>
+								<option value="doneness_medium_rare">doneness_medium_rare</option>
+								<option value="doneness_medium">doneness_medium</option>
+								<option value="doneness_medium_well">doneness_medium_well</option>
+								<option value="doneness_well_done">doneness_well_done</option>
+								<option value="temp_extra_crispy">temp_extra_crispy</option>
+								<option value="temp_lightly_crisp">temp_lightly_crisp</option>
+								<option value="no_salt">no_salt</option>
+								<option value="light_salt">light_salt</option>
+								<option value="extra_salt">extra_salt</option>
+								<option value="sauce_on_side">sauce_on_side</option>
+								<option value="extra_sauce">extra_sauce</option>
+								<option value="no_sauce">no_sauce</option>
+								<option value="add_cheese">add_cheese</option>
+								<option value="no_cheese">no_cheese</option>
+								<option value="add_bacon">add_bacon</option>
+								<option value="add_avocado">add_avocado</option>
+								<option value="gluten_free_bun">gluten_free_bun</option>
+								<option value="lettuce_wrap">lettuce_wrap</option>
+								<option value="no_onion">no_onion</option>
+								<option value="no_tomato">no_tomato</option>
+								<option value="no_pickles">no_pickles</option>
+								<option value="no_mayo">no_mayo</option>
+								<option value="add_aioli">add_aioli</option>
+								<option value="extra_spicy">extra_spicy</option>
+								<option value="mild_spice">mild_spice</option>
+								<option value="allergen_no_nuts">allergen_no_nuts</option>
+								<option value="allergen_no_dairy">allergen_no_dairy</option>
+								<option value="allergen_no_gluten">allergen_no_gluten</option>
+								<option value="allergen_no_shellfish">allergen_no_shellfish</option>
+								<option value="dressing_ranch">dressing_ranch</option>
+								<option value="dressing_blue_cheese">dressing_blue_cheese</option>
+								<option value="dressing_vinaigrette">dressing_vinaigrette</option>
+								<option value="dressing_caesar">dressing_caesar</option>
+								<option value="side_fries">side_fries</option>
+								<option value="side_salad">side_salad</option>
+								<option value="side_veggies">side_veggies</option>
+								<option value="side_rice">side_rice</option>
+								<option value="side_mashed_potatoes">side_mashed_potatoes</option>
+								<option value="toast_sourdough">toast_sourdough</option>
+								<option value="toast_wheat">toast_wheat</option>
+								<option value="toast_rye">toast_rye</option>
+								<option value="egg_over_easy">egg_over_easy</option>
+								<option value="egg_over_medium">egg_over_medium</option>
+								<option value="egg_over_hard">egg_over_hard</option>
+								<option value="egg_scrambled">egg_scrambled</option>
+								<option value="pasta_al_dente">pasta_al_dente</option>
+							{/if}
+						</select>
+						<div class="mt-2 flex items-center space-x-2">
+							<button type="button" class="px-3 py-1 bg-blue-600 hover:bg-blue-700 rounded" on:click={() => { if (selectedMod && selectedMod !== 'none' && !specialInstructions.includes(selectedMod)) { specialInstructions = [...specialInstructions, selectedMod]; } }}>
+								+ Add
 							</button>
+						</div>
+						{#if specialInstructions.length}
+							<div class="mt-3 flex flex-wrap gap-2">
+								{#each specialInstructions as mod, i}
+									<span class="px-2 py-1 bg-gray-700 rounded-full text-sm">
+										{mod}
+										<button class="ml-2 text-red-400" on:click={() => { specialInstructions = specialInstructions.filter((_, idx) => idx !== i); }} title="Remove">×</button>
+									</span>
+								{/each}
+							</div>
 						{/if}
 					</div>
 				</div>
@@ -5205,29 +5325,129 @@ $: myPhone = (() => {
 					</div>
 				{/if}
 
-				<!-- Special Instructions -->
+				<!-- Modifications (mapped to food/drink) -->
 				<div>
-					<h3 class="text-lg font-semibold text-white mb-3">Special Instructions</h3>
+					<h3 class="text-lg font-semibold text-white mb-3">
+						{(editingItem?.kitchen_station || '').toLowerCase() === 'bar' ? 'Drink Modifications' : 'Food Modifications'}
+					</h3>
 					<div class="relative">
-						<textarea
-							bind:value={editSpecialInstructions}
-							placeholder="Any special requests or notes..."
-							class="w-full p-3 pr-12 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400 resize-none"
-							rows="3"
-						></textarea>
-						{#if speechSupported}
-							<button
-								on:click={() => isRecordingEdit ? stopVoiceRecording() : startVoiceRecording(true)}
-								class="absolute right-2 top-2 p-2 rounded-lg transition-colors {isRecordingEdit ? 'bg-red-600 hover:bg-red-700 text-white' : 'bg-gray-600 hover:bg-gray-500 text-gray-300'}"
-								title={isRecordingEdit ? 'Stop recording' : 'Start voice recording'}
-								type="button"
-							>
-								{#if isRecordingEdit}
-									🔴
-								{:else}
-									🎤
-								{/if}
+						<select
+							bind:value={selectedEditMod}
+							class="w-full p-3 bg-gray-700 border border-gray-600 rounded-lg text-white"
+						>
+							{#if (editingItem?.kitchen_station || '').toLowerCase() === 'bar'}
+								<option value="none">none</option>
+								<option value="ice_no_ice">ice_no_ice</option>
+								<option value="ice_light_ice">ice_light_ice</option>
+								<option value="ice_extra_ice">ice_extra_ice</option>
+								<option value="temp_extra_cold">temp_extra_cold</option>
+								<option value="temp_warm">temp_warm</option>
+								<option value="sweetness_dry">sweetness_dry</option>
+								<option value="sweetness_balanced">sweetness_balanced</option>
+								<option value="sweetness_sweet">sweetness_sweet</option>
+								<option value="carbonation_low">carbonation_low</option>
+								<option value="carbonation_medium">carbonation_medium</option>
+								<option value="carbonation_high">carbonation_high</option>
+								<option value="rim_salt">rim_salt</option>
+								<option value="rim_sugar">rim_sugar</option>
+								<option value="rim_tajin">rim_tajin</option>
+								<option value="garnish_lime">garnish_lime</option>
+								<option value="garnish_lemon">garnish_lemon</option>
+								<option value="garnish_orange">garnish_orange</option>
+								<option value="garnish_cherry">garnish_cherry</option>
+								<option value="garnish_olive">garnish_olive</option>
+								<option value="garnish_cucumber">garnish_cucumber</option>
+								<option value="style_neat">style_neat</option>
+								<option value="style_on_the_rocks">style_on_the_rocks</option>
+								<option value="style_up">style_up</option>
+								<option value="double_shot">double_shot</option>
+								<option value="top_shelf_upgrade">top_shelf_upgrade</option>
+								<option value="mixer_soda">mixer_soda</option>
+								<option value="mixer_tonic">mixer_tonic</option>
+								<option value="mixer_ginger_beer">mixer_ginger_beer</option>
+								<option value="mixer_coke">mixer_coke</option>
+								<option value="mixer_sprite">mixer_sprite</option>
+								<option value="espresso_add_shot">espresso_add_shot</option>
+								<option value="coffee_milk_oat">coffee_milk_oat</option>
+								<option value="coffee_milk_almond">coffee_milk_almond</option>
+								<option value="coffee_milk_whole">coffee_milk_whole</option>
+								<option value="coffee_milk_none">coffee_milk_none</option>
+								<option value="beer_pour_pint">beer_pour_pint</option>
+								<option value="beer_pour_half">beer_pour_half</option>
+								<option value="wine_pour_5oz">wine_pour_5oz</option>
+								<option value="wine_pour_9oz">wine_pour_9oz</option>
+								<option value="less_sweet">less_sweet</option>
+								<option value="extra_bitter">extra_bitter</option>
+								<option value="add_angostura">add_angostura</option>
+								<option value="add_simple_syrup">add_simple_syrup</option>
+								<option value="add_lime_juice">add_lime_juice</option>
+								<option value="add_lemon_juice">add_lemon_juice</option>
+							{:else}
+								<option value="none">none</option>
+								<option value="doneness_rare">doneness_rare</option>
+								<option value="doneness_medium_rare">doneness_medium_rare</option>
+								<option value="doneness_medium">doneness_medium</option>
+								<option value="doneness_medium_well">doneness_medium_well</option>
+								<option value="doneness_well_done">doneness_well_done</option>
+								<option value="temp_extra_crispy">temp_extra_crispy</option>
+								<option value="temp_lightly_crisp">temp_lightly_crisp</option>
+								<option value="no_salt">no_salt</option>
+								<option value="light_salt">light_salt</option>
+								<option value="extra_salt">extra_salt</option>
+								<option value="sauce_on_side">sauce_on_side</option>
+								<option value="extra_sauce">extra_sauce</option>
+								<option value="no_sauce">no_sauce</option>
+								<option value="add_cheese">add_cheese</option>
+								<option value="no_cheese">no_cheese</option>
+								<option value="add_bacon">add_bacon</option>
+								<option value="add_avocado">add_avocado</option>
+								<option value="gluten_free_bun">gluten_free_bun</option>
+								<option value="lettuce_wrap">lettuce_wrap</option>
+								<option value="no_onion">no_onion</option>
+								<option value="no_tomato">no_tomato</option>
+								<option value="no_pickles">no_pickles</option>
+								<option value="no_mayo">no_mayo</option>
+								<option value="add_aioli">add_aioli</option>
+								<option value="extra_spicy">extra_spicy</option>
+								<option value="mild_spice">mild_spice</option>
+								<option value="allergen_no_nuts">allergen_no_nuts</option>
+								<option value="allergen_no_dairy">allergen_no_dairy</option>
+								<option value="allergen_no_gluten">allergen_no_gluten</option>
+								<option value="allergen_no_shellfish">allergen_no_shellfish</option>
+								<option value="dressing_ranch">dressing_ranch</option>
+								<option value="dressing_blue_cheese">dressing_blue_cheese</option>
+								<option value="dressing_vinaigrette">dressing_vinaigrette</option>
+								<option value="dressing_caesar">dressing_caesar</option>
+								<option value="side_fries">side_fries</option>
+								<option value="side_salad">side_salad</option>
+								<option value="side_veggies">side_veggies</option>
+								<option value="side_rice">side_rice</option>
+								<option value="side_mashed_potatoes">side_mashed_potatoes</option>
+								<option value="toast_sourdough">toast_sourdough</option>
+								<option value="toast_wheat">toast_wheat</option>
+								<option value="toast_rye">toast_rye</option>
+								<option value="egg_over_easy">egg_over_easy</option>
+								<option value="egg_over_medium">egg_over_medium</option>
+								<option value="egg_over_hard">egg_over_hard</option>
+								<option value="egg_scrambled">egg_scrambled</option>
+								<option value="pasta_al_dente">pasta_al_dente</option>
+							{/if}
+						</select>
+						<div class="mt-2 flex items-center space-x-2">
+							<button type="button" class="px-3 py-1 bg-blue-600 hover:bg-blue-700 rounded" on:click={() => { if (selectedEditMod && selectedEditMod !== 'none' && !editSpecialInstructions.includes(selectedEditMod)) { editSpecialInstructions = [...editSpecialInstructions, selectedEditMod]; } }}>
+								+ Add
 							</button>
+							
+						</div>
+						{#if editSpecialInstructions.length}
+							<div class="mt-3 flex flex-wrap gap-2">
+								{#each editSpecialInstructions as mod, i}
+									<span class="px-2 py-1 bg-gray-700 rounded-full text-sm">
+										{mod}
+										<button class="ml-2 text-red-400" on:click={() => { editSpecialInstructions = editSpecialInstructions.filter((_, idx) => idx !== i); }} title="Remove">×</button>
+									</span>
+								{/each}
+							</div>
 						{/if}
 					</div>
 					<p class="text-xs text-gray-400 mt-1">
@@ -5402,46 +5622,49 @@ $: myPhone = (() => {
 
 			<!-- Footer -->
 			<div class="p-6 border-t border-gray-700 flex justify-between">
-				<button
-					on:click={closeTableDetailsModal}
-					class="px-4 py-2 bg-gray-600 hover:bg-gray-500 rounded-lg text-white font-medium"
-				>
-					Close
-				</button>
-				
-				{#if selectedTableDetails && selectedTableDetails.status === 'ready' && selectedTableDetails.table}
-					<button
-						on:click={() => {
-							console.log('🔧 Process Payment clicked');
-							console.log('📋 selectedTableDetails:', selectedTableDetails);
-							
-							if (!selectedTableDetails?.table?.id) {
-								console.error('❌ selectedTableDetails.table is null');
-								return;
-							}
-							
-							console.log('🍽️ Table ID:', selectedTableDetails.table.id);
-							const table = selectedTableDetails.table;
-							const orderStatus = getTableOrderStatus(selectedTableDetails.table.id);
-							console.log('📊 Order Status:', orderStatus);
-							
-							if (orderStatus) {
-								console.log('✅ Opening full order interface for payment');
-								closeTableDetailsModal();
-								handleTableClick(table);
-							} else {
-								console.error('❌ No order status found - cannot process payment');
-							}
-						}}
-						class="px-6 py-2 bg-green-600 hover:bg-green-700 rounded-lg text-white font-medium flex items-center space-x-2"
-					>
-						<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-							<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v2a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z"></path>
-						</svg>
-						<span>Process Payment</span>
-					</button>
-				{/if}
-			</div>
+			<button
+			on:click={closeTableDetailsModal}
+			class="px-4 py-2 bg-gray-600 hover:bg-gray-500 rounded-lg text-white font-medium"
+			>
+			Close
+			</button>
+			<div class="flex items-center space-x-3">
+			 <button
+			 on:click={() => {
+			 // Open the full order interface to add more items
+			if (selectedTableDetails?.table) {
+			 const table = selectedTableDetails.table;
+			 closeTableDetailsModal();
+			 handleTableClick(table);
+			}
+			}}
+			class="px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded-lg text-white font-medium"
+			>
+			+ Add to Ticket
+			</button>
+			{#if selectedTableDetails && selectedTableDetails.status === 'ready' && selectedTableDetails.table}
+			<button
+			on:click={() => {
+			 if (!selectedTableDetails?.table?.id) return;
+			const table = selectedTableDetails.table;
+			const orderStatus = getTableOrderStatus(selectedTableDetails.table.id);
+			if (orderStatus) {
+			  closeTableDetailsModal();
+			 handleTableClick(table);
+			 } else {
+			   console.error('❌ No order status found - cannot process payment');
+			  }
+			  }}
+			 class="px-6 py-2 bg-green-600 hover:bg-green-700 rounded-lg text-white font-medium flex items-center space-x-2"
+			>
+			 <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+			  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v2a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z"></path>
+			  </svg>
+			   <span>Process Payment</span>
+			   </button>
+						{/if}
+					</div>
+				</div>
 		</div>
 	</div>
 {/if}

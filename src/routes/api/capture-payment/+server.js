@@ -14,8 +14,13 @@ export async function POST({ request }) {
 			throw error(400, 'Missing payment intent ID or final amount');
 		}
 
-		// Import Stripe server-side
-		const stripe = (await import('stripe')).default(process.env.STRIPE_SECRET_KEY);
+		// Import Stripe server-side using SvelteKit env
+		const { env } = await import('$env/dynamic/private');
+		const stripeKey = env.STRIPE_SECRET_KEY;
+		if (!stripeKey) {
+			throw new Error('STRIPE_SECRET_KEY environment variable is not set');
+		}
+		const stripe = (await import('stripe')).default(stripeKey);
 
 		// Get the current payment intent to check capturable amount
 		const currentPaymentIntent = await stripe.paymentIntents.retrieve(payment_intent_id);

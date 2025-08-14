@@ -1013,12 +1013,22 @@ export const collections = {
 				quantity: data.quantity,
 				unit_price: data.unit_price,
 				total_price: data.total_price,
-				modifications: data.modifications,
 				course: data.course,
 				kitchen_station: data.kitchen_station,
 				status: 'ordered',
 				ordered_at: new Date().toISOString()
 			};
+			// Map legacy modifications string to new fields
+			if (data.modifications) {
+				if ((data.kitchen_station || '').toLowerCase() === 'bar') {
+					itemData.drink_modifications = data.modifications;
+				} else {
+					itemData.food_modifications = data.modifications;
+				}
+			}
+			// Allow direct usage of new fields too
+			if (data.food_modifications) itemData.food_modifications = data.food_modifications;
+			if (data.drink_modifications) itemData.drink_modifications = data.drink_modifications;
 			
 			const record = await pb.collection('ticket_items_collection').create(itemData, {
 				expand: 'ticket_id,menu_item_id'
@@ -1037,8 +1047,20 @@ export const collections = {
 
 	async updateTicketItem(id, data) {
 		try {
-			const record = await pb.collection('ticket_items_collection').update(id, data, {
-			expand: 'ticket_id,menu_item_id'
+			// Map legacy modifications to new fields on update as well
+			const updateData = { ...data };
+			if (data.modifications) {
+				if ((data.kitchen_station || '').toLowerCase() === 'bar') {
+					updateData.drink_modifications = data.modifications;
+					delete updateData.food_modifications;
+				} else {
+					updateData.food_modifications = data.modifications;
+					delete updateData.drink_modifications;
+				}
+				delete updateData.modifications;
+			}
+			const record = await pb.collection('ticket_items_collection').update(id, updateData, {
+				expand: 'ticket_id,menu_item_id'
 			});
 			ticketItems.update(items => 
 				items.map(item => item.id === id ? record : item)
