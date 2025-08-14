@@ -3409,7 +3409,7 @@ $: myPhone = (() => {
 										<p class="text-sm text-green-400">Section assigned (tables loading...)</p>
 									{:else}
 										{@const onShiftGlobal = todayShifts.some(s => s.status === 'in_progress')}
-										{#if onShiftGlobal && currentShiftTables.length > 0}
+										{#if ((shiftTimers.size > 0) || todayShifts.some(s => s.status === 'in_progress')) && currentShiftTables.length > 0}
 										 <div class="space-y-2">
 										 <p class="text-sm font-medium text-green-400">Your Tables: ({currentShiftTables.length} total, helping {selectedAdditionalSections.size} sections)</p>
 										<div class="flex flex-wrap gap-2">
@@ -3482,7 +3482,7 @@ $: myPhone = (() => {
 										{/if}
 
 									<!-- Expanded sections view -->
-									{#if todayShifts.some(s => s.status === 'in_progress') && showAllSections}
+									{#if ((shiftTimers.size > 0) || todayShifts.some(s => s.status === 'in_progress')) && showAllSections}
 										<div class="mt-4 pt-4 border-t border-green-700/50">
 											<div class="mb-3">
 												<p class="text-sm text-green-400 font-medium">All Restaurant Sections:</p>
