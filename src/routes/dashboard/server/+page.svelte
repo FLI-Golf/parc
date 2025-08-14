@@ -3489,6 +3489,7 @@ $: myPhone = (() => {
 											</div>
 											<div class="space-y-3">
 												{#each getAllSections() as section}
+													{#if section.tables && section.tables.length > 0}
 													<div class="bg-gray-800/30 rounded-lg p-3 {selectedAdditionalSections.has(section.id) ? 'ring-2 ring-blue-500' : ''}">
 														<div class="flex justify-between items-center mb-2">
 															<h5 class="text-sm font-medium text-gray-300 flex items-center">
@@ -3506,10 +3507,10 @@ $: myPhone = (() => {
 															{#if section.id !== shift.assigned_section}
 																<button
 																	on:click={() => toggleAdditionalSection(section.id)}
-																	class="px-2 py-1 text-xs rounded {
+																	class="px-2 py-1 text-xs rounded transition-colors {
 																		selectedAdditionalSections.has(section.id) 
-																			? 'bg-blue-600 text-white' 
-																			: 'bg-gray-600 hover:bg-gray-500 text-gray-300'
+																			? 'bg-blue-700 text-white hover:bg-blue-600' 
+																			: 'bg-blue-500 text-white hover:bg-blue-400'
 																	}"
 																>
 																	{selectedAdditionalSections.has(section.id) ? 'Stop Helping' : 'Help Here'}
@@ -3600,6 +3601,7 @@ $: myPhone = (() => {
 															<p class="text-xs text-gray-500">No tables assigned</p>
 														{/if}
 													</div>
+												{/if}
 												{/each}
 											</div>
 											
