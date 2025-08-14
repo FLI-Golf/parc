@@ -3408,15 +3408,10 @@ $: myPhone = (() => {
 									{#if $loading.tables}
 										<p class="text-sm text-green-400">Section assigned (tables loading...)</p>
 									{:else}
-										{#if currentShiftTables.length > 0}
-										 {@const onShiftGlobal = (shiftTimers.size > 0) || todayShifts.some(s => s.status === 'in_progress')}
+										{@const onShiftGlobal = todayShifts.some(s => s.status === 'in_progress')}
+										{#if onShiftGlobal && currentShiftTables.length > 0}
 										 <div class="space-y-2">
-										 <p class="text-sm font-medium {onShiftGlobal ? 'text-green-400' : 'text-gray-400'}">Your Tables: ({currentShiftTables.length} total, helping {selectedAdditionalSections.size} sections)</p>
-										{#if !onShiftGlobal}
-											<div class="p-3 bg-gray-800/60 border border-gray-700 rounded-lg text-sm text-gray-300">
-												Start your shift to view and manage your tables.
-											</div>
-										{:else}
+										 <p class="text-sm font-medium text-green-400">Your Tables: ({currentShiftTables.length} total, helping {selectedAdditionalSections.size} sections)</p>
 										<div class="flex flex-wrap gap-2">
 										 {#each currentShiftTables as table}
 										 {@const tableSection = $sections.find(s => s.section_code === table.section_code)}
@@ -3450,9 +3445,14 @@ $: myPhone = (() => {
 										 </button>
 										 {/each}
 												</div>
-											{/if}
 											</div>
-										{:else if !showAllSections}
+										{:else}
+											<!-- Collapsed until Start Shift -->
+											<div class="p-3 bg-gray-800/60 border border-gray-700 rounded-lg text-sm text-gray-300">
+												Start your shift to view and manage your tables.
+											</div>
+										{/if}
+									{:else if !showAllSections}
 										<div class="space-y-2">
 										 {#if $tables && $tables.length > 0}
 										  <div class="space-y-1">
@@ -3483,7 +3483,8 @@ $: myPhone = (() => {
 									{/if}
 
 									<!-- Expanded sections view -->
-									{#if showAllSections}
+									{@const onShiftGlobal = todayShifts.some(s => s.status === 'in_progress')}
+{#if onShiftGlobal && showAllSections}
 										<div class="mt-4 pt-4 border-t border-green-700/50">
 											<div class="mb-3">
 												<p class="text-sm text-green-400 font-medium">All Restaurant Sections:</p>
