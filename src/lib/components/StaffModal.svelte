@@ -1,6 +1,7 @@
 <script>
-	import { createEventDispatcher } from 'svelte';
+	import { createEventDispatcher, onMount } from 'svelte';
 	import { collections } from '$lib/stores/collections.js';
+	import pb from '$lib/pocketbase.js';
 	
 	export let isOpen = false;
 	export let editItem = null; // For editing existing staff
@@ -20,20 +21,31 @@
 		user_id: ''
 	};
 	
+	// Users for dropdown linking
+	let users = [];
+	let selectedUserId = '';
+	let usersLoading = false;
+	
 	let isSubmitting = false;
 	let error = '';
 	
-	// Position options (restaurant roles)
+	// Position options (expanded)
 	const positions = [
 		{ value: 'owner', label: 'Owner' },
+		{ value: 'general_manager', label: 'General Manager' },
 		{ value: 'manager', label: 'Manager' },
 		{ value: 'server', label: 'Server' },
 		{ value: 'host', label: 'Host' },
 		{ value: 'bartender', label: 'Bartender' },
+		{ value: 'barback', label: 'Barback' },
 		{ value: 'busser', label: 'Busser' },
 		{ value: 'chef', label: 'Chef' },
+		{ value: 'kitchen', label: 'Kitchen' },
 		{ value: 'kitchen_prep', label: 'Kitchen Prep' },
-		{ value: 'dishwasher', label: 'Dishwasher' }
+		{ value: 'dishwasher', label: 'Dishwasher' },
+		{ value: 'head_of_security', label: 'Head of Security' },
+		{ value: 'security', label: 'Security' },
+		{ value: 'doorman', label: 'Doorman' }
 	];
 	
 	// Status options
@@ -42,6 +54,60 @@
 		{ value: 'inactive', label: 'Inactive' },
 		{ value: 'terminated', label: 'Terminated' }
 	];
+	
+	// Load users on open (for linking)
+	$: if (isOpen) {
+		loadUsers();
+	}
+	
+	async function loadUsers() {
+		if (usersLoading || users.length) return;
+		try {
+			usersLoading = true;
+			const list = await pb.collection('_pb_users_auth_').getFullList({
+				fields: 'id,name,email,role,phone'
+			});
+			users = list.map(u => ({ id: u.id, name: u.name || '', email: u.email || '', role: u.role || '', phone: u.phone || '' }));
+		} catch (e) {
+			console.error('Failed to load users:', e);
+		} finally {
+			usersLoading = false;
+		}
+	}
+	
+	// Prefill when selecting a user (for create only)
+	$: if (!editItem && selectedUserId) {
+		const u = users.find(x => x.id === selectedUserId);
+		if (u) {
+			formData.user_id = u.id;
+			formData.email = u.email || formData.email;
+			formData.phone = u.phone || formData.phone;
+			if ((u.name || '').trim()) {
+				const parts = u.name.trim().split(/\s+/);
+				formData.first_name = formData.first_name || parts[0] || '';
+				formData.last_name = formData.last_name || parts.slice(1).join(' ') || '';
+			}
+			// Optional: default position from role if empty
+			if (!formData.position && u.role) {
+				const roleToPosition = new Map([
+					['manager','manager'],
+					['general_manager','general_manager'],
+					['owner','owner'],
+					['server','server'],
+					['host','host'],
+					['bartender','bartender'],
+					['barback','barback'],
+					['busser','busser'],
+					['chef','chef'],
+					['kitchen_prep','kitchen_prep'],
+					['kitchen','kitchen'],
+					['dishwasher','dishwasher'],
+					['security','security']
+				]);
+				formData.position = roleToPosition.get(u.role) || formData.position || 'server';
+			}
+		}
+	}
 	
 	// Watch for edit item changes
 	$: if (editItem) {
@@ -56,6 +122,7 @@
 			status: editItem.status || 'active',
 			user_id: editItem.user_id || ''
 		};
+		selectedUserId = formData.user_id || '';
 	} else {
 		// Reset form for new staff
 		formData = {
@@ -69,6 +136,7 @@
 			status: 'active',
 			user_id: ''
 		};
+		selectedUserId = '';
 	}
 	
 	async function handleSubmit() {
@@ -91,8 +159,8 @@
 			if (formData.hourly_rate) {
 				data.hourly_rate = Number(formData.hourly_rate);
 			}
-			if (formData.user_id) {
-				data.user_id = formData.user_id;
+			if (formData.user_id || selectedUserId) {
+				data.user_id = formData.user_id || selectedUserId;
 			}
 			
 			if (editItem) {
@@ -173,6 +241,29 @@
 					</div>
 				{/if}
 				
+				<!-- Link to existing user (optional) -->
+				<div class="grid grid-cols-1 gap-4">
+					<div>
+						<label class="block text-sm font-medium text-gray-300 mb-2">Link to User (optional)</label>
+						<div class="flex gap-2">
+							<select bind:value={selectedUserId} class="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500">
+								<option value="">-- Select user to prefill --</option>
+								{#if usersLoading}
+									<option disabled>Loading users...</option>
+								{:else}
+									{#each users as u}
+										<option value={u.id}>{u.name || u.email} — {u.email}</option>
+									{/each}
+								{/if}
+							</select>
+							{#if selectedUserId}
+								<button type="button" class="px-3 py-2 bg-gray-700 text-gray-200 rounded-lg border border-gray-600 hover:bg-gray-600" on:click={() => { selectedUserId=''; formData.user_id=''; }}>Clear</button>
+							{/if}
+						</div>
+						<p class="text-xs text-gray-400 mt-1">Selecting a user will prefill name, email, and phone, and link the staff to the user.</p>
+					</div>
+				</div>
+
 				<!-- Personal Information -->
 				<div class="grid grid-cols-1 md:grid-cols-2 gap-4">
 					<!-- First Name -->
