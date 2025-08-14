@@ -858,6 +858,11 @@ $: myPhone = (() => {
 
 	// Table click handler for ticket management
 	async function handleTableClick(table) {
+		// Require shift to be started before any table interactions
+		if (shiftTimers.size === 0) {
+			alert('Please start your shift to manage tables.');
+			return;
+		}
 		selectedTable = table;
 		
 		// Check if table has an existing open ticket
@@ -3400,8 +3405,10 @@ $: myPhone = (() => {
 										 {#each currentShiftTables as table}
 										 {@const tableSection = $sections.find(s => s.section_code === table.section_code)}
 										 {@const dotStatus = getTableDotStatus(table.id)}
+										 {@const onShift = shiftTimers.size > 0}
 										 <button 
 										 on:click={() => {
+											 if (!onShift) return; // must Start Shift first
 											 const hasOrders = $tickets.find(t => t.table_id === table.id && !['closed'].includes(t.status));
 											 if (tableClickBehavior === 'direct') {
 												 handleTableClick(table);
@@ -3409,7 +3416,7 @@ $: myPhone = (() => {
 												 hasOrders ? showTableOrderDetails(table) : handleTableClick(table);
 											 }
 										 }}
-										 class="px-3 py-1 bg-gray-800/50 border rounded-lg text-sm font-medium flex items-center gap-2 hover:bg-gray-700/50 transition-colors cursor-pointer border-green-600 text-green-300"
+										 class="px-3 py-1 bg-gray-800/50 border rounded-lg text-sm font-medium flex items-center gap-2 transition-colors {onShift ? 'hover:bg-gray-700/50 cursor-pointer border-green-600 text-green-300' : 'opacity-60 cursor-not-allowed pointer-events-none border-gray-600 text-gray-400'}"
 										 >
 										 <span>{table.table_name || table.table_number_field}</span>
 										 {#if table.capacity || table.seats_field}
@@ -3506,7 +3513,8 @@ $: myPhone = (() => {
 										return status;
 									})()}
 																	
-																	{@const canInteract = section.id === shift.assigned_section || selectedAdditionalSections.has(section.id)}
+																	{@const onShift = !!shiftTimers.get(shift.id)}
+{@const canInteract = onShift && (section.id === shift.assigned_section || selectedAdditionalSections.has(section.id))}
 																	<button
 																		on:click={() => {
 																			if (!canInteract) return; // must click Help Here first
