@@ -539,11 +539,23 @@ $: myPhone = (() => {
 			const allShifts = get(shifts) || [];
 			if (!Array.isArray(allShifts)) return [];
 			const today = getTodayStr();
-			const names = allShifts
+			const entries = allShifts
 				.filter(s => s.assigned_section === sectionId && String(s.shift_date).slice(0,10) === today)
-				.map(s => s.expand?.staff_member?.first_name || s.expand?.staff_member?.last_name || s.position)
+				// Exclude non-server roles
+				.filter(s => {
+					const p = String(s.position || '').toLowerCase();
+					const excluded = ['chef','kitchen_prep','kitchen','prep','manager','owner','general_manager','gm','dishwasher','dish'];
+					return !excluded.includes(p);
+				})
+				.map(s => {
+					const first = (s.expand?.staff_member?.first_name || '').trim();
+					const last = (s.expand?.staff_member?.last_name || '').trim();
+					const name = (first || last) ? [first, last].filter(Boolean).join(' ') : (s.position || '').trim();
+					const pos = (s.position || '').trim();
+					return name ? `${name}${pos ? ` (${pos})` : ''}` : '';
+				})
 				.filter(Boolean);
-			return [...new Set(names)];
+			return [...new Set(entries)];
 		} catch {
 			return [];
 		}

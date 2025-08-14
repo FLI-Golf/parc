@@ -165,8 +165,21 @@ Servers can help other sections by clicking "Help Here" on any section:
 - Tables from helping sections appear in the main "Your Tables" area
 - Provides seamless management of all assigned and helping tables
 - Visual distinction: assigned section tables (green), helping sections (blue)
+- "Help Here" controls are styled light blue for clarity
 - Reduces clicks and scrolling for efficient service
 - Preferences persist across page refreshes via localStorage
+
+### Shift Gating and Sections UI (Updated)
+- Your Tables and All Restaurant Sections are fully hidden until the server presses `Start Shift`
+- After Start Shift, tables unlock immediately (based on active timer or `in_progress` status)
+- While not on shift:
+  - Your Tables shows only a small hint banner
+  - All Sections are not rendered
+- Guardrails: servers can only interact with tables in their assigned section or sections explicitly opted into via `Help Here`
+- Section headers display assignee names for today (e.g., `Main Dining (Marie Dupont (server))`) so helpers know who they’re assisting
+  - Excludes kitchen and management roles: `chef, kitchen_prep, kitchen, prep, manager, owner, general_manager, gm, dishwasher, dish`
+  - Multiple names are comma-separated
+- Sections with no tables are hidden to reduce clutter
 
 ### Enhanced Table Workflow Indicators
 Comprehensive dot color system shows table status at a glance:
