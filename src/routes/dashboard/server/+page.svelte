@@ -3480,7 +3480,6 @@ $: myPhone = (() => {
 										 {/if}
 										</div>
 										{/if}
-									{/if}
 
 									<!-- Expanded sections view -->
 									{@const onShiftGlobal = todayShifts.some(s => s.status === 'in_progress')}
