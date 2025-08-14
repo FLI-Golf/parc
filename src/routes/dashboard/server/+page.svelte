@@ -653,7 +653,14 @@ $: myPhone = (() => {
 				const savedSections = localStorage.getItem('selectedAdditionalSections');
 				if (savedSections) {
 					const parsed = JSON.parse(savedSections);
-					if (Array.isArray(parsed)) {
+					// Reset persisted helping sections if from a different user or day
+					const savedMeta = JSON.parse(localStorage.getItem('selectedAdditionalSections_meta') || '{}');
+					const todayStr = new Date().toISOString().slice(0,10);
+					if (savedMeta.userId !== user?.id || savedMeta.date !== todayStr) {
+						selectedAdditionalSections = new Set();
+						localStorage.removeItem('selectedAdditionalSections');
+						localStorage.removeItem('selectedAdditionalSections_meta');
+					} else if (Array.isArray(parsed)) {
 						selectedAdditionalSections = new Set(parsed);
 					}
 				}
@@ -699,6 +706,7 @@ $: myPhone = (() => {
 		if (typeof window !== 'undefined') {
 			try {
 				localStorage.setItem('selectedAdditionalSections', JSON.stringify(Array.from(selectedAdditionalSections)));
+				localStorage.setItem('selectedAdditionalSections_meta', JSON.stringify({ userId: user?.id || null, date: new Date().toISOString().slice(0,10) }));
 				localStorage.setItem('showAllSections', JSON.stringify(showAllSections));
 				localStorage.setItem('tableClickBehavior', tableClickBehavior);
 				localStorage.setItem('showFilters', JSON.stringify(showFilters));
@@ -3315,7 +3323,7 @@ $: myPhone = (() => {
 						<div class="bg-gray-800/50 backdrop-blur-sm rounded-xl border border-gray-700 p-6">
 							<div class="flex justify-between items-start mb-4">
 								<div>
-									<h3 class="text-xl font-bold">{shift.expand?.staff_member?.first_name || shift.position}</h3>
+									<h3 class="text-xl font-bold">{shift.expand?.staff_member?.first_name || 'Shift'} <span class="ml-2 text-sm text-blue-300">• {shift.position}</span></h3>
 									<p class="text-gray-400">
 										{formatTime(shift.start_time)} - {formatTime(shift.end_time)}
 										{#if shift.break_duration}
@@ -3513,7 +3521,7 @@ $: myPhone = (() => {
 										return status;
 									})()}
 																	
-																	{@const onShift = shift?.status === 'in_progress'}
+																	{@const onShift = todayShifts.some(s => s.status === 'in_progress')}
 {@const canInteract = onShift && (section.id === shift.assigned_section || selectedAdditionalSections.has(section.id))}
 																	<button
 																		on:click={() => {
