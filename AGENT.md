@@ -170,16 +170,20 @@ Servers can help other sections by clicking "Help Here" on any section:
 - Preferences persist across page refreshes via localStorage
 
 ### Shift Gating and Sections UI (Updated)
-- Your Tables and All Restaurant Sections are fully hidden until the server presses `Start Shift`
-- After Start Shift, tables unlock immediately (based on active timer or `in_progress` status)
+- Your Tables, All Available Tables (mini list), and All Restaurant Sections are fully hidden/disabled until the server presses `Start Shift`
+- The "Expand Sections" button is disabled pre-shift and only becomes interactive after Start Shift
+- After Start Shift, tables unlock immediately (based on an active timer for a shift scheduled today or `in_progress` status)
+- On-shift detection is strict: local timers only count if they belong to one of today's shifts; stale timers from prior days are ignored
 - While not on shift:
   - Your Tables shows only a small hint banner
-  - All Sections are not rendered
+  - All Available Tables mini list is hidden and shows a hint
+  - All Restaurant Sections are not rendered
 - Guardrails: servers can only interact with tables in their assigned section or sections explicitly opted into via `Help Here`
 - Section headers display assignee names for today (e.g., `Main Dining (Marie Dupont (server))`) so helpers know who they’re assisting
   - Excludes kitchen and management roles: `chef, kitchen_prep, kitchen, prep, manager, owner, general_manager, gm, dishwasher, dish`
   - Multiple names are comma-separated
 - Sections with no tables are hidden to reduce clutter
+- UX note: If the shift status update to the backend fails, the UI no longer shows a blocking alert; it logs to console and continues (non-blocking)
 
 ### Enhanced Table Workflow Indicators
 Comprehensive dot color system shows table status at a glance:

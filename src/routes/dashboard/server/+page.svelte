@@ -6,6 +6,7 @@
 	import pb from '$lib/pocketbase.js';
 	import { collections, shifts, menuItems, sections, tables, tickets, ticketItems, loading, staff as staffStore, shiftTrades } from '$lib/stores/collections.js';
 
+	let mounted = false;
 	let activeTab = 'today';
 let orderTab = 'current'; // 'current' or 'history'
 /** @type {any[]} */ let completedOrders = []; // Store completed order history
@@ -96,13 +97,18 @@ $: myPhone = (() => {
 		return shiftDateOnly === today;
 	});
 
-	$: upcomingShifts = myShifts.filter(shift => {
-		const shiftDateOnly = shift.shift_date.split(' ')[0];
-		return new Date(shiftDateOnly) > new Date() && 
-			shiftDateOnly !== getTodayString();
-	}).sort((a, b) => new Date(a.shift_date.split(' ')[0]) - new Date(b.shift_date.split(' ')[0]));
+$: upcomingShifts = myShifts.filter(shift => {
+const shiftDateOnly = shift.shift_date.split(' ')[0];
+return new Date(shiftDateOnly) > new Date() && 
+shiftDateOnly !== getTodayString();
+}).sort((a, b) => new Date(a.shift_date.split(' ')[0]) - new Date(b.shift_date.split(' ')[0]));
 
-	onMount(async () => {
+// Global on-shift flag: true if any of today's shifts is in progress or a timer exists for today's shifts only
+$: hasTodayTimer = (() => { try { return todayShifts.some(s => shiftTimers.has(s.id)); } catch { return false; } })();
+$: isOnShift = hasTodayTimer || todayShifts.some(s => s.status === 'in_progress');
+
+onMount(async () => {
+		mounted = true;
 		// Start time tracking interval
 		timeInterval = setInterval(() => {
 			currentTime = new Date();
@@ -238,7 +244,8 @@ $: myPhone = (() => {
 			try { await collections.getShifts?.(); } catch {}
 		} catch (error) {
 			console.error('Error updating shift status:', error);
-			alert('Failed to update shift status');
+			// Non-blocking UX: log only (backend may be temporarily unavailable)
+			console.warn('Failed to update shift status');
 		}
 	}
 
@@ -3466,12 +3473,18 @@ $: myPhone = (() => {
 										</div>
 										<button
 											on:click={() => {
+												if (!isOnShift) return; // require Start Shift before expanding
 												showAllSections = !showAllSections;
 												saveStateToLocalStorage();
 											}}
-											class="px-3 py-1 text-xs bg-gray-700 hover:bg-gray-600 rounded-lg text-gray-300 hover:text-white transition-colors"
+											disabled={!isOnShift}
+											title={isOnShift ? '' : 'Start Shift to expand sections'}
+											class="px-3 py-1 text-xs rounded-lg transition-colors
+												{isOnShift
+													? 'bg-gray-700 hover:bg-gray-600 text-gray-300 hover:text-white'
+													: 'bg-gray-700/50 text-gray-500 cursor-not-allowed'}"
 										>
-											{showAllSections ? 'Hide' : 'Expand'} Sections
+											{showAllSections ? 'Show mini' : 'Expand'} Sections
 										</button>
 									</div>
 									
@@ -3479,17 +3492,16 @@ $: myPhone = (() => {
 										<p class="text-sm text-green-400">Section assigned (tables loading...)</p>
 									{:else}
 										{@const onShiftGlobal = todayShifts.some(s => s.status === 'in_progress')}
-										{#if ((shiftTimers.size > 0) || todayShifts.some(s => s.status === 'in_progress')) && currentShiftTables.length > 0}
+										{#if mounted && isOnShift && currentShiftTables.length > 0}
 										 <div class="space-y-2">
 										 <p class="text-sm font-medium text-green-400">Your Tables: ({currentShiftTables.length} total, helping {selectedAdditionalSections.size} sections)</p>
 										<div class="flex flex-wrap gap-2">
 										 {#each currentShiftTables as table}
 										 {@const tableSection = $sections.find(s => s.section_code === table.section_code)}
 										 {@const dotStatus = getTableDotStatus(table.id)}
-										 {@const onShift = (shiftTimers.size > 0) || todayShifts.some(s => s.status === 'in_progress')}
 										 <button 
 										 on:click={() => {
-											 if (!onShift) return; // must Start Shift first
+										   if (!isOnShift) return; // must Start Shift first
 											 const hasOrders = $tickets.find(t => t.table_id === table.id && !['closed'].includes(t.status));
 											 if (tableClickBehavior === 'direct') {
 												 handleTableClick(table);
@@ -3497,7 +3509,7 @@ $: myPhone = (() => {
 												 hasOrders ? showTableOrderDetails(table) : handleTableClick(table);
 											 }
 										 }}
-										 class="px-3 py-1 bg-gray-800/50 border rounded-lg text-sm font-medium flex items-center gap-2 transition-colors {onShift ? 'hover:bg-gray-700/50 cursor-pointer border-green-600 text-green-300' : 'opacity-60 cursor-not-allowed pointer-events-none border-gray-600 text-gray-400'}"
+										 class="px-3 py-1 bg-gray-800/50 border rounded-lg text-sm font-medium flex items-center gap-2 transition-colors {isOnShift ? 'hover:bg-gray-700/50 cursor-pointer border-green-600 text-green-300' : 'opacity-60 cursor-not-allowed pointer-events-none border-gray-600 text-gray-400'}"
 										 >
 										 <span>{table.table_name || table.table_number_field}</span>
 										 {#if table.capacity || table.seats_field}
@@ -3523,36 +3535,43 @@ $: myPhone = (() => {
 											</div>
 										{/if}
 									{:else if !showAllSections}
-										<div class="space-y-2">
-										 {#if $tables && $tables.length > 0}
-										  <div class="space-y-1">
-										   <p class="text-sm text-blue-400 font-medium">All Available Tables:</p>
-										   <div class="flex flex-wrap gap-2">
-										    {#each $tables as table}
-										     {@const existingTicket = $tickets.find(t => t.table_id === table.id && !['closed'].includes(t.status))}
-										     <button 
-										      on:click={() => handleTableClick(table)}
-										      class="px-2 py-1 bg-gray-700/50 border rounded text-xs font-medium flex items-center gap-1 hover:bg-gray-600/50 transition-colors cursor-pointer border-blue-600 text-blue-300"
-										     >
-										      <span>{table.table_name || table.table_number_field}</span>
-										      <span class="text-xs text-gray-400">({table.section_code})</span>
-										      {#if existingTicket}
-										       <div class="w-1.5 h-1.5 rounded-full bg-orange-500"></div>
-										      {:else}
-										       <div class="w-1.5 h-1.5 rounded-full bg-gray-500"></div>
-										      {/if}
-										     </button>
-										    {/each}
-										   </div>
-										  </div>
-										 {:else}
-										  <p class="text-sm text-red-400">No tables found in database</p>
-										 {/if}
-										</div>
+										{#if mounted && isOnShift}
+											<div class="space-y-2">
+												{#if $tables && $tables.length > 0}
+													<div class="space-y-1">
+														<p class="text-sm text-blue-400 font-medium">All Available Tables:</p>
+														<div class="flex flex-wrap gap-2">
+															{#each $tables as table}
+																{@const existingTicket = $tickets.find(t => t.table_id === table.id && !['closed'].includes(t.status))}
+																<button 
+																	on:click={() => { if (!isOnShift) return; handleTableClick(table); }}
+																	class="px-2 py-1 bg-gray-700/50 border rounded text-xs font-medium flex items-center gap-1 transition-colors {isOnShift ? 'hover:bg-gray-600/50 cursor-pointer border-blue-600 text-blue-300' : 'opacity-60 cursor-not-allowed pointer-events-none border-gray-600 text-gray-400'}"
+																>
+																	<span>{table.table_name || table.table_number_field}</span>
+																	<span class="text-xs text-gray-400">({table.section_code})</span>
+																	{#if existingTicket}
+																		<div class="w-1.5 h-1.5 rounded-full bg-orange-500"></div>
+																	{:else}
+																		<div class="w-1.5 h-1.5 rounded-full bg-gray-500"></div>
+																	{/if}
+																</button>
+															{/each}
+														</div>
+													</div>
+												{:else}
+													<p class="text-sm text-red-400">No tables found in database</p>
+												{/if}
+											</div>
+										{:else}
+											<!-- Collapsed until Start Shift -->
+											<div class="p-3 bg-gray-800/60 border border-gray-700 rounded-lg text-sm text-gray-300">
+												Start your shift to view tables across sections.
+											</div>
+										{/if}
 										{/if}
 
 									<!-- Expanded sections view -->
-									{#if ((shiftTimers.size > 0) || todayShifts.some(s => s.status === 'in_progress')) && showAllSections}
+									{#if mounted && isOnShift && showAllSections}
 										<div class="mt-4 pt-4 border-t border-green-700/50">
 											<div class="mb-3">
 												<p class="text-sm text-green-400 font-medium">All Restaurant Sections:</p>
