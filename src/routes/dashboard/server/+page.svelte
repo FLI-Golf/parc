@@ -529,6 +529,26 @@ $: myPhone = (() => {
 		return filteredTables;
 	}
 
+	// Helpers: who is assigned to a section today (for display)
+	function getTodayStr() {
+		const d = new Date();
+		return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+	}
+	function getSectionAssignees(sectionId) {
+		try {
+			const allShifts = get(shifts) || [];
+			if (!Array.isArray(allShifts)) return [];
+			const today = getTodayStr();
+			const names = allShifts
+				.filter(s => s.assigned_section === sectionId && String(s.shift_date).slice(0,10) === today)
+				.map(s => s.expand?.staff_member?.first_name || s.expand?.staff_member?.last_name || s.position)
+				.filter(Boolean);
+			return [...new Set(names)];
+		} catch {
+			return [];
+		}
+	}
+
 	// Helper to get all tables the server is responsible for (assigned + helping sections)
 	function getAllMyTables(assignedSectionId) {
 		// Guard against undefined stores
@@ -3498,6 +3518,9 @@ $: myPhone = (() => {
 																	selectedAdditionalSections.has(section.id) ? 'bg-blue-500' : 'bg-gray-500'
 																}"></span>
 																{section.section_name}
+																{#if getSectionAssignees(section.id).length}
+																	<span class="ml-2 text-xs text-gray-400">({getSectionAssignees(section.id).join(', ')})</span>
+																{/if}
 																{#if section.id === shift.assigned_section}
 																	<span class="ml-2 text-xs text-green-400">(Your Section)</span>
 																{:else if selectedAdditionalSections.has(section.id)}
