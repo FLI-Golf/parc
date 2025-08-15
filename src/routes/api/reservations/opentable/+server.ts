@@ -88,7 +88,7 @@ export const POST: RequestHandler = async ({ request, url }) => {
     const byCapacityAll = tables
     .filter(fits)
     .sort((a: any, b: any) => Number((a.seats_field ?? a.seats ?? a.capacity) || 0) - Number((b.seats_field ?? b.seats ?? b.capacity) || 0));
-    
+
     const byCapacityPreferred = targetSection
     ? tables.filter((t: any) => tableSectionId(t) === targetSection).filter(fits).sort((a: any, b: any) => Number((a.seats_field ?? a.seats ?? a.capacity) || 0) - Number((b.seats_field ?? b.seats ?? b.capacity) || 0))
     : [];
@@ -97,35 +97,47 @@ export const POST: RequestHandler = async ({ request, url }) => {
     // If party too large for any single table, tag and skip assignment
     const maxSeats = Math.max(0, ...tables.map((t: any) => Number(t.seats_field || 0)));
     let table_id: string | null = null;
+    const considered: any[] = [];
     if (party_size > maxSeats) {
       tags.push('oversize');
     } else {
-      // Try preferred section first, then any section
-      const lists = byCapacityPreferred.length ? [byCapacityPreferred, byCapacityAll] : [byCapacityAll];
-      for (const list of lists) {
-        for (const t of list) {
-          const conflicts = sameDayReservations.some((r: any) => {
-            if (r.table_id !== t.id) return false;
-            const rStart = toMinutes(r.start_time || '00:00');
-            const rEnd = rStart + blockMinutes; // assume same block length
-            return overlap(startMin, endMin, rStart, rEnd) && r.status !== 'canceled' && r.status !== 'completed' && r.status !== 'no_show';
-          });
-          if (!conflicts) {
-            table_id = t.id;
-            // Auto-fill section from table when not explicitly provided
-            if (!targetSection) {
-              const sid = tableSectionId(t);
-              if (sid) payload.section = sid;
-            }
-            if (debugRequested) debug.selected = { table_id: t.id, section: payload.section || null };
-            break;
-          }
-        }
-        if (table_id) break;
-      }
-
-      if (!table_id) tags.push('no_table_available');
+    // Try preferred section first, then any section
+    const lists = byCapacityPreferred.length ? [byCapacityPreferred, byCapacityAll] : [byCapacityAll];
+    for (const list of lists) {
+    for (const t of list) {
+    const conflicts = sameDayReservations.some((r: any) => {
+    if (r.table_id !== t.id) return false;
+    const rStart = toMinutes(r.start_time || '00:00');
+    const rEnd = rStart + blockMinutes; // assume same block length
+      return overlap(startMin, endMin, rStart, rEnd) && r.status !== 'canceled' && r.status !== 'completed' && r.status !== 'no_show';
+    });
+    considered.push({ id: t.id, conflicts });
+    if (!conflicts) {
+    table_id = t.id;
+    // Auto-fill section from table when not explicitly provided
+    if (!targetSection) {
+      const sid = tableSectionId(t);
+      if (sid) payload.section = sid;
     }
+      if (debugRequested) debug.selected = { table_id: t.id, section: payload.section || null };
+        break;
+      }
+      }
+        if (table_id) break;
+    }
+
+      if (!table_id) {
+        // Fallback to smallest-fit if no conflicts found or data quirks
+        if (byCapacityAll.length) {
+          table_id = byCapacityAll[0].id;
+          if (debugRequested) debug.fallback = { reason: 'firstCandidate', table_id };
+        } else {
+          tags.push('no_table_available');
+        }
+      }
+    }
+    if (debugRequested) debug.considered = considered;
+
 
     // Create the reservation
     // PocketBase may expect a datetime for date-only fields in some deployments
