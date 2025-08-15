@@ -36,14 +36,25 @@
 
       const payload = {
         ...form,
+        reservation_date: String(form.reservation_date).slice(0,10),
+        start_time: String(form.start_time),
         party_size: party,
-        source: 'web_public',
-        status: 'booked' // stored as booked; managers can adjust after review
+        source: 'web_public'
       };
 
-      // For unauthenticated users, created_by is omitted (rules should allow create)
-      const rec = await collections.createReservation(payload);
-      successId = rec?.id || 'created';
+      // Use server endpoint to bypass client auth and apply auto-assignment logic
+      const res = await fetch('/api/reservations/opentable', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      if (!res.ok) {
+        let msg = `Failed (${res.status})`;
+        try { const data = await res.json(); msg = data?.error || msg; } catch {}
+        throw new Error(msg);
+      }
+      const data = await res.json();
+      successId = data?.reservation?.id || 'created';
     } catch (e) {
       console.error('Reservation submit failed:', e?.data || e);
       error = e?.data?.message || e?.message || 'Failed to submit reservation. Please try again later.';
