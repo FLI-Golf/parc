@@ -95,9 +95,10 @@ export const POST: RequestHandler = async ({ request, url }) => {
     if (debugRequested) Object.assign(debug, { targetSection, candidates: { preferred: byCapacityPreferred.map((t:any)=>t.id), all: byCapacityAll.map((t:any)=>t.id) } });
 
     // If party too large for any single table, tag and skip assignment
-    const maxSeats = Math.max(0, ...tables.map((t: any) => Number(t.seats_field || 0)));
+    const maxSeats = Math.max(0, ...tables.map((t: any) => Number(t.seats_field ?? t.seats ?? t.capacity ?? 0)));
     let table_id: string | null = null;
     const considered: any[] = [];
+    if (debugRequested) debug.capacity = { maxSeats, party_size };
     if (party_size > maxSeats) {
       tags.push('oversize');
     } else {
