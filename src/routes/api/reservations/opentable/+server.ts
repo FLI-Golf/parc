@@ -117,6 +117,7 @@ export const POST: RequestHandler = async ({ request, url }) => {
               const sid = tableSectionId(t);
               if (sid) payload.section = sid;
             }
+            if (debugRequested) debug.selected = { table_id: t.id, section: payload.section || null };
             break;
           }
         }
@@ -144,7 +145,7 @@ export const POST: RequestHandler = async ({ request, url }) => {
       source,
       status,
       tags: tags.length ? tags : undefined,
-      section: (payload.section || targetSection || null),
+      section: (payload.section || targetSection || undefined),
       table_id
     };
     
