@@ -54,10 +54,15 @@ export const POST: RequestHandler = async ({ request }) => {
     const tags: string[] = Array.isArray(payload.tags) ? payload.tags.slice() : [];
 
     // Fetch tables and same-day reservations to attempt auto-assignment
+    const dayStart = `${reservation_date} 00:00:00`;
+    const dayEndDate = new Date(reservation_date);
+    dayEndDate.setDate(dayEndDate.getDate() + 1);
+    const dayEnd = `${dayEndDate.getFullYear()}-${String(dayEndDate.getMonth()+1).padStart(2,'0')}-${String(dayEndDate.getDate()).padStart(2,'0')} 00:00:00`;
+
     const [tables, sameDayReservations] = await Promise.all([
       pb.collection('tables_collection').getFullList(),
       pb.collection('reservations').getFullList({
-        filter: `reservation_date = "${reservation_date}"`,
+        filter: `reservation_date >= "${dayStart}" && reservation_date < "${dayEnd}"`,
         sort: '+start_time'
       })
     ]);
@@ -69,7 +74,7 @@ export const POST: RequestHandler = async ({ request }) => {
 
     // Build candidate tables (prioritize requested section if provided)
     const targetSection: string | null = payload.section || null;
-    const fits = (t: any) => Number(t.seats_field || 0) >= party_size;
+    const fits = (t: any) => Number(t.seats_field || t.seats || t.capacity || 0) >= party_size;
     const tableSectionId = (t: any) => t.section_field || t.section || null;
 
     const byCapacityAll = tables
@@ -96,7 +101,15 @@ export const POST: RequestHandler = async ({ request }) => {
             const rEnd = rStart + blockMinutes; // assume same block length
             return overlap(startMin, endMin, rStart, rEnd) && r.status !== 'canceled' && r.status !== 'completed' && r.status !== 'no_show';
           });
-          if (!conflicts) { table_id = t.id; break; }
+          if (!conflicts) {
+            table_id = t.id;
+            // Auto-fill section from table when not explicitly provided
+            if (!targetSection) {
+              const sid = tableSectionId(t);
+              if (sid) payload.section = sid;
+            }
+            break;
+          }
         }
         if (table_id) break;
       }
@@ -122,7 +135,7 @@ export const POST: RequestHandler = async ({ request }) => {
       source,
       status,
       tags: tags.length ? tags : undefined,
-      section: targetSection || null,
+      section: (payload.section || targetSection || null),
       table_id
     };
     
