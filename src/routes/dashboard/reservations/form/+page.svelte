@@ -51,7 +51,18 @@
       });
       if (!res.ok) {
         let msg = `Failed (${res.status})`;
-        try { const data = await res.json(); msg = data?.error || msg; } catch {}
+        try {
+          const data = await res.json();
+          msg = data?.error || msg;
+          if (data?.details) {
+            console.warn('Reservation create details:', data.details);
+            // Surface the most relevant field error if present
+            const fields = Object.keys(data.details || {});
+            const firstField = fields[0];
+            const fieldMsg = firstField && data.details[firstField]?.message ? ` (${firstField}: ${data.details[firstField].message})` : '';
+            msg = `${msg}${fieldMsg}`;
+          }
+        } catch {}
         throw new Error(msg);
       }
       const data = await res.json();

@@ -140,7 +140,26 @@ export const POST: RequestHandler = async ({ request }) => {
       console.warn('Admin auth failed (continuing without):', (e as any)?.message || e);
     }
     
-    const reservation = await pb.collection('reservations').create(createPayload);
+    let reservation;
+    try {
+      reservation = await pb.collection('reservations').create(createPayload);
+    } catch (e: any) {
+      // Retry after admin auth if not already authed
+      if (!pb.authStore.isValid && env.PB_ADMIN_EMAIL && env.PB_ADMIN_PASSWORD) {
+        try {
+          await pb.admins.authWithPassword(env.PB_ADMIN_EMAIL, env.PB_ADMIN_PASSWORD);
+          reservation = await pb.collection('reservations').create(createPayload);
+        } catch (e2: any) {
+          const msg = e2?.data?.message || e2?.message || 'Failed to create record';
+          const status = e2?.status || 500;
+          return new Response(JSON.stringify({ error: msg, details: e2?.data || null }), { status, headers: { 'Content-Type': 'application/json' } });
+        }
+      } else {
+        const msg = e?.data?.message || e?.message || 'Failed to create record';
+        const status = e?.status || 500;
+        return new Response(JSON.stringify({ error: msg, details: e?.data || null }), { status, headers: { 'Content-Type': 'application/json' } });
+      }
+    }
 
     // Staffing logic: derive role and quantity based on condition and on-call roster
     const overlappingLoad = sameDayReservations.filter((r: any) => {
