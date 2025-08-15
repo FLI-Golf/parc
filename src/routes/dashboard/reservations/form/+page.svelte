@@ -15,6 +15,7 @@
   let submitting = false;
   let error = '';
   let successId = '';
+  let successInfo = null; // { name, date, time, party, phone, email, tableAssigned }
 
   function getToday() {
     const d = new Date();
@@ -54,7 +55,17 @@
         throw new Error(msg);
       }
       const data = await res.json();
-      successId = data?.reservation?.id || 'created';
+      const r = data?.reservation || {};
+      successId = r.id || 'created';
+      successInfo = {
+        name: r.customer_name || form.customer_name,
+        date: r.reservation_date || payload.reservation_date,
+        time: r.start_time || payload.start_time,
+        party: r.party_size || payload.party_size,
+        phone: r.customer_phone || form.customer_phone,
+        email: r.customer_email || form.customer_email,
+        tableAssigned: !!r.table_id
+      };
     } catch (e) {
       console.error('Reservation submit failed:', e?.data || e);
       error = e?.data?.message || e?.message || 'Failed to submit reservation. Please try again later.';
@@ -87,11 +98,24 @@
     <p class="text-gray-400 mb-6">Fill out the form below. We’ll confirm by email or phone.</p>
 
     {#if successId}
-      <div class="p-4 mb-6 rounded-lg border border-green-700 bg-green-900/30 text-green-200">
-        Thank you! Your reservation request has been received.
+      <div class="p-5 mb-6 rounded-lg border border-green-700 bg-green-900/20 text-green-100">
+        <div class="text-xl font-semibold mb-1">Thank you{successInfo?.name ? `, ${successInfo.name}` : ''}!</div>
+        <div>Your reservation request has been received.</div>
+        <ul class="mt-3 text-green-200/90 text-sm space-y-1">
+          {#if successInfo}
+            <li>• Date: <span class="font-medium">{successInfo.date}</span></li>
+            <li>• Time: <span class="font-medium">{successInfo.time}</span></li>
+            <li>• Party: <span class="font-medium">{successInfo.party}</span></li>
+            {#if successInfo.phone}<li>• Phone: <span class="font-medium">{successInfo.phone}</span></li>{/if}
+            {#if successInfo.email}<li>• Email: <span class="font-medium">{successInfo.email}</span></li>{/if}
+            <li>• Table assignment: <span class="font-medium">{successInfo.tableAssigned ? 'Tentative' : 'Pending'}</span></li>
+          {/if}
+        </ul>
+        <div class="mt-3 text-green-200/80 text-sm">We’ll contact you to confirm as soon as possible.</div>
       </div>
       <div class="flex gap-3">
         <a href="/" class="px-4 py-2 rounded bg-gray-700 hover:bg-gray-600">Return Home</a>
+        <a href="/dashboard/reservations/form" class="px-4 py-2 rounded bg-gray-700 hover:bg-gray-600">Make another reservation</a>
         <button class="px-4 py-2 rounded bg-blue-600 hover:bg-blue-700" on:click={() => goto('/dashboard/reservations')}>Manager View</button>
       </div>
     {:else}
