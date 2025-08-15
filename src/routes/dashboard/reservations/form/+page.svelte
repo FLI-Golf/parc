@@ -39,8 +39,7 @@
         ...form,
         reservation_date: String(form.reservation_date).slice(0,10),
         start_time: String(form.start_time),
-        party_size: party,
-        source: 'web_public'
+        party_size: party
       };
 
       // Use server endpoint to bypass client auth and apply auto-assignment logic

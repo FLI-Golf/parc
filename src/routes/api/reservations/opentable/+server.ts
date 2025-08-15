@@ -39,7 +39,8 @@ export const POST: RequestHandler = async ({ request }) => {
       return new Response(JSON.stringify({ error: 'Missing required fields' }), { status: 400 });
     }
 
-    const source = payload.source || 'opentable';
+    const rawSource = String(payload.source || '').toLowerCase();
+    const source = ['opentable', 'phone', 'web'].includes(rawSource) ? rawSource : 'opentable';
     const status = 'booked';
 
     // Idempotency: skip if a matching reservation already exists
