@@ -14,9 +14,11 @@ function overlap(aStart: number, aEnd: number, bStart: number, bEnd: number) {
   return aStart < bEnd && bStart < aEnd;
 }
 
-export const POST: RequestHandler = async ({ request }) => {
+export const POST: RequestHandler = async ({ request, url }) => {
   try {
     const payload = await request.json();
+    const debugRequested = url.searchParams.get('debug') === '1' || (env.DEBUG_RESERVATIONS === 'true');
+    const debug: any = { input: payload };
     // Expected JSON (basic):
     // {
     //   reservation_date: '2025-08-20',
@@ -42,6 +44,7 @@ export const POST: RequestHandler = async ({ request }) => {
     const rawSource = String(payload.source || '').toLowerCase();
     const source = ['opentable', 'phone', 'web'].includes(rawSource) ? rawSource : 'opentable';
     const status = 'booked';
+    if (debugRequested) Object.assign(debug, { normalized: { reservation_date, start_time, party_size, customer_name, source } });
 
     // Idempotency: skip if a matching reservation already exists
     const existing = await pb.collection('reservations').getList(1, 1, {
@@ -66,6 +69,11 @@ export const POST: RequestHandler = async ({ request }) => {
         sort: '+start_time'
       })
     ]);
+    if (debugRequested) {
+      debug.tables = tables.map((t: any) => ({ id: t.id, seats: (t.seats_field ?? t.seats ?? t.capacity ?? null), section: (t.section_field ?? t.section ?? null) }));
+      debug.sameDay = sameDayReservations.slice(0, 10).map((r: any) => ({ id: r.id, table_id: r.table_id, start_time: r.start_time, status: r.status }));
+      debug.dayRange = { from: dayStart, to: dayEnd };
+    }
 
     // Determine block window
     const blockMinutes = Number(payload.block_minutes || DEFAULT_BLOCK_MINUTES);
@@ -78,12 +86,13 @@ export const POST: RequestHandler = async ({ request }) => {
     const tableSectionId = (t: any) => t.section_field || t.section || null;
 
     const byCapacityAll = tables
-      .filter(fits)
-      .sort((a: any, b: any) => Number(a.seats_field || 0) - Number(b.seats_field || 0));
-
+    .filter(fits)
+    .sort((a: any, b: any) => Number((a.seats_field ?? a.seats ?? a.capacity) || 0) - Number((b.seats_field ?? b.seats ?? b.capacity) || 0));
+    
     const byCapacityPreferred = targetSection
-      ? tables.filter((t: any) => tableSectionId(t) === targetSection).filter(fits).sort((a: any, b: any) => Number(a.seats_field || 0) - Number(b.seats_field || 0))
-      : [];
+    ? tables.filter((t: any) => tableSectionId(t) === targetSection).filter(fits).sort((a: any, b: any) => Number((a.seats_field ?? a.seats ?? a.capacity) || 0) - Number((b.seats_field ?? b.seats ?? b.capacity) || 0))
+    : [];
+    if (debugRequested) Object.assign(debug, { targetSection, candidates: { preferred: byCapacityPreferred.map((t:any)=>t.id), all: byCapacityAll.map((t:any)=>t.id) } });
 
     // If party too large for any single table, tag and skip assignment
     const maxSeats = Math.max(0, ...tables.map((t: any) => Number(t.seats_field || 0)));
@@ -220,7 +229,8 @@ export const POST: RequestHandler = async ({ request }) => {
       }
     }
 
-    return new Response(JSON.stringify({ ok: true, reservation }), { status: 201, headers: { 'Content-Type': 'application/json' } });
+    const body = debugRequested ? { ok: true, reservation, debug } : { ok: true, reservation };
+    return new Response(JSON.stringify(body), { status: 201, headers: { 'Content-Type': 'application/json' } });
   } catch (error: any) {
     console.error('OpenTable webhook error:', error?.data || error);
     const msg = error?.data?.message || error?.message || 'Server error';

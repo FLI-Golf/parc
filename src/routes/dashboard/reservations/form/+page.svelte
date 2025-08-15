@@ -43,7 +43,7 @@
       };
 
       // Use server endpoint to bypass client auth and apply auto-assignment logic
-      const res = await fetch('/api/reservations/opentable', {
+      const res = await fetch('/api/reservations/opentable?debug=1', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)
@@ -65,6 +65,7 @@
         throw new Error(msg);
       }
       const data = await res.json();
+      if (data?.debug) console.log('Reservation debug:', data.debug);
       const r = data?.reservation || {};
       successId = r.id || 'created';
       // Friendly displays
