@@ -104,19 +104,25 @@ export const POST: RequestHandler = async ({ request }) => {
     }
 
     // Create the reservation
+    // PocketBase may expect a datetime for date-only fields in some deployments
+    let normalizedDate = reservation_date;
+    if (/^\d{4}-\d{2}-\d{2}$/.test(normalizedDate)) {
+      normalizedDate = `${normalizedDate} 00:00:00`;
+    }
+
     const createPayload: any = {
-    reservation_date,
-    start_time,
-    party_size,
-    customer_name,
-    customer_phone: payload.customer_phone || '',
-    customer_email: payload.customer_email || '',
-    notes: payload.notes || '',
-    source,
-    status,
-    tags: tags.length ? tags : undefined,
-    section: targetSection || null,
-    table_id
+      reservation_date: normalizedDate,
+      start_time,
+      party_size: Number(party_size),
+      customer_name,
+      customer_phone: payload.customer_phone || '',
+      customer_email: payload.customer_email || '',
+      notes: payload.notes || '',
+      source,
+      status,
+      tags: tags.length ? tags : undefined,
+      section: targetSection || null,
+      table_id
     };
     
     // Strip null/undefined/empty
@@ -133,7 +139,7 @@ export const POST: RequestHandler = async ({ request }) => {
     } catch (e) {
       console.warn('Admin auth failed (continuing without):', (e as any)?.message || e);
     }
- 
+    
     const reservation = await pb.collection('reservations').create(createPayload);
 
     // Staffing logic: derive role and quantity based on condition and on-call roster
@@ -185,6 +191,7 @@ export const POST: RequestHandler = async ({ request }) => {
   } catch (error: any) {
     console.error('OpenTable webhook error:', error?.data || error);
     const msg = error?.data?.message || error?.message || 'Server error';
-    return new Response(JSON.stringify({ error: msg }), { status: 500, headers: { 'Content-Type': 'application/json' } });
+    const details = error?.data || null;
+    return new Response(JSON.stringify({ error: msg, details }), { status: 500, headers: { 'Content-Type': 'application/json' } });
   }
 };
