@@ -67,9 +67,17 @@
       const data = await res.json();
       const r = data?.reservation || {};
       successId = r.id || 'created';
+      // Friendly displays
+      const rawDate = r.reservation_date || payload.reservation_date;
+      let dateDisplay = rawDate;
+      try {
+        dateDisplay = (String(rawDate).includes('T') || String(rawDate).endsWith('Z'))
+          ? new Date(rawDate).toISOString().slice(0,10)
+          : String(rawDate).slice(0,10);
+      } catch {}
       successInfo = {
         name: r.customer_name || form.customer_name,
-        date: r.reservation_date || payload.reservation_date,
+        date: dateDisplay,
         time: r.start_time || payload.start_time,
         party: r.party_size || payload.party_size,
         phone: r.customer_phone || form.customer_phone,
@@ -126,7 +134,9 @@
       <div class="flex gap-3">
         <a href="/" class="px-4 py-2 rounded bg-gray-700 hover:bg-gray-600">Return Home</a>
         <a href="/dashboard/reservations/form" class="px-4 py-2 rounded bg-gray-700 hover:bg-gray-600">Make another reservation</a>
-        <button class="px-4 py-2 rounded bg-blue-600 hover:bg-blue-700" on:click={() => goto('/dashboard/reservations')}>Manager View</button>
+        {#if pb?.authStore?.isValid && ['manager','owner','general_manager'].includes((pb?.authStore?.model?.role || '').toLowerCase())}
+          <button class="px-4 py-2 rounded bg-blue-600 hover:bg-blue-700" on:click={() => goto('/dashboard/reservations')}>Manager View</button>
+        {/if}
       </div>
     {:else}
       {#if error}
