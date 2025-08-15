@@ -63,7 +63,7 @@
 			<nav class="hidden md:block">
 				<ul class="flex space-x-8">
 					<li><a href="/" class="hover:text-blue-400 transition-colors">Home</a></li>
-					<li><a href="/dashboard/reservations" class="hover:text-blue-400 transition-colors">Reservations</a></li>
+					<li><a href="/dashboard/reservations/form" class="hover:text-blue-400 transition-colors">Reservations</a></li>
 					<li><a href="#" class="hover:text-blue-400 transition-colors">About</a></li>
 					<li><a href="#" class="hover:text-blue-400 transition-colors">Contact</a></li>
 				</ul>
