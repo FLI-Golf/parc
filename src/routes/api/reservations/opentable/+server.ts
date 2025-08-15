@@ -1,5 +1,6 @@
 import type { RequestHandler } from '@sveltejs/kit';
-import pb from '$lib/pocketbase';
+import pb from '$lib/pocketbase.js';
+import { env } from '$env/dynamic/private';
 
 // Simple overlap window for reservations (in minutes)
 const DEFAULT_BLOCK_MINUTES = 120;
@@ -104,26 +105,35 @@ export const POST: RequestHandler = async ({ request }) => {
 
     // Create the reservation
     const createPayload: any = {
-      reservation_date,
-      start_time,
-      party_size,
-      customer_name,
-      customer_phone: payload.customer_phone || '',
-      customer_email: payload.customer_email || '',
-      notes: payload.notes || '',
-      source,
-      status,
-      tags: tags.length ? tags : undefined,
-      section: targetSection || null,
-      table_id
+    reservation_date,
+    start_time,
+    party_size,
+    customer_name,
+    customer_phone: payload.customer_phone || '',
+    customer_email: payload.customer_email || '',
+    notes: payload.notes || '',
+    source,
+    status,
+    tags: tags.length ? tags : undefined,
+    section: targetSection || null,
+    table_id
     };
-
+    
     // Strip null/undefined/empty
     for (const k of Object.keys(createPayload)) {
-      const v = createPayload[k];
-      if (v === null || v === undefined || v === '') delete createPayload[k];
+    const v = createPayload[k];
+    if (v === null || v === undefined || v === '') delete createPayload[k];
     }
-
+    
+    // Ensure server-side auth if collection requires it
+    try {
+      if (!pb.authStore.isValid && env.PB_ADMIN_EMAIL && env.PB_ADMIN_PASSWORD) {
+        await pb.admins.authWithPassword(env.PB_ADMIN_EMAIL, env.PB_ADMIN_PASSWORD);
+      }
+    } catch (e) {
+      console.warn('Admin auth failed (continuing without):', (e as any)?.message || e);
+    }
+ 
     const reservation = await pb.collection('reservations').create(createPayload);
 
     // Staffing logic: derive role and quantity based on condition and on-call roster
@@ -171,9 +181,10 @@ export const POST: RequestHandler = async ({ request }) => {
       }
     }
 
-    return new Response(JSON.stringify({ ok: true, reservation }), { status: 201 });
+    return new Response(JSON.stringify({ ok: true, reservation }), { status: 201, headers: { 'Content-Type': 'application/json' } });
   } catch (error: any) {
     console.error('OpenTable webhook error:', error?.data || error);
-    return new Response(JSON.stringify({ error: error?.message || 'Server error' }), { status: 500 });
+    const msg = error?.data?.message || error?.message || 'Server error';
+    return new Response(JSON.stringify({ error: msg }), { status: 500, headers: { 'Content-Type': 'application/json' } });
   }
 };
