@@ -190,6 +190,9 @@ Servers can help other sections by clicking "Help Here" on any section:
 - Sections with no tables are hidden to reduce clutter
 - UX note: If the shift status update to the backend fails, the UI no longer shows a blocking alert; it logs to console and continues (non-blocking)
 
+### Scheduling Proposal UX
+- Approving shifts from the Manager → Schedule Proposal page no longer shows a success alert. On success, the app silently redirects to the manager dashboard. Errors still surface via an alert summarizing failures.
+
 ### Enhanced Table Workflow Indicators
 Comprehensive dot color system shows table status at a glance:
 - 🟢 **Green**: Available for new orders

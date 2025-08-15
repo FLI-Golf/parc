@@ -43,9 +43,7 @@
     'kitchen_prep',
     'kitchen',
     'dishwasher',
-    'head_of_security',
-    'security',
-    'doorman'
+    'security'
   ];
   let activePosition = 'server';
 
@@ -104,17 +102,7 @@
       weekdayDinnerEnabled: true,  weekdayDinnerCount: 1,
       weekendLunchCount: 0, weekendDinnerCount: 1,
     },
-    head_of_security: {
-      weekdayLunchEnabled: true, weekdayLunchCount: 0,
-      weekdayDinnerEnabled: true,  weekdayDinnerCount: 1,
-      weekendLunchCount: 0, weekendDinnerCount: 1,
-    },
     security: {
-      weekdayLunchEnabled: true, weekdayLunchCount: 0,
-      weekdayDinnerEnabled: true,  weekdayDinnerCount: 1,
-      weekendLunchCount: 0, weekendDinnerCount: 1,
-    },
-    doorman: {
       weekdayLunchEnabled: true, weekdayLunchCount: 0,
       weekdayDinnerEnabled: true,  weekdayDinnerCount: 1,
       weekendLunchCount: 0, weekendDinnerCount: 1,
@@ -151,9 +139,7 @@
      kitchen_prep:      { icon: '🔪', chip: 'bg-orange-900/30 text-orange-300 border-orange-600', chipActive: 'bg-orange-700 text-white border-orange-300' },
      kitchen:           { icon: '🍳', chip: 'bg-yellow-900/30 text-yellow-300 border-yellow-600', chipActive: 'bg-yellow-700 text-white border-yellow-300' },
      dishwasher:        { icon: '🧼', chip: 'bg-zinc-800 text-zinc-300 border-zinc-600', chipActive: 'bg-zinc-600 text-white border-zinc-300' },
-     head_of_security:  { icon: '🛡️', chip: 'bg-red-900/30 text-red-300 border-red-600', chipActive: 'bg-red-700 text-white border-red-300' },
      security:          { icon: '🛡️', chip: 'bg-red-900/30 text-red-300 border-red-600', chipActive: 'bg-red-700 text-white border-red-300' },
-     doorman:           { icon: '🚪', chip: 'bg-fuchsia-900/30 text-fuchsia-300 border-fuchsia-600', chipActive: 'bg-fuchsia-700 text-white border-fuchsia-300' },
    };
    const defaultMeta = { icon: '👤', chip: 'bg-gray-800 text-gray-300 border-gray-600', chipActive: 'bg-gray-600 text-white border-gray-300' };
    const getPosMeta = (p) => positionMeta[p] || defaultMeta;
@@ -389,9 +375,15 @@
       await collections.getSections();
 
       const total = proposal.shifts.length;
-      let done = 0;
+      let created = 0;
+      const errors = [];
 
       for (const row of proposal.shifts) {
+        // Skip mock/unassigned staff rows
+        if (!row.staff_id || String(row.staff_id).startsWith('mock-')) {
+          errors.push({ row, error: new Error('No real staff assigned to this shift') });
+          continue;
+        }
         // Map to backend shape; omit UI-only fields
         const payload = {
           staff_member: row.staff_id,
@@ -406,12 +398,23 @@
           shift_type: row.shift_type || 'regular',
           section_code: row.section_code || undefined // for helper mapping in collections
         };
-        await collections.createShift(payload);
-        done += 1;
-        saveProgress = Math.round((done / total) * 100);
+        try {
+          await collections.createShift(payload);
+          created += 1;
+        } catch (err) {
+          console.error('Create shift failed for row:', row, err);
+          errors.push({ row, error: err });
+        }
+        saveProgress = Math.round(((created + errors.length) / total) * 100);
       }
       await collections.getShifts();
-      alert('Shifts created.');
+      if (errors.length === 0) {
+        // Success: no blocking alert; continue to manager dashboard
+      } else {
+        const first = errors[0]?.error;
+        const msg = first?.data?.message || first?.message || 'Some shifts failed';
+        alert(`${created}/${total} shifts created. ${errors.length} failed. ${msg}`);
+      }
       goto('/dashboard/manager');
     } catch (e) {
       console.error('Approval error:', e);

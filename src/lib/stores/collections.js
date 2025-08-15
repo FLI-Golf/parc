@@ -185,84 +185,108 @@ export const collections = {
 	},
 
 	async createShift(data) {
-		try {
-			// Approvals allowed any day; enforce brunch-on-Sunday via caller
-			// Map UI draft fields to PocketBase schema and strip unknowns
-			let payload = {
-				staff_member: data.staff_member || data.staff_id || null,
-				shift_date: data.shift_date,
-				start_time: data.start_time,
-				end_time: data.end_time,
-				break_duration: data.break_duration ?? 0,
-				position: data.position || 'server',
-				status: data.status || 'scheduled',
-				notes: data.notes || '',
-				assigned_section: data.assigned_section || null,
-				shift_type: data.shift_type || 'regular'
-			};
-			// Map section_code -> assigned_section id if available
-			if (!payload.assigned_section && data.section_code) {
-				try {
-					const allSections = get(sections) || [];
-					const code = String(data.section_code).toUpperCase();
-					const aliases = {
-						A: ['A','MAIN DINING','SECTION A'],
-						B: ['B','SECTION B'],
-						BAR: ['BAR','BAR AREA']
-					};
-					const names = aliases[code] || [code];
-					const match = allSections.find(s => {
-						const cand = String(s.section_code || s.code || s.name || '').toUpperCase();
-						const name = String(s.name || '').toUpperCase();
-						return names.includes(cand) || names.includes(name);
-					});
-					if (match?.id) payload.assigned_section = match.id;
-				} catch {}
-			}
-			// Prune null/undefined optional fields
-			payload = Object.fromEntries(Object.entries(payload).filter(([k, v]) => v !== null && v !== undefined));
-			// Basic required validation to avoid 400s
-			if (!payload.staff_member || !payload.shift_date || !payload.start_time || !payload.end_time || !payload.position || !payload.status) {
-				const missing = ['staff_member','shift_date','start_time','end_time','position','status'].filter(k => !payload[k]);
-				throw Object.assign(new Error(`Missing required shift fields: ${missing.join(', ')}`), { data: { missing } });
-			}
-			// Sanitize shift_type to allowed values if present
-			const allowedShiftTypes = new Set(['brunch','lunch','dinner']);
-			if (payload.shift_type) {
-				const st = String(payload.shift_type).toLowerCase();
-				if (st === 'bar') payload.shift_type = 'dinner';
-				else if (!allowedShiftTypes.has(st)) delete payload.shift_type;
-			}
-			let record;
-			let collectionUsed = 'shifts_collection';
-			try {
-				// Idempotency: skip if identical shift already exists
-				try {
-					const existing = await pb.collection(collectionUsed).getList(1, 1, {
-						filter: `staff_member = "${payload.staff_member}" && shift_date = "${payload.shift_date}" && start_time = "${payload.start_time}" && position = "${payload.position}"`
-					});
-					if (existing?.items?.length) {
-						console.warn('Duplicate shift detected in', collectionUsed, 'skipping create');
-						return existing.items[0];
-					}
-				} catch {}
-				record = await pb.collection(collectionUsed).create(payload);
-			} catch (firstError) {
-				console.warn('shifts_collection create failed, trying shifts:', firstError?.message || firstError?.data?.message, firstError?.data || firstError);
-				collectionUsed = 'shifts';
-				try {
-					// Idempotency check in fallback collection
-					try {
-						const existing = await pb.collection(collectionUsed).getList(1, 1, {
-							filter: `staff_member = "${payload.staff_member}" && shift_date = "${payload.shift_date}" && start_time = "${payload.start_time}" && position = "${payload.position}"`
-						});
-						if (existing?.items?.length) {
-							console.warn('Duplicate shift detected in', collectionUsed, 'skipping create');
-							return existing.items[0];
-						}
-					} catch {}
-					record = await pb.collection(collectionUsed).create(payload);
-				} catch (secondError) {
+	try {
+	// Approvals allowed any day; enforce brunch-on-Sunday via caller
+	// Map UI draft fields to PocketBase schema and strip unknowns
+	let payload = {
+	staff_member: data.staff_member || data.staff_id || null,
+	shift_date: data.shift_date,
+	start_time: data.start_time,
+	end_time: data.end_time,
+	break_duration: data.break_duration ?? 0,
+	position: data.position || 'server',
+	status: data.status || 'scheduled',
+	notes: data.notes || '',
+	assigned_section: data.assigned_section || null,
+	shift_type: data.shift_type || 'regular'
+	};
+	// Normalize/whitelist position to backend-allowed values
+	const normalizePosition = (p) => {
+	if (!p) return 'server';
+	const v = String(p).toLowerCase();
+	// Map extended/alias roles
+	const map = {
+	general_manager: 'manager',
+	owner: 'manager',
+	head_of_security: 'security',
+	doorman: 'security',
+	bar_back: 'barback'
+	};
+	const candidate = map[v] || v;
+	const allowed = new Set(['manager','server','host','bartender','barback','busser','chef','kitchen_prep','kitchen','dishwasher','security']);
+	return allowed.has(candidate) ? candidate : 'server';
+	};
+	payload.position = normalizePosition(payload.position);
+	// Map section_code -> assigned_section id if available
+	if (!payload.assigned_section && data.section_code) {
+	 try {
+	  const allSections = get(sections) || [];
+	  const code = String(data.section_code).toUpperCase();
+	  const aliases = {
+	  A: ['A','MAIN DINING','SECTION A'],
+	  B: ['B','SECTION B'],
+	   BAR: ['BAR','BAR AREA']
+	  };
+	  const names = aliases[code] || [code];
+	  const match = allSections.find(s => {
+	  const cand = String(s.section_code || s.code || s.name || '').toUpperCase();
+	  const name = String(s.name || '').toUpperCase();
+	  return names.includes(cand) || names.includes(name);
+	  });
+	  if (match?.id) payload.assigned_section = match.id;
+	 } catch {}
+	}
+	// Prune null/undefined optional fields
+	payload = Object.fromEntries(Object.entries(payload).filter(([k, v]) => v !== null && v !== undefined));
+	// Basic required validation to avoid 400s
+	if (!payload.staff_member || !payload.shift_date || !payload.start_time || !payload.end_time || !payload.position || !payload.status) {
+	const missing = ['staff_member','shift_date','start_time','end_time','position','status'].filter(k => !payload[k]);
+	throw Object.assign(new Error(`Missing required shift fields: ${missing.join(', ')}`), { data: { missing } });
+	}
+	// Validate staff_member exists in local store to avoid PB 400 on relation
+	try {
+	const staffList = get(staff) || [];
+	if (!staffList.find(s => s.id === payload.staff_member)) {
+	  throw Object.assign(new Error('Unknown staff member id (not in staff store)'), { code: 'invalid_staff_member', data: { staff_member: payload.staff_member } });
+	}
+	} catch {}
+	// Sanitize shift_type to allowed values if present
+	const allowedShiftTypes = new Set(['brunch','lunch','dinner']);
+	if (payload.shift_type) {
+	const st = String(payload.shift_type).toLowerCase();
+	if (st === 'bar') payload.shift_type = 'dinner';
+	else if (!allowedShiftTypes.has(st)) delete payload.shift_type;
+	}
+	let record;
+	let collectionUsed = 'shifts_collection';
+	try {
+	// Idempotency: skip if identical shift already exists
+	try {
+	 const existing = await pb.collection(collectionUsed).getList(1, 1, {
+	 filter: `staff_member = "${payload.staff_member}" && shift_date = "${payload.shift_date}" && start_time = "${payload.start_time}" && position = "${payload.position}"`
+	});
+	if (existing?.items?.length) {
+	console.warn('Duplicate shift detected in', collectionUsed, 'skipping create');
+	return existing.items[0];
+	}
+	} catch {}
+	record = await pb.collection(collectionUsed).create(payload);
+	} catch (firstError) {
+	console.warn('shifts_collection create failed, trying shifts:', firstError?.message || firstError?.data?.message, firstError?.data || firstError);
+	 collectionUsed = 'shifts';
+	 try {
+	  // Idempotency check in fallback collection
+	 try {
+	   const existing = await pb.collection(collectionUsed).getList(1, 1, {
+	    filter: `staff_member = "${payload.staff_member}" && shift_date = "${payload.shift_date}" && start_time = "${payload.start_time}" && position = "${payload.position}"`
+	   });
+	    if (existing?.items?.length) {
+	    console.warn('Duplicate shift detected in', collectionUsed, 'skipping create');
+	    return existing.items[0];
+	   }
+	  } catch {}
+	   record = await pb.collection(collectionUsed).create(payload);
+	   } catch (secondError) {
 					console.warn('shifts create failed:', secondError?.message || secondError?.data?.message, secondError?.data || secondError);
 					// Retry with date-time if shift_date may require time
 					if (/^\d{4}-\d{2}-\d{2}$/.test(payload.shift_date || '')) {

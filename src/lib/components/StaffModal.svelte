@@ -50,23 +50,21 @@
 	let isSubmitting = false;
 	let error = '';
 	
-	// Position options (expanded)
+	// Position options (aligned to backend roles/shift positions)
 	const positions = [
-		{ value: 'owner', label: 'Owner' },
-		{ value: 'general_manager', label: 'General Manager' },
 		{ value: 'manager', label: 'Manager' },
+		{ value: 'general_manager', label: 'General Manager' },
+		{ value: 'owner', label: 'Owner' },
 		{ value: 'server', label: 'Server' },
 		{ value: 'host', label: 'Host' },
 		{ value: 'bartender', label: 'Bartender' },
 		{ value: 'barback', label: 'Barback' },
 		{ value: 'busser', label: 'Busser' },
 		{ value: 'chef', label: 'Chef' },
-		{ value: 'kitchen', label: 'Kitchen' },
 		{ value: 'kitchen_prep', label: 'Kitchen Prep' },
+		{ value: 'kitchen', label: 'Kitchen' },
 		{ value: 'dishwasher', label: 'Dishwasher' },
-		{ value: 'head_of_security', label: 'Head of Security' },
-		{ value: 'security', label: 'Security' },
-		{ value: 'doorman', label: 'Doorman' }
+		{ value: 'security', label: 'Security' }
 	];
 	
 	// Status options
