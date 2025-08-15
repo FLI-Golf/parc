@@ -40,18 +40,30 @@ PARC Portal is designed for restaurants to manage daily operations efficiently w
 - Local generator: no network calls; builds a client-side draft you can edit.
 - AI generator: calls `/api/schedule/propose` to fetch a proposal; still client-side until approval.
 - Review in List or Calendar view; edit rows inline.
-- Approve and Create performs PocketBase writes and is allowed only on Sundays. Brunch shifts must be on Sunday.
-- Options include:
-  - By position tabs (manager, server, chef, bartender, host, busser, dishwasher, kitchen_prep, owner)
-    - Weekday (Mon–Thu): Lunch enabled + count; Dinner enabled + count
-    - Weekend (Fri–Sun): Lunch count; Dinner count
-    - Bartender tab: Bar nights (Fri/Sat/Sun toggles), Start/End time, Bartenders count
-  - Global: Days to include (Sun–Sat), Include Sunday brunch
-- Default time blocks used by Local generator:
-  - Brunch: 8:00–1:00
-  - Lunch: 11:00–5:00
-  - Dinner: 2:00–11:00
-- Staff assignment uses PocketBase staff records by position/role; cycles through matches and falls back to mock if none.
+- Approve and Create performs PocketBase writes. Brunch shifts must be on Sunday.
+
+Key features
+- Positions supported (aligned with Staff/Shift):
+  - `manager`, `general_manager`, `owner`, `server`, `host`, `bartender`, `barback`, `busser`, `chef`, `kitchen_prep`, `kitchen`, `dishwasher`, `head_of_security`, `security`, `doorman`
+- Controls by position:
+  - Weekday (Mon–Thu): Lunch (enabled by default) and Dinner toggles with counts
+  - Weekend (Fri–Sun): Lunch/Dinner counts
+  - Bartender: Bar nights (Fri/Sat/Sun), Start/End, Bartenders count
+- Global: Days to include (Sun–Sat), Include Sunday brunch
+- Calendar view enhancements:
+  - Per-day header chips show role icons, colored backgrounds, and counts (click to filter that day)
+  - + / − buttons next to each chip to quickly add/remove a role’s shift for that day (proposal-only edit)
+  - Each shift card shows a colored icon badge for the role before the staff name
+- Approve UX: shows a progress bar indicating save progress as shifts are created
+
+Default time blocks (Local generator)
+- Brunch: 08:00–13:00
+- Lunch: 11:00–17:00
+- Dinner: 14:00–23:00
+
+Staff assignment
+- Uses PocketBase staff records matched by position/role
+- Cycles through matches per role/day and falls back to mock if none found
 
 Setup notes:
 - Set `OPENAI_API_KEY` in a local `.env` for AI mode (do not commit secrets). If missing/invalid, the UI uses Local fallback.
