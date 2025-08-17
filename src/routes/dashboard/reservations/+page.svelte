@@ -41,9 +41,42 @@
     ]);
   }
 
+  // Simple time helpers
+  function toMin(t: string) { const [h,m] = String(t||'').split(':').map(Number); return (h||0)*60 + (m||0); }
+  const BLOCK_MIN = 120;
+
   async function setStatus(id: string, status: string) {
     try {
-      await collections.updateReservation(id, { status });
+      const updated = await collections.updateReservation(id, { status });
+
+      // If this reservation has a table, sync the table base status according to overlapping active reservations
+      const tableId = updated?.table_id;
+      if (tableId) {
+        // Refresh same-day reservations to ensure we have latest
+        await collections.getReservations({ startDate: filterDate, endDate: filterDate });
+        const list = ($reservations || []).filter(r => String(r.reservation_date).slice(0,10) === String(filterDate).slice(0,10) && r.table_id === tableId);
+        const active = list.some(r => {
+          const st = String(r.status||'').toLowerCase();
+          if (!['booked','seated'].includes(st)) return false;
+          const s1 = toMin(r.start_time||'00:00');
+          const e1 = s1 + BLOCK_MIN;
+          const s2 = toMin(updated?.start_time || r.start_time || '00:00');
+          const e2 = s2 + BLOCK_MIN;
+          return Math.max(s1, s2) < Math.min(e1, e2);
+        });
+        try {
+          if (active) {
+            try { await collections.updateTable(tableId, { status_field: 'reserved' }); } catch { await collections.updateTable(tableId, { status: 'reserved' }); }
+          } else {
+            // Only set back to available if not occupied/cleaning/out_of_service
+            const t = ($tables || []).find((x:any) => x.id === tableId);
+            const cur = (t?.status || t?.status_field || '').toLowerCase();
+            if (!['occupied','cleaning','out_of_service'].includes(cur)) {
+              try { await collections.updateTable(tableId, { status_field: 'available' }); } catch { await collections.updateTable(tableId, { status: 'available' }); }
+            }
+          }
+        } catch (e) { console.warn('Failed to sync table status:', (e as any)?.message || e); }
+      }
     } catch (e:any) {
       err = e?.message || 'Failed to update status';
     }

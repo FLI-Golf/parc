@@ -196,7 +196,13 @@ pnpm install
 2. **Environment Configuration**
 Create `.env` file:
 ```bash
+# PocketBase URL (client)
 VITE_POCKETBASE_URL=https://pocketbase-production-7050.up.railway.app/
+
+# PocketBase admin (server) — used by the OpenTable webhook to update table status
+# Do NOT commit real secrets. Set these only in .env / hosting env vars.
+PB_ADMIN_EMAIL=your-admin@example.com
+PB_ADMIN_PASSWORD=your-strong-password
 ```
 
 3. **Start Development Server**
@@ -295,6 +301,24 @@ The system uses 14+ PocketBase collections including:
 - Automatic data synchronization
 
 ## ✅ Recent Updates
+
+### Reservations → Table auto-assignment + table status sync (OpenTable webhook)
+- The public reservations form (`/dashboard/reservations/form`) now posts to `/api/reservations/opentable`.
+- The webhook:
+  - Normalizes date/time and creates a `reservations` record.
+  - Auto-selects a conflict-free table based on party size and current day reservations.
+  - Sets `reservation.table_id` and (if section is not provided) infers section from table.
+  - Updates the base table status to `reserved` (tries `tables.status`, with fallbacks for deployments).
+  - Optional debug mode (`?debug=1`) prints selection, attempts, and `tableAfter` to the console.
+- Configure admin env so the webhook can update tables:
+  - `PB_ADMIN_EMAIL`, `PB_ADMIN_PASSWORD`
+
+### Floor Plan uses live reservations (overlay) and reloads tables on Refresh
+- Manager → Floor Plan now:
+  - Fetches same-day reservations with a correct [start, next-day) window.
+  - Reloads tables on Refresh so base statuses reflect any recent webhook updates.
+  - Overlays tables as `reserved` for overlapping booked/seated windows.
+  - Shows "Unassigned reservations in window" when a reservation lacks `table_id`.
 
 ### Reservations Page Back Button
 - Added a Back button to `/dashboard/reservations`

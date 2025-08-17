@@ -58,6 +58,89 @@ let maintenanceFilter = "all"; // For maintenance task filtering
 let floorPlanFilter = "all"; // For floor plan filtering
 let filteredSections = []; // Filtered sections based on floor plan filter
 let showDetailedMenuView = false; // For detailed menu items view
+
+// Floor Plan reservation filters
+let floorPlanDate = new Date().toISOString().slice(0,10);
+let floorPlanTime = (() => {
+  const d = new Date();
+  const hh = String(d.getHours()).padStart(2,'0');
+  const mm = String(Math.floor(d.getMinutes()/5)*5).padStart(2,'0');
+  return `${hh}:${mm}`;
+})();
+const RES_BLOCK_MINUTES = 120; // reservation block window
+
+function toMinutes(t) { if (!t) return 0; const [h,m] = String(t).split(":").map(Number); return (h||0)*60 + (m||0); }
+function overlapsWindow(resStart, windowStart, windowEnd, block=RES_BLOCK_MINUTES) {
+  const rs = toMinutes(resStart || '00:00');
+  const re = rs + block;
+  return Math.max(rs, windowStart) < Math.min(re, windowEnd);
+}
+
+// Load reservations for the selected date when viewing floor plan
+$: if (activeTab === 'floor-plan' && floorPlanDate) {
+  collections.getReservations({ startDate: floorPlanDate, endDate: floorPlanDate }).catch(()=>{});
+}
+
+// Compute reserved tables at the selected time window
+$: reservedTableIds = (() => {
+  try {
+    const start = toMinutes(floorPlanTime);
+    const end = start + RES_BLOCK_MINUTES;
+    const activeStatuses = new Set(['booked','seated']);
+    const sameDay = ($reservations || []).filter(r => String(r.reservation_date).slice(0,10) === String(floorPlanDate).slice(0,10));
+    return new Set(sameDay.filter(r => activeStatuses.has(String(r.status||'').toLowerCase()) && r.table_id && overlapsWindow(r.start_time, start, end)).map(r => r.table_id));
+  } catch { return new Set(); }
+})();
+
+// Count unassigned reservations in window
+$: unassignedReservationsCount = (() => {
+  try {
+    const start = toMinutes(floorPlanTime);
+    const end = start + RES_BLOCK_MINUTES;
+    const activeStatuses = new Set(['booked','seated']);
+    const sameDay = ($reservations || []).filter(r => String(r.reservation_date).slice(0,10) === String(floorPlanDate).slice(0,10));
+    return sameDay.filter(r => activeStatuses.has(String(r.status||'').toLowerCase()) && !r.table_id && overlapsWindow(r.start_time, start, end)).length;
+  } catch { return 0; }
+})();
+
+// Log whenever overlay recomputes
+$: console.log('[FloorPlan Debug] overlay window', { date: floorPlanDate, time: floorPlanTime, blockMinutes: RES_BLOCK_MINUTES, reservedTableIds: Array.from(reservedTableIds || []) });
+
+// Manual refresh with debug output
+async function refreshFloorReservations() {
+  try {
+    const startMin = toMinutes(floorPlanTime);
+    const endMin = startMin + RES_BLOCK_MINUTES;
+    console.log('[FloorPlan Debug] Refresh clicked', { date: floorPlanDate, time: floorPlanTime, window: { startMin, endMin } });
+    await Promise.all([
+      collections.getReservations({ startDate: floorPlanDate }),
+      collections.getTables()
+    ]);
+    const list = ($reservations || []);
+    console.log('[FloorPlan Debug] Reservations fetched', list.length);
+    list.forEach((r) => {
+      try {
+        console.log('[FloorPlan Debug] res', {
+          id: r.id,
+          reservation_date: r.reservation_date,
+          start_time: r.start_time,
+          status: r.status,
+          table_id: r.table_id,
+          section: r.section,
+          name: r.customer_name,
+          source: r.source,
+          tags: r.tags
+        });
+      } catch {}
+    });
+    const overlayIds = Array.from(reservedTableIds || []);
+    console.log('[FloorPlan Debug] overlay reservedTableIds', overlayIds);
+    const baseReserved = ($tables || []).filter(t => (t.status || t.status_field) === 'reserved').map(t => t.id);
+    console.log('[FloorPlan Debug] base table.status reserved IDs', baseReserved);
+  } catch (e) {
+    console.warn('[FloorPlan Debug] refresh error', e?.message || e);
+  }
+}
 let shiftsView = 'list'; // 'list' | 'calendar'
 // Trades approval UI state
 let showTradesPanel = false;
@@ -389,7 +472,7 @@ function getWeekdayLabel(d) {
 	$: pendingEvents = $events.filter((event) => event.status === "inquiry").length;
 
 	// Reservations metrics (today)
-	$: todayReservations = ($reservations || []).filter(r => r.reservation_date === getTodayString());
+	$: todayReservations = ($reservations || []).filter(r => String(r.reservation_date || '').slice(0,10) === getTodayString());
 	$: unassignedReservations = todayReservations.filter(r => !r.table_id || (Array.isArray(r.tags) && r.tags.includes('no_table_available'))).length;
 	$: oversizeReservations = todayReservations.filter(r => Array.isArray(r.tags) && r.tags.includes('oversize')).length;
 	// Staff Requests metrics
@@ -1953,6 +2036,21 @@ function getWeekdayLabel(d) {
 						Staff View
 					</button>
 				</div>
+				<!-- Reservation filter controls -->
+				<div class="mt-3 flex flex-wrap gap-3 items-end">
+					<label class="flex flex-col gap-1">
+						<span class="text-gray-300 text-sm">Date</span>
+						<input type="date" bind:value={floorPlanDate} class="bg-gray-800 text-white rounded px-3 py-2 border border-gray-700" />
+					</label>
+					<label class="flex flex-col gap-1">
+						<span class="text-gray-300 text-sm">Time</span>
+						<input type="time" bind:value={floorPlanTime} class="bg-gray-800 text-white rounded px-3 py-2 border border-gray-700" />
+					</label>
+					<div class="text-gray-300 text-sm px-2 py-2">
+						Unassigned reservations in window: {unassignedReservationsCount}
+					</div>
+					<button class="inline-flex items-center px-3 py-2 rounded bg-blue-600 text-white" on:click={refreshFloorReservations}>Refresh</button>
+				</div>
 			</div>
 
 			<!-- Debug Info -->
@@ -2008,7 +2106,9 @@ function getWeekdayLabel(d) {
 									<!-- Tables in Section -->
 									<div class="grid grid-cols-3 gap-2 mb-4">
 										{#each sectionTables.slice(0, 9) as table}
-											{@const statusClasses = getTableStatusClasses(table.status)}
+											{@const isReserved = reservedTableIds.has(table.id)}
+{@const displayStatus = isReserved ? 'reserved' : (table.status || table.status_field || 'available')}
+{@const statusClasses = getTableStatusClasses(displayStatus)}
 											<div
 												class="{statusClasses.bg} rounded border {statusClasses.border} flex flex-col items-center justify-center relative group {statusClasses.hover} transition-colors cursor-pointer p-2 min-h-[60px]"
 											>
@@ -2025,7 +2125,7 @@ function getWeekdayLabel(d) {
 													class="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity {statusClasses.overlay} rounded flex items-center justify-center"
 												>
 													<span class="text-xs {statusClasses.text} text-center">
-														{table.capacity || 0} seats<br>{table.status || 'Unknown'}
+														{table.capacity || 0} seats<br>{displayStatus || 'Unknown'}
 													</span>
 												</div>
 											</div>
@@ -2041,9 +2141,9 @@ function getWeekdayLabel(d) {
 									<!-- Table Stats -->
 									<div class="absolute bottom-4 left-4 right-4">
 										<div class="flex justify-between text-xs text-gray-300">
-											<span>Available: {sectionTables.filter(t => t.status === 'available').length}</span>
-											<span>Occupied: {sectionTables.filter(t => t.status === 'occupied').length}</span>
-											<span>Reserved: {sectionTables.filter(t => t.status === 'reserved').length}</span>
+										<span>Available: {sectionTables.filter(t => { const d = reservedTableIds.has(t.id) ? 'reserved' : (t.status || t.status_field || 'available'); return d === 'available'; }).length}</span>
+										<span>Occupied: {sectionTables.filter(t => { const d = reservedTableIds.has(t.id) ? 'reserved' : (t.status || t.status_field || 'available'); return d === 'occupied'; }).length}</span>
+										<span>Reserved: {sectionTables.filter(t => reservedTableIds.has(t.id)).length}</span>
 										</div>
 									</div>
 								{:else}

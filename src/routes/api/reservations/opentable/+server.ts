@@ -198,6 +198,58 @@ export const POST: RequestHandler = async ({ request, url }) => {
       }
     }
 
+    // After create, mark the selected table as reserved (base status) if one was chosen
+    try {
+      if (table_id) {
+        let updated = false;
+        const attempts: any[] = [];
+        // Prefer 'tables.status' first, since your PB schema shows that field
+        try {
+          await pb.collection('tables').update(table_id, { status: 'reserved' });
+          attempts.push({ collection: 'tables', field: 'status', ok: true });
+          updated = true;
+        } catch (e0: any) {
+          attempts.push({ collection: 'tables', field: 'status', ok: false, error: e0?.message || String(e0) });
+          try {
+            await pb.collection('tables_collection').update(table_id, { status: 'reserved' });
+            attempts.push({ collection: 'tables_collection', field: 'status', ok: true });
+            updated = true;
+          } catch (e1: any) {
+            attempts.push({ collection: 'tables_collection', field: 'status', ok: false, error: e1?.message || String(e1) });
+            try {
+              await pb.collection('tables').update(table_id, { status_field: 'reserved' });
+              attempts.push({ collection: 'tables', field: 'status_field', ok: true });
+              updated = true;
+            } catch (e2: any) {
+              attempts.push({ collection: 'tables', field: 'status_field', ok: false, error: e2?.message || String(e2) });
+              try {
+                await pb.collection('tables_collection').update(table_id, { status_field: 'reserved' });
+                attempts.push({ collection: 'tables_collection', field: 'status_field', ok: true });
+                updated = true;
+              } catch (e3: any) {
+                attempts.push({ collection: 'tables_collection', field: 'status_field', ok: false, error: e3?.message || String(e3) });
+              }
+            }
+          }
+        }
+        // Read back the table to include current status in debug
+        if (debugRequested) {
+          let tableAfter: any = null;
+          try {
+            tableAfter = await pb.collection('tables').getOne(table_id);
+            (debug as any).tableAfter = { collection: 'tables', status: tableAfter?.status ?? null, status_field: tableAfter?.status_field ?? null };
+          } catch (r1) {
+            try {
+              tableAfter = await pb.collection('tables_collection').getOne(table_id);
+              (debug as any).tableAfter = { collection: 'tables_collection', status: tableAfter?.status ?? null, status_field: tableAfter?.status_field ?? null };
+            } catch {}
+          }
+          (debug as any).tableUpdate = { updated, attempts };
+          if (!updated) console.warn('Table status update failed for', table_id, attempts);
+        }
+      }
+    } catch {}
+
     // Staffing logic: derive role and quantity based on condition and on-call roster
     const overlappingLoad = sameDayReservations.filter((r: any) => {
       const rStart = toMinutes(r.start_time || '00:00');

@@ -903,7 +903,13 @@ export const collections = {
 
 	async updateTable(id, data) {
 		try {
-			const record = await pb.collection('tables_collection').update(id, data);
+			let record;
+			try {
+				record = await pb.collection('tables_collection').update(id, data);
+			} catch (firstError) {
+				console.warn('tables_collection update failed, trying tables:', firstError?.message || firstError);
+				record = await pb.collection('tables').update(id, data);
+			}
 			tables.update(items => items.map(item => item.id === id ? record : item));
 			return record;
 		} catch (error) {
@@ -1296,21 +1302,84 @@ export const collections = {
 	},
 
 	// Reservations
+/**
+ * @param {{ startDate?: string | null, endDate?: string | null, status?: string | null }} [opts]
+ */
 	async getReservations({ startDate = null, endDate = null, status = null } = {}) {
-		try {
-			loading.update(s => ({ ...s, reservations: true }));
-			let filterParts = [];
-			if (startDate) filterParts.push(`reservation_date >= "${startDate}"`);
-			if (endDate) filterParts.push(`reservation_date <= "${endDate}"`);
-			if (status) filterParts.push(`status = "${status}"`);
-			const filter = filterParts.join(' && ');
-			const records = await pb.collection('reservations').getFullList({
-				filter,
-				sort: '+reservation_date,+start_time',
-				expand: 'section,table_id,created_by'
-			});
-			reservations.set(records);
-			return records;
+	try {
+	loading.update(s => ({ ...s, reservations: true }));
+	let filter;
+	// Normalize to day range if dates are provided, to handle PB date vs datetime fields reliably
+	if (startDate) {
+	const start = `${String(startDate).slice(0,10)} 00:00:00`;
+	let end;
+	if (endDate) {
+	const d = new Date(String(endDate).slice(0,10));
+	// advance one day for exclusive upper bound
+	d.setDate(d.getDate() + 1);
+	const y = d.getFullYear();
+	const m = String(d.getMonth() + 1).padStart(2, '0');
+	const day = String(d.getDate()).padStart(2, '0');
+	end = `${y}-${m}-${day} 00:00:00`;
+	} else {
+	// single day window when only start provided
+	const d = new Date(String(startDate).slice(0,10));
+	d.setDate(d.getDate() + 1);
+	const y = d.getFullYear();
+	const m = String(d.getMonth() + 1).padStart(2, '0');
+	const day = String(d.getDate()).padStart(2, '0');
+	end = `${y}-${m}-${day} 00:00:00`;
+	}
+	// Guard: if end failed or equals start, force next-day end
+	if (!end || end === start) {
+	  try {
+	    const d2 = new Date(String(startDate).slice(0,10));
+	    d2.setDate(d2.getDate() + 1);
+	    const y2 = d2.getFullYear();
+	    const m2 = String(d2.getMonth() + 1).padStart(2, '0');
+	    const day2 = String(d2.getDate()).padStart(2, '0');
+	    end = `${y2}-${m2}-${day2} 00:00:00`;
+	  } catch {}
+	}
+	filter = `reservation_date >= "${start}" && reservation_date < "${end}"`;
+	} else {
+	filter = '';
+	}
+	if (status) {
+	filter = filter ? `${filter} && status = "${status}"` : `status = "${status}"`;
+	}
+	console.log('[Reservations Debug] filter', filter);
+	let records = await pb.collection('reservations').getFullList({
+	filter,
+	sort: '+reservation_date,+start_time',
+	 expand: 'section,table_id,created_by'
+	});
+	// Fallback: if no results, try equality on date-only (handles date-typed fields)
+	if ((!records || records.length === 0) && startDate) {
+	try {
+	const day = String(startDate).slice(0,10);
+	const eqFilter = `reservation_date = "${day}"${status ? ` && status = "${status}"` : ''}`;
+	console.log('[Reservations Debug] fallback filter', eqFilter);
+	records = await pb.collection('reservations').getFullList({
+	filter: eqFilter,
+	sort: '+reservation_date,+start_time',
+	 expand: 'section,table_id,created_by'
+	 });
+	if ((!records || records.length === 0)) {
+	 const eqFilter2 = `reservation_date = "${day} 00:00:00"${status ? ` && status = "${status}"` : ''}`;
+	  console.log('[Reservations Debug] fallback2 filter', eqFilter2);
+	  records = await pb.collection('reservations').getFullList({
+	    filter: eqFilter2,
+	     sort: '+reservation_date,+start_time',
+	      expand: 'section,table_id,created_by'
+	    });
+	  }
+				} catch (e) {
+					console.warn('[Reservations Debug] fallback failed', e?.message || e);
+				}
+			}
+			reservations.set(records || []);
+			return records || [];
 		} catch (error) {
 			console.error('Error fetching reservations:', error);
 			reservations.set([]);
