@@ -68,6 +68,19 @@ let floorPlanTime = (() => {
   return `${hh}:${mm}`;
 })();
 const RES_BLOCK_MINUTES = 120; // reservation block window
+let showBaseStatuses = false; // overlay-only by default
+
+// Reservations matching current window (for listing)
+$: reservationsInWindow = (() => {
+  try {
+    const day = String(floorPlanDate).slice(0,10);
+    const start = toMinutes(floorPlanTime);
+    const end = start + RES_BLOCK_MINUTES;
+    const active = new Set(['booked','seated']);
+    const list = ($reservations || []).filter(r => String(r.reservation_date).slice(0,10) === day && active.has(String(r.status||'').toLowerCase()) && overlapsWindow(r.start_time, start, end));
+    return list;
+  } catch { return []; }
+})();
 
 function toMinutes(t) { if (!t) return 0; const [h,m] = String(t).split(":").map(Number); return (h||0)*60 + (m||0); }
 function overlapsWindow(resStart, windowStart, windowEnd, block=RES_BLOCK_MINUTES) {
@@ -2049,17 +2062,39 @@ function getWeekdayLabel(d) {
 					<div class="text-gray-300 text-sm px-2 py-2">
 						Unassigned reservations in window: {unassignedReservationsCount}
 					</div>
+					<label class="flex items-center gap-2 text-gray-300 text-sm">
+						<input type="checkbox" bind:checked={showBaseStatuses} class="rounded border-gray-600 bg-gray-800" />
+						<span>Show base statuses</span>
+					</label>
 					<button class="inline-flex items-center px-3 py-2 rounded bg-blue-600 text-white" on:click={refreshFloorReservations}>Refresh</button>
 				</div>
 			</div>
 
 			<!-- Debug Info -->
 			<div class="mb-4 p-2 bg-gray-800/30 rounded text-xs text-gray-400">
-				Current filter: {floorPlanFilter} | 
-				Total sections: {$sections.length} | 
-				Filtered sections: {filteredSections.length} |
-				Available area types: {[...$sections.map(s => s.area_type)].join(', ')}
+			Current filter: {floorPlanFilter} | 
+			Total sections: {$sections.length} | 
+			Filtered sections: {filteredSections.length} |
+			Available area types: {[...$sections.map(s => s.area_type)].join(', ')}
 			</div>
+
+				<!-- Reservations in Window -->
+				<div class="mb-4 p-3 rounded border border-gray-700 bg-gray-800/40">
+					<h3 class="text-sm font-semibold text-gray-200 mb-2">Reservations in window ({reservationsInWindow.length})</h3>
+					{#if reservationsInWindow.length === 0}
+						<p class="text-xs text-gray-400">No reservations in this time window.</p>
+					{:else}
+						<ul class="space-y-1 text-sm">
+							{#each reservationsInWindow as r}
+								{@const t = ($tables || []).find(t => t.id === r.table_id)}
+								<li class="flex justify-between gap-2 text-gray-200">
+									<span>{r.start_time} · {r.customer_name} · party {r.party_size}</span>
+									<span class="text-gray-400">{t?.table_name || t?.table_number_field || '—'} · {r.status}</span>
+								</li>
+							{/each}
+						</ul>
+					{/if}
+				</div>
 
 			<!-- Floor Plan Container -->
 			<div
@@ -2107,7 +2142,8 @@ function getWeekdayLabel(d) {
 									<div class="grid grid-cols-3 gap-2 mb-4">
 										{#each sectionTables.slice(0, 9) as table}
 											{@const isReserved = reservedTableIds.has(table.id)}
-{@const displayStatus = isReserved ? 'reserved' : (table.status || table.status_field || 'available')}
+{@const baseStatus = (table.status || table.status_field || 'available')}
+{@const displayStatus = isReserved ? 'reserved' : (showBaseStatuses ? baseStatus : 'available')}
 {@const statusClasses = getTableStatusClasses(displayStatus)}
 											<div
 												class="{statusClasses.bg} rounded border {statusClasses.border} flex flex-col items-center justify-center relative group {statusClasses.hover} transition-colors cursor-pointer p-2 min-h-[60px]"
