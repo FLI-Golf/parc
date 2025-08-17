@@ -203,6 +203,9 @@ VITE_POCKETBASE_URL=https://pocketbase-production-7050.up.railway.app/
 # Do NOT commit real secrets. Set these only in .env / hosting env vars.
 PB_ADMIN_EMAIL=your-admin@example.com
 PB_ADMIN_PASSWORD=your-strong-password
+
+# Hold window (minutes before start_time to apply base table hold for same-day)
+HOLD_APPLY_MINUTES=120
 ```
 
 3. **Start Development Server**
@@ -302,16 +305,21 @@ The system uses 14+ PocketBase collections including:
 
 ## ✅ Recent Updates
 
-### Reservations → Table auto-assignment + table status sync (OpenTable webhook)
-- The public reservations form (`/dashboard/reservations/form`) now posts to `/api/reservations/opentable`.
+### Reservations → Table auto-assignment + hold policy (OpenTable webhook + apply-holds)
+- The public reservations form (`/dashboard/reservations/form`) posts to `/api/reservations/opentable`.
 - The webhook:
   - Normalizes date/time and creates a `reservations` record.
   - Auto-selects a conflict-free table based on party size and current day reservations.
   - Sets `reservation.table_id` and (if section is not provided) infers section from table.
-  - Updates the base table status to `reserved` (tries `tables.status`, with fallbacks for deployments).
-  - Optional debug mode (`?debug=1`) prints selection, attempts, and `tableAfter` to the console.
-- Configure admin env so the webhook can update tables:
+  - Hold policy: updates the base table status to `reserved` only when the reservation is for today and within `HOLD_APPLY_MINUTES` minutes of `start_time`.
+  - Optional debug mode (`?debug=1`) prints selection, attempts, `holdApply`, and `tableAfter` to the console.
+- Manager → Floor Plan overlays reservations as reserved in any date/time window, independently of base table status.
+- New endpoint: `/api/reservations/apply-holds` (POST)
+  - Day-of idempotent job: applies holds to tables for reservations starting within `HOLD_APPLY_MINUTES`.
+  - Use `?debug=1` to see per-reservation attempts.
+- Configure admin env so the server can update tables:
   - `PB_ADMIN_EMAIL`, `PB_ADMIN_PASSWORD`
+  - `HOLD_APPLY_MINUTES` (default: 120)
 
 ### Floor Plan uses live reservations (overlay) and reloads tables on Refresh
 - Manager → Floor Plan now:

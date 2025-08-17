@@ -5,6 +5,14 @@ import { env } from '$env/dynamic/private';
 // Simple overlap window for reservations (in minutes)
 const DEFAULT_BLOCK_MINUTES = 120;
 
+function parseLocalDateTime(dateStr: string, timeStr: string) {
+  // dateStr: 'YYYY-MM-DD' or 'YYYY-MM-DD HH:MM:SS'
+  const d = new Date();
+  const [y, m, d0] = String(dateStr).slice(0,10).split('-').map(Number);
+  const [hh, mm] = String(timeStr || '00:00').split(':').map(Number);
+  return new Date(y, (m || 1)-1, d0 || 1, hh || 0, mm || 0, 0, 0);
+}
+
 function toMinutes(t: string) {
   const [h, m] = t.split(':').map(Number);
   return h * 60 + (m || 0);
@@ -198,36 +206,48 @@ export const POST: RequestHandler = async ({ request, url }) => {
       }
     }
 
-    // After create, mark the selected table as reserved (base status) if one was chosen
+    // After create, mark the selected table as reserved (base status) only when in hold window
     try {
       if (table_id) {
+        // HOLD window logic
+        const holdMinutes = Number(env.HOLD_APPLY_MINUTES || 120);
+        const now = new Date();
+        const rDateOnly = String(reservation_date).slice(0,10);
+        const startAt = parseLocalDateTime(rDateOnly, start_time);
+        const windowStart = new Date(startAt.getTime() - holdMinutes * 60000);
+        const windowEnd = new Date(startAt.getTime() + DEFAULT_BLOCK_MINUTES * 60000);
+        const isToday = new Date().toISOString().slice(0,10) === rDateOnly;
+        const withinWindow = now >= windowStart && now <= windowEnd;
+
         let updated = false;
         const attempts: any[] = [];
-        // Prefer 'tables.status' first, since your PB schema shows that field
-        try {
-          await pb.collection('tables').update(table_id, { status: 'reserved' });
-          attempts.push({ collection: 'tables', field: 'status', ok: true });
-          updated = true;
-        } catch (e0: any) {
-          attempts.push({ collection: 'tables', field: 'status', ok: false, error: e0?.message || String(e0) });
+        if (isToday && withinWindow) {
+          // Prefer 'tables.status' first
           try {
-            await pb.collection('tables_collection').update(table_id, { status: 'reserved' });
-            attempts.push({ collection: 'tables_collection', field: 'status', ok: true });
+            await pb.collection('tables').update(table_id, { status: 'reserved' });
+            attempts.push({ collection: 'tables', field: 'status', ok: true });
             updated = true;
-          } catch (e1: any) {
-            attempts.push({ collection: 'tables_collection', field: 'status', ok: false, error: e1?.message || String(e1) });
+          } catch (e0: any) {
+            attempts.push({ collection: 'tables', field: 'status', ok: false, error: e0?.message || String(e0) });
             try {
-              await pb.collection('tables').update(table_id, { status_field: 'reserved' });
-              attempts.push({ collection: 'tables', field: 'status_field', ok: true });
+              await pb.collection('tables_collection').update(table_id, { status: 'reserved' });
+              attempts.push({ collection: 'tables_collection', field: 'status', ok: true });
               updated = true;
-            } catch (e2: any) {
-              attempts.push({ collection: 'tables', field: 'status_field', ok: false, error: e2?.message || String(e2) });
+            } catch (e1: any) {
+              attempts.push({ collection: 'tables_collection', field: 'status', ok: false, error: e1?.message || String(e1) });
               try {
-                await pb.collection('tables_collection').update(table_id, { status_field: 'reserved' });
-                attempts.push({ collection: 'tables_collection', field: 'status_field', ok: true });
+                await pb.collection('tables').update(table_id, { status_field: 'reserved' });
+                attempts.push({ collection: 'tables', field: 'status_field', ok: true });
                 updated = true;
-              } catch (e3: any) {
-                attempts.push({ collection: 'tables_collection', field: 'status_field', ok: false, error: e3?.message || String(e3) });
+              } catch (e2: any) {
+                attempts.push({ collection: 'tables', field: 'status_field', ok: false, error: e2?.message || String(e2) });
+                try {
+                  await pb.collection('tables_collection').update(table_id, { status_field: 'reserved' });
+                  attempts.push({ collection: 'tables_collection', field: 'status_field', ok: true });
+                  updated = true;
+                } catch (e3: any) {
+                  attempts.push({ collection: 'tables_collection', field: 'status_field', ok: false, error: e3?.message || String(e3) });
+                }
               }
             }
           }
@@ -244,8 +264,9 @@ export const POST: RequestHandler = async ({ request, url }) => {
               (debug as any).tableAfter = { collection: 'tables_collection', status: tableAfter?.status ?? null, status_field: tableAfter?.status_field ?? null };
             } catch {}
           }
+          (debug as any).holdApply = { isToday, withinWindow, holdMinutes, startAt: startAt.toISOString() };
           (debug as any).tableUpdate = { updated, attempts };
-          if (!updated) console.warn('Table status update failed for', table_id, attempts);
+          if (!updated && (isToday && withinWindow)) console.warn('Table status update failed for', table_id, attempts);
         }
       }
     } catch {}
