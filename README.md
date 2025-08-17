@@ -233,6 +233,17 @@ pnpm test                  # Run all tests
 pnpm test:unit            # Run unit tests
 pnpm test:integration     # Run integration tests
 pnpm test <pattern>       # Run specific test files
+pnpm test:coverage        # Run tests with coverage (v8)
+
+# Handy test patterns
+pnpm test reservations-logic
+pnpm test floor-plan-window-list
+pnpm test apply-holds
+pnpm test get-reservations-filter
+
+# Dev API CLI
+pnpm apply-holds:dev            # Calls /api/reservations/apply-holds?debug=1
+pnpm apply-holds:dev -- --base http://localhost:5173
 
 # Code Quality
 pnpm lint                 # Run ESLint
@@ -317,9 +328,18 @@ The system uses 14+ PocketBase collections including:
 - New endpoint: `/api/reservations/apply-holds` (POST)
   - Day-of idempotent job: applies holds to tables for reservations starting within `HOLD_APPLY_MINUTES`.
   - Use `?debug=1` to see per-reservation attempts.
+  - Dev CLI: `pnpm apply-holds:dev` (optional `-- --base http://localhost:5173`).
 - Configure admin env so the server can update tables:
   - `PB_ADMIN_EMAIL`, `PB_ADMIN_PASSWORD`
   - `HOLD_APPLY_MINUTES` (default: 120)
+
+### Reservations utilities and tests
+- Shared utility: [`src/lib/utils/reservations.ts`](./src/lib/utils/reservations.ts) provides `toMinutes`, `overlapsWindow`, `parseLocalDateTime`, and `reservationsInWindow`.
+- Tests:
+  - [`src/tests/reservations-logic.test.ts`](./src/tests/reservations-logic.test.ts)
+  - [`src/tests/floor-plan-window-list.test.ts`](./src/tests/floor-plan-window-list.test.ts)
+  - [`src/tests/get-reservations-filter.test.ts`](./src/tests/get-reservations-filter.test.ts)
+  - [`src/tests/apply-holds.test.ts`](./src/tests/apply-holds.test.ts)
 
 ### Floor Plan uses live reservations (overlay) and reloads tables on Refresh
 - Manager → Floor Plan now:

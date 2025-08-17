@@ -67,27 +67,16 @@ let floorPlanTime = (() => {
   const mm = String(Math.floor(d.getMinutes()/5)*5).padStart(2,'0');
   return `${hh}:${mm}`;
 })();
+import { reservationsInWindow as computeReservationsInWindow, overlapsWindow, toMinutes } from "$lib/utils/reservations";
 const RES_BLOCK_MINUTES = 120; // reservation block window
 let showBaseStatuses = false; // overlay-only by default
 
 // Reservations matching current window (for listing)
 $: reservationsInWindow = (() => {
   try {
-    const day = String(floorPlanDate).slice(0,10);
-    const start = toMinutes(floorPlanTime);
-    const end = start + RES_BLOCK_MINUTES;
-    const active = new Set(['booked','seated']);
-    const list = ($reservations || []).filter(r => String(r.reservation_date).slice(0,10) === day && active.has(String(r.status||'').toLowerCase()) && overlapsWindow(r.start_time, start, end));
-    return list;
+    return computeReservationsInWindow($reservations || [], floorPlanDate, floorPlanTime, RES_BLOCK_MINUTES);
   } catch { return []; }
 })();
-
-function toMinutes(t) { if (!t) return 0; const [h,m] = String(t).split(":").map(Number); return (h||0)*60 + (m||0); }
-function overlapsWindow(resStart, windowStart, windowEnd, block=RES_BLOCK_MINUTES) {
-  const rs = toMinutes(resStart || '00:00');
-  const re = rs + block;
-  return Math.max(rs, windowStart) < Math.min(re, windowEnd);
-}
 
 // Load reservations for the selected date when viewing floor plan
 $: if (activeTab === 'floor-plan' && floorPlanDate) {

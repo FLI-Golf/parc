@@ -19,6 +19,13 @@ pnpm test                  # Run all tests
 pnpm test:unit            # Run unit tests
 pnpm test:integration     # Run integration tests
 pnpm test <pattern>       # Run specific test files (e.g., pnpm test vendors)
+pnpm test:coverage        # Run tests with coverage (v8)
+
+# Reservations tests
+pnpm test reservations-logic
+pnpm test floor-plan-window-list
+pnpm test apply-holds
+pnpm test get-reservations-filter
 
 # Test Coverage by Collection
 pnpm test table-updates   # Table status management tests
@@ -27,6 +34,10 @@ pnpm test ticket-items    # Individual order item tests
 pnpm test vendors         # Vendor management tests
 pnpm test shifts          # Staff scheduling tests
 pnpm test sections        # Restaurant layout tests
+
+# Dev API CLI
+pnpm apply-holds:dev            # Calls /api/reservations/apply-holds?debug=1
+pnpm apply-holds:dev -- --base http://localhost:5173
 
 # Code Quality
 pnpm lint                 # Run ESLint
@@ -106,6 +117,9 @@ VITE_POCKETBASE_URL=https://pocketbase-production-7050.up.railway.app/
 
 # Optional (for development)
 VITE_DEBUG=true
+
+# Reservations hold window (minutes before start_time)
+HOLD_APPLY_MINUTES=120
 ```
 
 ## Code Style Preferences

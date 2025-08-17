@@ -1,6 +1,6 @@
 // @ts-nocheck
 import { writable, get } from 'svelte/store';
-import pb from '../pocketbase.js';
+import pb from '$lib/pocketbase.js';
 
 // Collection stores (typed to avoid never[] inference)
 /** @type {import('svelte/store').Writable<any[]>} */ export const inventoryItems = writable([]);

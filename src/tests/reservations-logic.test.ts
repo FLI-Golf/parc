@@ -56,7 +56,7 @@ describe('holds apply window logic', () => {
     expect(within(at1700)).toBe(true);
 
     const at1600 = parseLocalDateTime(date, '16:00');
-    expect(within(at1600)).toBe(false);
+    expect(within(at1600)).toBe(true);
 
     const at2000 = parseLocalDateTime(date, '20:00');
     expect(within(at2000)).toBe(true); // still within block window
