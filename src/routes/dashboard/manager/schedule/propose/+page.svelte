@@ -29,9 +29,21 @@
     sat: true
   };
   let brunchOnSunday = true;
-  // Positions (tabs) — ordered as requested
+  // Positions — align with Staff/Shift position values
   const positions = [
-    'manager', 'server', 'chef', 'bartender', 'host', 'busser', 'dishwasher', 'kitchen_prep', 'owner'
+    'manager',
+    'general_manager',
+    'owner',
+    'server',
+    'host',
+    'bartender',
+    'barback',
+    'busser',
+    'chef',
+    'kitchen_prep',
+    'kitchen',
+    'dishwasher',
+    'security'
   ];
   let activePosition = 'server';
 
@@ -40,43 +52,58 @@
   // Special bartender settings include bar nights
   let roleConfigs = {
     manager: {
-      weekdayLunchEnabled: false, weekdayLunchCount: 0,
+      weekdayLunchEnabled: true, weekdayLunchCount: 0,
       weekdayDinnerEnabled: true,  weekdayDinnerCount: 1,
       weekendLunchCount: 0, weekendDinnerCount: 1,
     },
     server: {
-      weekdayLunchEnabled: false, weekdayLunchCount: 1,
+      weekdayLunchEnabled: true, weekdayLunchCount: 1,
       weekdayDinnerEnabled: true,  weekdayDinnerCount: 2,
       weekendLunchCount: 1, weekendDinnerCount: 3,
     },
     chef: {
-      weekdayLunchEnabled: false, weekdayLunchCount: 0,
+      weekdayLunchEnabled: true, weekdayLunchCount: 0,
       weekdayDinnerEnabled: true,  weekdayDinnerCount: 1,
       weekendLunchCount: 0, weekendDinnerCount: 1,
     },
     bartender: {
-      weekdayLunchEnabled: false, weekdayLunchCount: 0,
+      weekdayLunchEnabled: true, weekdayLunchCount: 0,
       weekdayDinnerEnabled: true,  weekdayDinnerCount: 1,
       weekendLunchCount: 0, weekendDinnerCount: 1,
       barNights: { fri: true, sat: true, sun: true, start: '18:00', end: '24:00', bartenders: 1 }
     },
+    barback: {
+      weekdayLunchEnabled: true, weekdayLunchCount: 0,
+      weekdayDinnerEnabled: true,  weekdayDinnerCount: 1,
+      weekendLunchCount: 0, weekendDinnerCount: 1,
+    },
     host: {
-      weekdayLunchEnabled: false, weekdayLunchCount: 0,
+      weekdayLunchEnabled: true, weekdayLunchCount: 0,
       weekdayDinnerEnabled: true,  weekdayDinnerCount: 1,
       weekendLunchCount: 0, weekendDinnerCount: 1,
     },
     busser: {
-      weekdayLunchEnabled: false, weekdayLunchCount: 0,
+      weekdayLunchEnabled: true, weekdayLunchCount: 0,
       weekdayDinnerEnabled: true,  weekdayDinnerCount: 1,
       weekendLunchCount: 0, weekendDinnerCount: 1,
     },
     dishwasher: {
-      weekdayLunchEnabled: false, weekdayLunchCount: 0,
+      weekdayLunchEnabled: true, weekdayLunchCount: 0,
       weekdayDinnerEnabled: true,  weekdayDinnerCount: 1,
       weekendLunchCount: 0, weekendDinnerCount: 1,
     },
     kitchen_prep: {
-      weekdayLunchEnabled: false, weekdayLunchCount: 0,
+      weekdayLunchEnabled: true, weekdayLunchCount: 0,
+      weekdayDinnerEnabled: true,  weekdayDinnerCount: 1,
+      weekendLunchCount: 0, weekendDinnerCount: 1,
+    },
+    kitchen: {
+      weekdayLunchEnabled: true, weekdayLunchCount: 0,
+      weekdayDinnerEnabled: true,  weekdayDinnerCount: 1,
+      weekendLunchCount: 0, weekendDinnerCount: 1,
+    },
+    security: {
+      weekdayLunchEnabled: true, weekdayLunchCount: 0,
       weekdayDinnerEnabled: true,  weekdayDinnerCount: 1,
       weekendLunchCount: 0, weekendDinnerCount: 1,
     },
@@ -94,6 +121,28 @@
   let proposal = null; // { shifts: [...] }
   let error = '';
   let viewMode = 'calendar'; // 'list' | 'calendar'
+
+  // Per-day position filter: { [isoDate]: position | '' }
+  let dayFilter = {};
+
+   // Role icon/color meta for chips
+   const positionMeta = {
+     manager:           { icon: '👔', chip: 'bg-blue-900/30 text-blue-300 border-blue-600', chipActive: 'bg-blue-700 text-white border-blue-300' },
+     general_manager:   { icon: '👔', chip: 'bg-blue-900/30 text-blue-300 border-blue-600', chipActive: 'bg-blue-700 text-white border-blue-300' },
+     owner:             { icon: '🧑‍💼', chip: 'bg-indigo-900/30 text-indigo-300 border-indigo-600', chipActive: 'bg-indigo-700 text-white border-indigo-300' },
+     server:            { icon: '🧑‍🍽️', chip: 'bg-green-900/30 text-green-300 border-green-600', chipActive: 'bg-green-700 text-white border-green-300' },
+     host:              { icon: '🛎️', chip: 'bg-purple-900/30 text-purple-300 border-purple-600', chipActive: 'bg-purple-700 text-white border-purple-300' },
+     bartender:         { icon: '🍸', chip: 'bg-sky-900/30 text-sky-300 border-sky-600', chipActive: 'bg-sky-700 text-white border-sky-300' },
+     barback:           { icon: '🍹', chip: 'bg-cyan-900/30 text-cyan-300 border-cyan-600', chipActive: 'bg-cyan-700 text-white border-cyan-300' },
+     busser:            { icon: '🧽', chip: 'bg-emerald-900/30 text-emerald-300 border-emerald-600', chipActive: 'bg-emerald-700 text-white border-emerald-300' },
+     chef:              { icon: '👨‍🍳', chip: 'bg-amber-900/30 text-amber-300 border-amber-600', chipActive: 'bg-amber-700 text-white border-amber-300' },
+     kitchen_prep:      { icon: '🔪', chip: 'bg-orange-900/30 text-orange-300 border-orange-600', chipActive: 'bg-orange-700 text-white border-orange-300' },
+     kitchen:           { icon: '🍳', chip: 'bg-yellow-900/30 text-yellow-300 border-yellow-600', chipActive: 'bg-yellow-700 text-white border-yellow-300' },
+     dishwasher:        { icon: '🧼', chip: 'bg-zinc-800 text-zinc-300 border-zinc-600', chipActive: 'bg-zinc-600 text-white border-zinc-300' },
+     security:          { icon: '🛡️', chip: 'bg-red-900/30 text-red-300 border-red-600', chipActive: 'bg-red-700 text-white border-red-300' },
+   };
+   const defaultMeta = { icon: '👤', chip: 'bg-gray-800 text-gray-300 border-gray-600', chipActive: 'bg-gray-600 text-white border-gray-300' };
+   const getPosMeta = (p) => positionMeta[p] || defaultMeta;
 
   // Helpers: dates and brunch/Sunday logic
   function getWeekSunday(isoDate) {
@@ -273,9 +322,42 @@
     return { shifts };
   }
 
+  let saving = false;
+  let saveProgress = 0; // 0-100
+
+  // Quick add/remove shifts for a given day/position in the proposal (UI only)
+  function addShiftForDayPosition(day, position) {
+    try {
+      const staffList = get(staffStore) || [];
+      const countExisting = (proposal?.shifts || []).filter(s => (s.shift_date === day) && ((s.position || '').toLowerCase() === position)).length;
+      const st = pickStaff(staffList, position, countExisting);
+      const section = position === 'bartender' ? 'BAR' : 'A';
+      const newShift = {
+        staff_id: st.id, staff_name: st.name, shift_date: day,
+        start_time: '14:00', end_time: '23:00',
+        position, section_code: section, shift_type: 'dinner', notes: 'Added manually'
+      };
+      proposal = { shifts: [...(proposal?.shifts || []), newShift] };
+    } catch (e) {
+      console.error('Failed to add shift:', e);
+    }
+  }
+  function removeShiftForDayPosition(day, position) {
+    try {
+      const idx = (proposal?.shifts || []).slice().reverse().findIndex(s => (s.shift_date === day) && ((s.position || '').toLowerCase() === position));
+      if (idx === -1) return;
+      const realIdx = (proposal.shifts.length - 1) - idx;
+      const arr = proposal.shifts.slice();
+      arr.splice(realIdx, 1);
+      proposal = { shifts: arr };
+    } catch (e) {
+      console.error('Failed to remove shift:', e);
+    }
+  }
+
   async function approveSelected() {
     // Approvals allowed any day; retain brunch validation
-    if (!proposal?.shifts?.length) return;
+    if (!proposal?.shifts?.length || saving) return;
 
     // Simple brunch validation
     for (const row of proposal.shifts) {
@@ -285,10 +367,23 @@
       }
     }
 
+    saving = true;
+    saveProgress = 0;
+
     try {
       // Ensure sections are loaded so section_code can be mapped
       await collections.getSections();
+
+      const total = proposal.shifts.length;
+      let created = 0;
+      const errors = [];
+
       for (const row of proposal.shifts) {
+        // Skip mock/unassigned staff rows
+        if (!row.staff_id || String(row.staff_id).startsWith('mock-')) {
+          errors.push({ row, error: new Error('No real staff assigned to this shift') });
+          continue;
+        }
         // Map to backend shape; omit UI-only fields
         const payload = {
           staff_member: row.staff_id,
@@ -303,15 +398,31 @@
           shift_type: row.shift_type || 'regular',
           section_code: row.section_code || undefined // for helper mapping in collections
         };
-        await collections.createShift(payload);
+        try {
+          await collections.createShift(payload);
+          created += 1;
+        } catch (err) {
+          console.error('Create shift failed for row:', row, err);
+          errors.push({ row, error: err });
+        }
+        saveProgress = Math.round(((created + errors.length) / total) * 100);
       }
       await collections.getShifts();
-      alert('Shifts created.');
+      if (errors.length === 0) {
+        // Success: no blocking alert; continue to manager dashboard
+      } else {
+        const first = errors[0]?.error;
+        const msg = first?.data?.message || first?.message || 'Some shifts failed';
+        alert(`${created}/${total} shifts created. ${errors.length} failed. ${msg}`);
+      }
       goto('/dashboard/manager');
     } catch (e) {
       console.error('Approval error:', e);
       const detail = e?.data?.message || e?.message || e;
       alert(detail || 'Failed to create some shifts');
+    } finally {
+      saving = false;
+      saveProgress = 0;
     }
   }
 </script>
@@ -374,16 +485,16 @@
 
       <div class="mt-4 border-t border-gray-700 pt-4 space-y-3">
         <div class="text-sm font-semibold">By position</div>
-        <!-- Tabs -->
-        <div class="flex flex-wrap gap-2 mb-2">
-          {#each positions as p}
-            <button type="button"
-              class={`px-2 py-1 text-xs rounded border ${activePosition === p ? 'bg-indigo-600 border-indigo-500' : 'bg-gray-700 border-gray-600 hover:bg-gray-600'}`}
-              on:click={() => activePosition = p}
-            >{p}</button>
-          {/each}
+        <!-- Quick selector for all roles (mobile-friendly) -->
+        <div class="mb-2">
+          <label class="sr-only">Select role</label>
+          <select bind:value={activePosition} class="w-full bg-gray-700 border border-gray-600 rounded px-2 py-2 text-sm">
+            {#each positions as p}
+              <option value={p}>{p}</option>
+            {/each}
+          </select>
         </div>
-        <!-- Active tab content -->
+        <!-- Active position controls -->
         {#if roleConfigs[activePosition]}
           <div class="space-y-2 text-xs">
             <div class="text-gray-300">Weekday (Mon–Thu)</div>
@@ -498,11 +609,49 @@
         {:else}
           <div class="grid grid-cols-7 gap-2">
             {#each getWeekDates(getWeekSunday(week_start)) as day}
-              <div class="border border-gray-700 rounded p-2 min-h-[120px]">
+              {@const dayShifts = proposal.shifts.filter(s => s.shift_date === day)}
+              {@const counts = positions.map(p => ({ p, c: dayShifts.filter(s => (s.position || (s.shift_type==='brunch' ? 'server' : '') || '').toLowerCase() === p).length }))}
+              <div class="border border-gray-700 rounded p-2 min-h-[140px]">
                 <div class="text-xs text-gray-400 mb-2">{day}</div>
-                {#each proposal.shifts.filter(s => s.shift_date === day) as s}
+                <!-- Position counts row -->
+                <div class="mb-2 flex flex-wrap gap-1">
+                  {#each counts as item}
+                    {#if item.c > 0}
+                      <div class="inline-flex items-center gap-1">
+                        <button
+                          type="button"
+                          class={`px-2 py-0.5 rounded text-[11px] border ${dayFilter[day] === item.p ? getPosMeta(item.p).chipActive : getPosMeta(item.p).chip}`}
+                          on:click={() => dayFilter = { ...dayFilter, [day]: (dayFilter[day] === item.p ? '' : item.p) }}
+                          title={`Filter ${day} by ${item.p}`}
+                        ><span class="mr-1">{getPosMeta(item.p).icon}</span>{item.p} ({item.c})</button>
+                        <button
+                          type="button"
+                          class="px-1.5 py-0.5 text-[11px] rounded border bg-gray-800 border-gray-600 text-gray-300 hover:bg-gray-700"
+                          title={`Add ${item.p} on ${day}`}
+                          on:click={() => addShiftForDayPosition(day, item.p)}
+                        >+
+                        </button>
+                        <button
+                          type="button"
+                          class="px-1.5 py-0.5 text-[11px] rounded border bg-gray-800 border-gray-600 text-gray-300 hover:bg-gray-700"
+                          title={`Remove ${item.p} on ${day}`}
+                          on:click={() => removeShiftForDayPosition(day, item.p)}
+                        >−
+                        </button>
+                      </div>
+                    {/if}
+                  {/each}
+                </div>
+                {#each dayShifts.filter(s => !dayFilter[day] || ((s.position || (s.shift_type==='brunch' ? 'server' : '') || '').toLowerCase() === dayFilter[day])) as s}
+                  {@const p = (s.position || (s.shift_type === 'brunch' ? 'server' : '') || '').toLowerCase()}
+                  {@const meta = getPosMeta(p)}
                   <div class="mb-2 bg-gray-700 rounded p-2">
-                    <div class="text-xs text-gray-300 truncate">{s.staff_name || s.staff_id} • {s.position || (s.shift_type === 'brunch' ? 'server' : '')}</div>
+                    <div class="text-xs text-gray-300 truncate flex items-center gap-2">
+                      <span class={`px-1.5 py-0.5 rounded border inline-flex items-center justify-center ${meta.chip}`} title={p || 'role'}>
+                        <span>{meta.icon}</span>
+                      </span>
+                      <span class="truncate">{s.staff_name || s.staff_id}</span>
+                    </div>
                     <div class="text-xs">{s.start_time}–{s.end_time} • {s.section_code}</div>
                     {#if s.shift_type === 'brunch'}
                       <div class="text-[10px] text-yellow-300">Brunch</div>
@@ -513,8 +662,20 @@
             {/each}
           </div>
         {/if}
-        <div class="mt-4 flex justify-end">
-          <button on:click={approveSelected} class="px-4 py-2 bg-green-600 hover:bg-green-700 rounded-lg text-sm font-medium">Approve and Create</button>
+        <div class="mt-4">
+          {#if saving}
+            <div class="mb-3">
+              <div class="h-2 w-full bg-gray-700 rounded">
+                <div class="h-2 bg-green-500 rounded transition-all" style={`width: ${saveProgress}%;`}></div>
+              </div>
+              <div class="mt-1 text-xs text-gray-300">Saving shifts… {saveProgress}%</div>
+            </div>
+          {/if}
+          <div class="flex justify-end">
+            <button on:click={approveSelected} disabled={saving} class="px-4 py-2 rounded-lg text-sm font-medium disabled:opacity-60 disabled:cursor-not-allowed bg-green-600 hover:bg-green-700">
+              {saving ? 'Saving…' : 'Approve and Create'}
+            </button>
+          </div>
         </div>
       {:else}
         <div class="text-gray-400">No proposal yet. Generate to preview shifts.</div>

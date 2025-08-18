@@ -40,18 +40,30 @@ PARC Portal is designed for restaurants to manage daily operations efficiently w
 - Local generator: no network calls; builds a client-side draft you can edit.
 - AI generator: calls `/api/schedule/propose` to fetch a proposal; still client-side until approval.
 - Review in List or Calendar view; edit rows inline.
-- Approve and Create performs PocketBase writes and is allowed only on Sundays. Brunch shifts must be on Sunday.
-- Options include:
-  - By position tabs (manager, server, chef, bartender, host, busser, dishwasher, kitchen_prep, owner)
-    - Weekday (Mon–Thu): Lunch enabled + count; Dinner enabled + count
-    - Weekend (Fri–Sun): Lunch count; Dinner count
-    - Bartender tab: Bar nights (Fri/Sat/Sun toggles), Start/End time, Bartenders count
-  - Global: Days to include (Sun–Sat), Include Sunday brunch
-- Default time blocks used by Local generator:
-  - Brunch: 8:00–1:00
-  - Lunch: 11:00–5:00
-  - Dinner: 2:00–11:00
-- Staff assignment uses PocketBase staff records by position/role; cycles through matches and falls back to mock if none.
+- Approve and Create performs PocketBase writes. Brunch shifts must be on Sunday.
+
+Key features
+- Positions supported (aligned with Staff/Shift):
+  - `manager`, `general_manager`, `owner`, `server`, `host`, `bartender`, `barback`, `busser`, `chef`, `kitchen_prep`, `kitchen`, `dishwasher`, `head_of_security`, `security`, `doorman`
+- Controls by position:
+  - Weekday (Mon–Thu): Lunch (enabled by default) and Dinner toggles with counts
+  - Weekend (Fri–Sun): Lunch/Dinner counts
+  - Bartender: Bar nights (Fri/Sat/Sun), Start/End, Bartenders count
+- Global: Days to include (Sun–Sat), Include Sunday brunch
+- Calendar view enhancements:
+  - Per-day header chips show role icons, colored backgrounds, and counts (click to filter that day)
+  - + / − buttons next to each chip to quickly add/remove a role’s shift for that day (proposal-only edit)
+  - Each shift card shows a colored icon badge for the role before the staff name
+- Approve UX: shows a progress bar indicating save progress as shifts are created
+
+Default time blocks (Local generator)
+- Brunch: 08:00–13:00
+- Lunch: 11:00–17:00
+- Dinner: 14:00–23:00
+
+Staff assignment
+- Uses PocketBase staff records matched by position/role
+- Cycles through matches per role/day and falls back to mock if none found
 
 Setup notes:
 - Set `OPENAI_API_KEY` in a local `.env` for AI mode (do not commit secrets). If missing/invalid, the UI uses Local fallback.
@@ -184,7 +196,16 @@ pnpm install
 2. **Environment Configuration**
 Create `.env` file:
 ```bash
+# PocketBase URL (client)
 VITE_POCKETBASE_URL=https://pocketbase-production-7050.up.railway.app/
+
+# PocketBase admin (server) — used by the OpenTable webhook to update table status
+# Do NOT commit real secrets. Set these only in .env / hosting env vars.
+PB_ADMIN_EMAIL=your-admin@example.com
+PB_ADMIN_PASSWORD=your-strong-password
+
+# Hold window (minutes before start_time to apply base table hold for same-day)
+HOLD_APPLY_MINUTES=120
 ```
 
 3. **Start Development Server**
@@ -212,6 +233,17 @@ pnpm test                  # Run all tests
 pnpm test:unit            # Run unit tests
 pnpm test:integration     # Run integration tests
 pnpm test <pattern>       # Run specific test files
+pnpm test:coverage        # Run tests with coverage (v8)
+
+# Handy test patterns
+pnpm test reservations-logic
+pnpm test floor-plan-window-list
+pnpm test apply-holds
+pnpm test get-reservations-filter
+
+# Dev API CLI
+pnpm apply-holds:dev            # Calls /api/reservations/apply-holds?debug=1
+pnpm apply-holds:dev -- --base http://localhost:5173
 
 # Code Quality
 pnpm lint                 # Run ESLint
@@ -284,6 +316,43 @@ The system uses 14+ PocketBase collections including:
 
 ## ✅ Recent Updates
 
+### Reservations → Table auto-assignment + hold policy (OpenTable webhook + apply-holds)
+- The public reservations form (`/dashboard/reservations/form`) posts to `/api/reservations/opentable`.
+- The webhook:
+  - Normalizes date/time and creates a `reservations` record.
+  - Auto-selects a conflict-free table based on party size and current day reservations.
+  - Sets `reservation.table_id` and (if section is not provided) infers section from table.
+  - Hold policy: updates the base table status to `reserved` only when the reservation is for today and within `HOLD_APPLY_MINUTES` minutes of `start_time`.
+  - Optional debug mode (`?debug=1`) prints selection, attempts, `holdApply`, and `tableAfter` to the console.
+- Manager → Floor Plan overlays reservations as reserved in any date/time window, independently of base table status.
+- New endpoint: `/api/reservations/apply-holds` (POST)
+  - Day-of idempotent job: applies holds to tables for reservations starting within `HOLD_APPLY_MINUTES`.
+  - Use `?debug=1` to see per-reservation attempts.
+  - Dev CLI: `pnpm apply-holds:dev` (optional `-- --base http://localhost:5173`).
+- Configure admin env so the server can update tables:
+  - `PB_ADMIN_EMAIL`, `PB_ADMIN_PASSWORD`
+  - `HOLD_APPLY_MINUTES` (default: 120)
+
+### Reservations utilities and tests
+- Shared utility: [`src/lib/utils/reservations.ts`](./src/lib/utils/reservations.ts) provides `toMinutes`, `overlapsWindow`, `parseLocalDateTime`, and `reservationsInWindow`.
+- Tests:
+  - [`src/tests/reservations-logic.test.ts`](./src/tests/reservations-logic.test.ts)
+  - [`src/tests/floor-plan-window-list.test.ts`](./src/tests/floor-plan-window-list.test.ts)
+  - [`src/tests/get-reservations-filter.test.ts`](./src/tests/get-reservations-filter.test.ts)
+  - [`src/tests/apply-holds.test.ts`](./src/tests/apply-holds.test.ts)
+
+### Floor Plan uses live reservations (overlay) and reloads tables on Refresh
+- Manager → Floor Plan now:
+  - Fetches same-day reservations with a correct [start, next-day) window.
+  - Reloads tables on Refresh so base statuses reflect any recent webhook updates.
+  - Overlays tables as `reserved` for overlapping booked/seated windows.
+  - Shows "Unassigned reservations in window" when a reservation lacks `table_id`.
+
+### Reservations Page Back Button
+- Added a Back button to `/dashboard/reservations`
+- Behavior: uses browser history when available; falls back to `/dashboard`
+- Styling matches dark theme and includes accessible label
+
 ### Manager Shift Trades Approval
 - Manager dashboard shows a pulsing badge with pending trade approvals next to the avatar
 - New Approve Trades button in Shifts header opens a Trades panel
@@ -313,6 +382,11 @@ For detailed technical documentation, see [`AGENT.md`](./AGENT.md) which include
 - Code style guidelines
 - Testing strategies
 - Deployment procedures
+
+### Documentation TODO
+- StaffModal user picker: document selection persistence behavior and fallback. Note the injected selected user when not present in fetched pages, and the potential extra guard of rendering an explicit `<option value={selectedUserId}>` before `{#each}` to prevent snapping to default during loading.
+- Roles: document extended roles used in UI filters (e.g., `security`, `head_of_security`, `doorman`) and how they map to Staff positions.
+- User search UX: document debounce and pagination expectations for `/api/users/search` and how auth token forwarding works in requests.
 
 ## 🤝 Contributing
 

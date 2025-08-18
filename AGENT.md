@@ -19,6 +19,13 @@ pnpm test                  # Run all tests
 pnpm test:unit            # Run unit tests
 pnpm test:integration     # Run integration tests
 pnpm test <pattern>       # Run specific test files (e.g., pnpm test vendors)
+pnpm test:coverage        # Run tests with coverage (v8)
+
+# Reservations tests
+pnpm test reservations-logic
+pnpm test floor-plan-window-list
+pnpm test apply-holds
+pnpm test get-reservations-filter
 
 # Test Coverage by Collection
 pnpm test table-updates   # Table status management tests
@@ -27,6 +34,10 @@ pnpm test ticket-items    # Individual order item tests
 pnpm test vendors         # Vendor management tests
 pnpm test shifts          # Staff scheduling tests
 pnpm test sections        # Restaurant layout tests
+
+# Dev API CLI
+pnpm apply-holds:dev            # Calls /api/reservations/apply-holds?debug=1
+pnpm apply-holds:dev -- --base http://localhost:5173
 
 # Code Quality
 pnpm lint                 # Run ESLint
@@ -106,6 +117,9 @@ VITE_POCKETBASE_URL=https://pocketbase-production-7050.up.railway.app/
 
 # Optional (for development)
 VITE_DEBUG=true
+
+# Reservations hold window (minutes before start_time)
+HOLD_APPLY_MINUTES=120
 ```
 
 ## Code Style Preferences
@@ -160,13 +174,38 @@ Most collections use these rules:
 
 ## Key Server Dashboard Features
 
+### Reservations Navigation
+- The Reservations page (`/dashboard/reservations`) includes a Back button.
+- Behavior: uses browser history when available; falls back to `/dashboard`.
+- Styling matches the dark theme and includes an accessible label.
+
 ### Cross-Section Table Management
 Servers can help other sections by clicking "Help Here" on any section:
 - Tables from helping sections appear in the main "Your Tables" area
 - Provides seamless management of all assigned and helping tables
 - Visual distinction: assigned section tables (green), helping sections (blue)
+- "Help Here" controls are styled light blue for clarity
 - Reduces clicks and scrolling for efficient service
 - Preferences persist across page refreshes via localStorage
+
+### Shift Gating and Sections UI (Updated)
+- Your Tables, All Available Tables (mini list), and All Restaurant Sections are fully hidden/disabled until the server presses `Start Shift`
+- The "Expand Sections" button is disabled pre-shift and only becomes interactive after Start Shift
+- After Start Shift, tables unlock immediately (based on an active timer for a shift scheduled today or `in_progress` status)
+- On-shift detection is strict: local timers only count if they belong to one of today's shifts; stale timers from prior days are ignored
+- While not on shift:
+  - Your Tables shows only a small hint banner
+  - All Available Tables mini list is hidden and shows a hint
+  - All Restaurant Sections are not rendered
+- Guardrails: servers can only interact with tables in their assigned section or sections explicitly opted into via `Help Here`
+- Section headers display assignee names for today (e.g., `Main Dining (Marie Dupont (server))`) so helpers know who they’re assisting
+  - Excludes kitchen and management roles: `chef, kitchen_prep, kitchen, prep, manager, owner, general_manager, gm, dishwasher, dish`
+  - Multiple names are comma-separated
+- Sections with no tables are hidden to reduce clutter
+- UX note: If the shift status update to the backend fails, the UI no longer shows a blocking alert; it logs to console and continues (non-blocking)
+
+### Scheduling Proposal UX
+- Approving shifts from the Manager → Schedule Proposal page no longer shows a success alert. On success, the app silently redirects to the manager dashboard. Errors still surface via an alert summarizing failures.
 
 ### Enhanced Table Workflow Indicators
 Comprehensive dot color system shows table status at a glance:
@@ -584,6 +623,43 @@ The system uses the following collections in PocketBase:
 ## Advanced Menu Filtering System
 
 The server dashboard features an advanced, multi-select checkbox filtering system for efficient menu browsing:
+
+### Order Item Modifications (Updated)
+- New fields in PocketBase: `food_modifications` and `drink_modifications`
+  - Type: Select (Multiple = ON)
+  - Values:
+    - Food: none, doneness_rare, doneness_medium_rare, doneness_medium, doneness_medium_well, doneness_well_done, temp_extra_crispy, temp_lightly_crisp, no_salt, light_salt, extra_salt, sauce_on_side, extra_sauce, no_sauce, add_cheese, no_cheese, add_bacon, add_avocado, gluten_free_bun, lettuce_wrap, no_onion, no_tomato, no_pickles, no_mayo, add_aioli, extra_spicy, mild_spice, allergen_no_nuts, allergen_no_dairy, allergen_no_gluten, allergen_no_shellfish, dressing_ranch, dressing_blue_cheese, dressing_vinaigrette, dressing_caesar, side_fries, side_salad, side_veggies, side_rice, side_mashed_potatoes, toast_sourdough, toast_wheat, toast_rye, egg_over_easy, egg_over_medium, egg_over_hard, egg_scrambled, pasta_al_dente
+    - Drinks: none, ice_no_ice, ice_light_ice, ice_extra_ice, temp_extra_cold, temp_warm, sweetness_dry, sweetness_balanced, sweetness_sweet, carbonation_low, carbonation_medium, carbonation_high, rim_salt, rim_sugar, rim_tajin, garnish_lime, garnish_lemon, garnish_orange, garnish_cherry, garnish_olive, garnish_cucumber, style_neat, style_on_the_rocks, style_up, double_shot, top_shelf_upgrade, mixer_soda, mixer_tonic, mixer_ginger_beer, mixer_coke, mixer_sprite, espresso_add_shot, coffee_milk_oat, coffee_milk_almond, coffee_milk_whole, coffee_milk_none, beer_pour_pint, beer_pour_half, wine_pour_5oz, wine_pour_9oz, less_sweet, extra_bitter, add_angostura, add_simple_syrup, add_lime_juice, add_lemon_juice
+- UI/UX in Server POS:
+  - Single-select dropdown + `+ Add` button creates a list of modifications one at a time
+  - Selected mods appear as removable chips (× to remove)
+  - The textarea mic icon was removed
+  - The system automatically decides Food vs Drink based on category and item name heuristics (`getKitchenStation(category, name)`)
+- Data mapping:
+  - Bar items → `drink_modifications: string[]`
+  - Food items → `food_modifications: string[]`
+  - Legacy `modifications` strings are still mapped in the store layer for backward compatibility
+- Displays:
+  - Kitchen and Bar dashboards render modifications by joining arrays with `, `
+
+### Table Details (Updated)
+- Added `+ Add to Ticket` button to the Table Details modal footer
+  - Closes the details modal and opens the full order interface for that table to add more items
+
+### Helping Sections (Guardrails)
+- Servers may only interact with tables in:
+  - Their assigned section, or
+  - Sections they explicitly opted into via `Help Here`
+- Tables in non-helped sections are visually de-emphasized and non-interactive with tooltip guidance
+
+### Payments (Stripe env handling)
+- Server routes now read env via SvelteKit `$env/dynamic/private`
+  - `STRIPE_SECRET_KEY` is required on the server
+  - Client uses `VITE_STRIPE_PUBLISHABLE_KEY`
+- In Gitpod, set:
+  - `gp env STRIPE_SECRET_KEY=sk_test_...`
+  - `gp env VITE_STRIPE_PUBLISHABLE_KEY=pk_test_...`
+  - Restart dev server
 
 ### Multi-Select Categories
 - **🥐 Brunch** - Brunch items and morning specials

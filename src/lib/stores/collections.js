@@ -1,6 +1,6 @@
 // @ts-nocheck
 import { writable, get } from 'svelte/store';
-import pb from '../pocketbase.js';
+import pb from '$lib/pocketbase.js';
 
 // Collection stores (typed to avoid never[] inference)
 /** @type {import('svelte/store').Writable<any[]>} */ export const inventoryItems = writable([]);
@@ -25,6 +25,7 @@ import pb from '../pocketbase.js';
 /** @type {import('svelte/store').Writable<any[]>} */ export const scheduleProposals = writable([]);
 /** @type {import('svelte/store').Writable<any[]>} */ export const workRequests = writable([]);
 /** @type {import('svelte/store').Writable<any[]>} */ export const shiftTrades = writable([]);
+/** @type {import('svelte/store').Writable<any[]>} */ export const reservations = writable([]);
 
 // Loading states
 /** @type {import('svelte/store').Writable<Record<string, boolean>>} */
@@ -50,7 +51,8 @@ export const loading = writable({
 	payments: false,
 	completedOrders: false,
 	spoils: false,
-	scheduleProposals: false
+	scheduleProposals: false,
+	reservations: false
 });
 
 // Collection service functions
@@ -183,84 +185,108 @@ export const collections = {
 	},
 
 	async createShift(data) {
-		try {
-			// Approvals allowed any day; enforce brunch-on-Sunday via caller
-			// Map UI draft fields to PocketBase schema and strip unknowns
-			let payload = {
-				staff_member: data.staff_member || data.staff_id || null,
-				shift_date: data.shift_date,
-				start_time: data.start_time,
-				end_time: data.end_time,
-				break_duration: data.break_duration ?? 0,
-				position: data.position || 'server',
-				status: data.status || 'scheduled',
-				notes: data.notes || '',
-				assigned_section: data.assigned_section || null,
-				shift_type: data.shift_type || 'regular'
-			};
-			// Map section_code -> assigned_section id if available
-			if (!payload.assigned_section && data.section_code) {
-				try {
-					const allSections = get(sections) || [];
-					const code = String(data.section_code).toUpperCase();
-					const aliases = {
-						A: ['A','MAIN DINING','SECTION A'],
-						B: ['B','SECTION B'],
-						BAR: ['BAR','BAR AREA']
-					};
-					const names = aliases[code] || [code];
-					const match = allSections.find(s => {
-						const cand = String(s.section_code || s.code || s.name || '').toUpperCase();
-						const name = String(s.name || '').toUpperCase();
-						return names.includes(cand) || names.includes(name);
-					});
-					if (match?.id) payload.assigned_section = match.id;
-				} catch {}
-			}
-			// Prune null/undefined optional fields
-			payload = Object.fromEntries(Object.entries(payload).filter(([k, v]) => v !== null && v !== undefined));
-			// Basic required validation to avoid 400s
-			if (!payload.staff_member || !payload.shift_date || !payload.start_time || !payload.end_time || !payload.position || !payload.status) {
-				const missing = ['staff_member','shift_date','start_time','end_time','position','status'].filter(k => !payload[k]);
-				throw Object.assign(new Error(`Missing required shift fields: ${missing.join(', ')}`), { data: { missing } });
-			}
-			// Sanitize shift_type to allowed values if present
-			const allowedShiftTypes = new Set(['brunch','lunch','dinner']);
-			if (payload.shift_type) {
-				const st = String(payload.shift_type).toLowerCase();
-				if (st === 'bar') payload.shift_type = 'dinner';
-				else if (!allowedShiftTypes.has(st)) delete payload.shift_type;
-			}
-			let record;
-			let collectionUsed = 'shifts_collection';
-			try {
-				// Idempotency: skip if identical shift already exists
-				try {
-					const existing = await pb.collection(collectionUsed).getList(1, 1, {
-						filter: `staff_member = "${payload.staff_member}" && shift_date = "${payload.shift_date}" && start_time = "${payload.start_time}" && position = "${payload.position}"`
-					});
-					if (existing?.items?.length) {
-						console.warn('Duplicate shift detected in', collectionUsed, 'skipping create');
-						return existing.items[0];
-					}
-				} catch {}
-				record = await pb.collection(collectionUsed).create(payload);
-			} catch (firstError) {
-				console.warn('shifts_collection create failed, trying shifts:', firstError?.message || firstError?.data?.message, firstError?.data || firstError);
-				collectionUsed = 'shifts';
-				try {
-					// Idempotency check in fallback collection
-					try {
-						const existing = await pb.collection(collectionUsed).getList(1, 1, {
-							filter: `staff_member = "${payload.staff_member}" && shift_date = "${payload.shift_date}" && start_time = "${payload.start_time}" && position = "${payload.position}"`
-						});
-						if (existing?.items?.length) {
-							console.warn('Duplicate shift detected in', collectionUsed, 'skipping create');
-							return existing.items[0];
-						}
-					} catch {}
-					record = await pb.collection(collectionUsed).create(payload);
-				} catch (secondError) {
+	try {
+	// Approvals allowed any day; enforce brunch-on-Sunday via caller
+	// Map UI draft fields to PocketBase schema and strip unknowns
+	let payload = {
+	staff_member: data.staff_member || data.staff_id || null,
+	shift_date: data.shift_date,
+	start_time: data.start_time,
+	end_time: data.end_time,
+	break_duration: data.break_duration ?? 0,
+	position: data.position || 'server',
+	status: data.status || 'scheduled',
+	notes: data.notes || '',
+	assigned_section: data.assigned_section || null,
+	shift_type: data.shift_type || 'regular'
+	};
+	// Normalize/whitelist position to backend-allowed values
+	const normalizePosition = (p) => {
+	if (!p) return 'server';
+	const v = String(p).toLowerCase();
+	// Map extended/alias roles
+	const map = {
+	general_manager: 'manager',
+	owner: 'manager',
+	head_of_security: 'security',
+	doorman: 'security',
+	bar_back: 'barback'
+	};
+	const candidate = map[v] || v;
+	const allowed = new Set(['manager','server','host','bartender','barback','busser','chef','kitchen_prep','kitchen','dishwasher','security']);
+	return allowed.has(candidate) ? candidate : 'server';
+	};
+	payload.position = normalizePosition(payload.position);
+	// Map section_code -> assigned_section id if available
+	if (!payload.assigned_section && data.section_code) {
+	 try {
+	  const allSections = get(sections) || [];
+	  const code = String(data.section_code).toUpperCase();
+	  const aliases = {
+	  A: ['A','MAIN DINING','SECTION A'],
+	  B: ['B','SECTION B'],
+	   BAR: ['BAR','BAR AREA']
+	  };
+	  const names = aliases[code] || [code];
+	  const match = allSections.find(s => {
+	  const cand = String(s.section_code || s.code || s.name || '').toUpperCase();
+	  const name = String(s.name || '').toUpperCase();
+	  return names.includes(cand) || names.includes(name);
+	  });
+	  if (match?.id) payload.assigned_section = match.id;
+	 } catch {}
+	}
+	// Prune null/undefined optional fields
+	payload = Object.fromEntries(Object.entries(payload).filter(([k, v]) => v !== null && v !== undefined));
+	// Basic required validation to avoid 400s
+	if (!payload.staff_member || !payload.shift_date || !payload.start_time || !payload.end_time || !payload.position || !payload.status) {
+	const missing = ['staff_member','shift_date','start_time','end_time','position','status'].filter(k => !payload[k]);
+	throw Object.assign(new Error(`Missing required shift fields: ${missing.join(', ')}`), { data: { missing } });
+	}
+	// Validate staff_member exists in local store to avoid PB 400 on relation
+	try {
+	const staffList = get(staff) || [];
+	if (!staffList.find(s => s.id === payload.staff_member)) {
+	  throw Object.assign(new Error('Unknown staff member id (not in staff store)'), { code: 'invalid_staff_member', data: { staff_member: payload.staff_member } });
+	}
+	} catch {}
+	// Sanitize shift_type to allowed values if present
+	const allowedShiftTypes = new Set(['brunch','lunch','dinner']);
+	if (payload.shift_type) {
+	const st = String(payload.shift_type).toLowerCase();
+	if (st === 'bar') payload.shift_type = 'dinner';
+	else if (!allowedShiftTypes.has(st)) delete payload.shift_type;
+	}
+	let record;
+	let collectionUsed = 'shifts_collection';
+	try {
+	// Idempotency: skip if identical shift already exists
+	try {
+	 const existing = await pb.collection(collectionUsed).getList(1, 1, {
+	 filter: `staff_member = "${payload.staff_member}" && shift_date = "${payload.shift_date}" && start_time = "${payload.start_time}" && position = "${payload.position}"`
+	});
+	if (existing?.items?.length) {
+	console.warn('Duplicate shift detected in', collectionUsed, 'skipping create');
+	return existing.items[0];
+	}
+	} catch {}
+	record = await pb.collection(collectionUsed).create(payload);
+	} catch (firstError) {
+	console.warn('shifts_collection create failed, trying shifts:', firstError?.message || firstError?.data?.message, firstError?.data || firstError);
+	 collectionUsed = 'shifts';
+	 try {
+	  // Idempotency check in fallback collection
+	 try {
+	   const existing = await pb.collection(collectionUsed).getList(1, 1, {
+	    filter: `staff_member = "${payload.staff_member}" && shift_date = "${payload.shift_date}" && start_time = "${payload.start_time}" && position = "${payload.position}"`
+	   });
+	    if (existing?.items?.length) {
+	    console.warn('Duplicate shift detected in', collectionUsed, 'skipping create');
+	    return existing.items[0];
+	   }
+	  } catch {}
+	   record = await pb.collection(collectionUsed).create(payload);
+	   } catch (secondError) {
 					console.warn('shifts create failed:', secondError?.message || secondError?.data?.message, secondError?.data || secondError);
 					// Retry with date-time if shift_date may require time
 					if (/^\d{4}-\d{2}-\d{2}$/.test(payload.shift_date || '')) {
@@ -877,7 +903,13 @@ export const collections = {
 
 	async updateTable(id, data) {
 		try {
-			const record = await pb.collection('tables_collection').update(id, data);
+			let record;
+			try {
+				record = await pb.collection('tables_collection').update(id, data);
+			} catch (firstError) {
+				console.warn('tables_collection update failed, trying tables:', firstError?.message || firstError);
+				record = await pb.collection('tables').update(id, data);
+			}
 			tables.update(items => items.map(item => item.id === id ? record : item));
 			return record;
 		} catch (error) {
@@ -1013,12 +1045,22 @@ export const collections = {
 				quantity: data.quantity,
 				unit_price: data.unit_price,
 				total_price: data.total_price,
-				modifications: data.modifications,
 				course: data.course,
 				kitchen_station: data.kitchen_station,
 				status: 'ordered',
 				ordered_at: new Date().toISOString()
 			};
+			// Map legacy modifications string to new fields
+			if (data.modifications) {
+				if ((data.kitchen_station || '').toLowerCase() === 'bar') {
+					itemData.drink_modifications = data.modifications;
+				} else {
+					itemData.food_modifications = data.modifications;
+				}
+			}
+			// Allow direct usage of new fields too
+			if (data.food_modifications) itemData.food_modifications = data.food_modifications;
+			if (data.drink_modifications) itemData.drink_modifications = data.drink_modifications;
 			
 			const record = await pb.collection('ticket_items_collection').create(itemData, {
 				expand: 'ticket_id,menu_item_id'
@@ -1037,8 +1079,20 @@ export const collections = {
 
 	async updateTicketItem(id, data) {
 		try {
-			const record = await pb.collection('ticket_items_collection').update(id, data, {
-			expand: 'ticket_id,menu_item_id'
+			// Map legacy modifications to new fields on update as well
+			const updateData = { ...data };
+			if (data.modifications) {
+				if ((data.kitchen_station || '').toLowerCase() === 'bar') {
+					updateData.drink_modifications = data.modifications;
+					delete updateData.food_modifications;
+				} else {
+					updateData.food_modifications = data.modifications;
+					delete updateData.drink_modifications;
+				}
+				delete updateData.modifications;
+			}
+			const record = await pb.collection('ticket_items_collection').update(id, updateData, {
+				expand: 'ticket_id,menu_item_id'
 			});
 			ticketItems.update(items => 
 				items.map(item => item.id === id ? record : item)
@@ -1245,5 +1299,134 @@ export const collections = {
 		} finally {
 			loading.update(s => ({ ...s, scheduleProposals: false }));
 		}
+	},
+
+	// Reservations
+/**
+ * @param {{ startDate?: string | null, endDate?: string | null, status?: string | null }} [opts]
+ */
+	async getReservations({ startDate = null, endDate = null, status = null } = {}) {
+	try {
+	loading.update(s => ({ ...s, reservations: true }));
+	let filter;
+	// Normalize to day range if dates are provided, to handle PB date vs datetime fields reliably
+	if (startDate) {
+	const start = `${String(startDate).slice(0,10)} 00:00:00`;
+	let end;
+	if (endDate) {
+	const d = new Date(String(endDate).slice(0,10));
+	// advance one day for exclusive upper bound
+	d.setDate(d.getDate() + 1);
+	const y = d.getFullYear();
+	const m = String(d.getMonth() + 1).padStart(2, '0');
+	const day = String(d.getDate()).padStart(2, '0');
+	end = `${y}-${m}-${day} 00:00:00`;
+	} else {
+	// single day window when only start provided
+	const d = new Date(String(startDate).slice(0,10));
+	d.setDate(d.getDate() + 1);
+	const y = d.getFullYear();
+	const m = String(d.getMonth() + 1).padStart(2, '0');
+	const day = String(d.getDate()).padStart(2, '0');
+	end = `${y}-${m}-${day} 00:00:00`;
+	}
+	// Guard: if end failed or equals start, force next-day end
+	if (!end || end === start) {
+	  try {
+	    const d2 = new Date(String(startDate).slice(0,10));
+	    d2.setDate(d2.getDate() + 1);
+	    const y2 = d2.getFullYear();
+	    const m2 = String(d2.getMonth() + 1).padStart(2, '0');
+	    const day2 = String(d2.getDate()).padStart(2, '0');
+	    end = `${y2}-${m2}-${day2} 00:00:00`;
+	  } catch {}
+	}
+	filter = `reservation_date >= "${start}" && reservation_date < "${end}"`;
+	} else {
+	filter = '';
+	}
+	if (status) {
+	filter = filter ? `${filter} && status = "${status}"` : `status = "${status}"`;
+	}
+	console.log('[Reservations Debug] filter', filter);
+	let records = await pb.collection('reservations').getFullList({
+	filter,
+	sort: '+reservation_date,+start_time',
+	 expand: 'section,table_id,created_by'
+	});
+	// Fallback: if no results, try equality on date-only (handles date-typed fields)
+	if ((!records || records.length === 0) && startDate) {
+	try {
+	const day = String(startDate).slice(0,10);
+	const eqFilter = `reservation_date = "${day}"${status ? ` && status = "${status}"` : ''}`;
+	console.log('[Reservations Debug] fallback filter', eqFilter);
+	records = await pb.collection('reservations').getFullList({
+	filter: eqFilter,
+	sort: '+reservation_date,+start_time',
+	 expand: 'section,table_id,created_by'
+	 });
+	if ((!records || records.length === 0)) {
+	 const eqFilter2 = `reservation_date = "${day} 00:00:00"${status ? ` && status = "${status}"` : ''}`;
+	  console.log('[Reservations Debug] fallback2 filter', eqFilter2);
+	  records = await pb.collection('reservations').getFullList({
+	    filter: eqFilter2,
+	     sort: '+reservation_date,+start_time',
+	      expand: 'section,table_id,created_by'
+	    });
+	  }
+				} catch (e) {
+					console.warn('[Reservations Debug] fallback failed', e?.message || e);
+				}
+			}
+			reservations.set(records || []);
+			return records || [];
+		} catch (error) {
+			console.error('Error fetching reservations:', error);
+			reservations.set([]);
+			return [];
+		} finally {
+			loading.update(s => ({ ...s, reservations: false }));
+		}
+	},
+	async createReservation(data) {
+		try {
+			// Map and sanitize payload
+			const payload = {
+				reservation_date: data.reservation_date,
+				start_time: data.start_time,
+				party_size: Number(data.party_size),
+				customer_name: data.customer_name,
+				customer_phone: data.customer_phone || '',
+				customer_email: data.customer_email || '',
+				source: data.source || 'web',
+				status: data.status || 'booked',
+				notes: data.notes || '',
+				section: data.section || null,
+				table_id: data.table_id || null,
+				created_by: data.created_by || null,
+				tags: data.tags || undefined
+			};
+			// Remove null/undefined
+			const cleaned = Object.fromEntries(Object.entries(payload).filter(([,v]) => v !== null && v !== undefined && v !== ''));
+			const record = await pb.collection('reservations').create(cleaned, { expand: 'section,table_id,created_by' });
+			reservations.update(list => [record, ...list]);
+			return record;
+		} catch (error) {
+			console.error('Error creating reservation:', error?.data || error);
+			throw error;
+		}
+	},
+	async updateReservation(id, data) {
+		try {
+			const record = await pb.collection('reservations').update(id, data, { expand: 'section,table_id,created_by' });
+			reservations.update(list => list.map(r => r.id === id ? record : r));
+			return record;
+		} catch (error) {
+			console.error('Error updating reservation:', error);
+			throw error;
+		}
+	},
+	async cancelReservation(id, reason = '') {
+		return this.updateReservation(id, { status: 'canceled', notes: reason });
 	}
 };

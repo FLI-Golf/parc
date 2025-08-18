@@ -20,7 +20,9 @@ import {
 	ticketItems,
 	spoils,
 	loading,
-	shiftTrades
+	shiftTrades,
+	reservations,
+	workRequests
 } from "$lib/stores/collections.js";
 	import ImportModal from "$lib/components/ImportModal.svelte";
 	import InventoryModal from "$lib/components/InventoryModal.svelte";
@@ -56,6 +58,91 @@ let maintenanceFilter = "all"; // For maintenance task filtering
 let floorPlanFilter = "all"; // For floor plan filtering
 let filteredSections = []; // Filtered sections based on floor plan filter
 let showDetailedMenuView = false; // For detailed menu items view
+
+// Floor Plan reservation filters
+let floorPlanDate = new Date().toISOString().slice(0,10);
+let floorPlanTime = (() => {
+  const d = new Date();
+  const hh = String(d.getHours()).padStart(2,'0');
+  const mm = String(Math.floor(d.getMinutes()/5)*5).padStart(2,'0');
+  return `${hh}:${mm}`;
+})();
+import { reservationsInWindow as computeReservationsInWindow, overlapsWindow, toMinutes } from "$lib/utils/reservations";
+const RES_BLOCK_MINUTES = 120; // reservation block window
+let showBaseStatuses = false; // overlay-only by default
+
+// Reservations matching current window (for listing)
+$: reservationsInWindow = (() => {
+  try {
+    return computeReservationsInWindow($reservations || [], floorPlanDate, floorPlanTime, RES_BLOCK_MINUTES);
+  } catch { return []; }
+})();
+
+// Load reservations for the selected date when viewing floor plan
+$: if (activeTab === 'floor-plan' && floorPlanDate) {
+  collections.getReservations({ startDate: floorPlanDate, endDate: floorPlanDate }).catch(()=>{});
+}
+
+// Compute reserved tables at the selected time window
+$: reservedTableIds = (() => {
+  try {
+    const start = toMinutes(floorPlanTime);
+    const end = start + RES_BLOCK_MINUTES;
+    const activeStatuses = new Set(['booked','seated']);
+    const sameDay = ($reservations || []).filter(r => String(r.reservation_date).slice(0,10) === String(floorPlanDate).slice(0,10));
+    return new Set(sameDay.filter(r => activeStatuses.has(String(r.status||'').toLowerCase()) && r.table_id && overlapsWindow(r.start_time, start, end)).map(r => r.table_id));
+  } catch { return new Set(); }
+})();
+
+// Count unassigned reservations in window
+$: unassignedReservationsCount = (() => {
+  try {
+    const start = toMinutes(floorPlanTime);
+    const end = start + RES_BLOCK_MINUTES;
+    const activeStatuses = new Set(['booked','seated']);
+    const sameDay = ($reservations || []).filter(r => String(r.reservation_date).slice(0,10) === String(floorPlanDate).slice(0,10));
+    return sameDay.filter(r => activeStatuses.has(String(r.status||'').toLowerCase()) && !r.table_id && overlapsWindow(r.start_time, start, end)).length;
+  } catch { return 0; }
+})();
+
+// Log whenever overlay recomputes
+$: console.log('[FloorPlan Debug] overlay window', { date: floorPlanDate, time: floorPlanTime, blockMinutes: RES_BLOCK_MINUTES, reservedTableIds: Array.from(reservedTableIds || []) });
+
+// Manual refresh with debug output
+async function refreshFloorReservations() {
+  try {
+    const startMin = toMinutes(floorPlanTime);
+    const endMin = startMin + RES_BLOCK_MINUTES;
+    console.log('[FloorPlan Debug] Refresh clicked', { date: floorPlanDate, time: floorPlanTime, window: { startMin, endMin } });
+    await Promise.all([
+      collections.getReservations({ startDate: floorPlanDate }),
+      collections.getTables()
+    ]);
+    const list = ($reservations || []);
+    console.log('[FloorPlan Debug] Reservations fetched', list.length);
+    list.forEach((r) => {
+      try {
+        console.log('[FloorPlan Debug] res', {
+          id: r.id,
+          reservation_date: r.reservation_date,
+          start_time: r.start_time,
+          status: r.status,
+          table_id: r.table_id,
+          section: r.section,
+          name: r.customer_name,
+          source: r.source,
+          tags: r.tags
+        });
+      } catch {}
+    });
+    const overlayIds = Array.from(reservedTableIds || []);
+    console.log('[FloorPlan Debug] overlay reservedTableIds', overlayIds);
+    const baseReserved = ($tables || []).filter(t => (t.status || t.status_field) === 'reserved').map(t => t.id);
+    console.log('[FloorPlan Debug] base table.status reserved IDs', baseReserved);
+  } catch (e) {
+    console.warn('[FloorPlan Debug] refresh error', e?.message || e);
+  }
+}
 let shiftsView = 'list'; // 'list' | 'calendar'
 // Trades approval UI state
 let showTradesPanel = false;
@@ -169,6 +256,11 @@ function getWeekDates(sunday) {
 		return toISODate(dd);
 	});
 }
+function getWeekdayLabel(d) {
+	try {
+		return new Date(d).toLocaleDateString('en-US', { weekday: 'short' });
+	} catch { return ''; }
+}
 
 	// Menu filtering system variables
 	let selectedMenuCategories = {
@@ -207,6 +299,10 @@ function getWeekDates(sunday) {
 		}
 		// Preload shift trades for header badge
 		try { collections.getShiftTrades?.(); } catch {}
+		// Preload today's reservations for metrics
+		try { collections.getReservations?.({ startDate: getTodayString(), endDate: getTodayString() }); } catch {}
+		// Preload open work requests for metrics
+		try { collections.getWorkRequests?.(); } catch {}
 		// Setup Web Speech API if available
 		if (typeof window !== 'undefined') {
 			const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
@@ -374,9 +470,15 @@ function getWeekDates(sunday) {
 
 	$: totalMenuItems = $menuItems.length;
 	$: availableMenuItems = $menuItems.filter((item) => item.available).length;
-	$: activeStaff = $staff.filter((member) => member.status === "active")
-		.length;
+	$: activeStaff = $staff.filter((member) => member.status === "active").length;
 	$: pendingEvents = $events.filter((event) => event.status === "inquiry").length;
+
+	// Reservations metrics (today)
+	$: todayReservations = ($reservations || []).filter(r => String(r.reservation_date || '').slice(0,10) === getTodayString());
+	$: unassignedReservations = todayReservations.filter(r => !r.table_id || (Array.isArray(r.tags) && r.tags.includes('no_table_available'))).length;
+	$: oversizeReservations = todayReservations.filter(r => Array.isArray(r.tags) && r.tags.includes('oversize')).length;
+	// Staff Requests metrics
+	$: openWorkRequestsCount = ($workRequests || []).filter(w => (w.status || '').toLowerCase() === 'open').length;
 
 	// Helper for detailed view category matching (independent of defaults)
 	function itemMatchesDetailedCategory(item, categoryId) {
@@ -1203,6 +1305,33 @@ function getWeekDates(sunday) {
 					</div>
 				</div>
 
+				<!-- Reservations Today -->
+				<div
+					class="bg-gradient-to-br from-indigo-900/50 to-indigo-800/30 backdrop-blur-sm rounded-xl border border-indigo-700/50 p-6 cursor-pointer"
+					on:click={() => goto('/dashboard/reservations')}
+					role="button"
+					aria-label="Go to Reservations"
+				>
+					<div class="flex items-center justify-between">
+						<div>
+							<p class="text-indigo-200 text-sm font-medium">
+								Reservations
+							</p>
+							<p class="text-3xl font-bold text-white">
+								{todayReservations.length}
+							</p>
+							<p class="text-indigo-300 text-xs mt-1">
+								{unassignedReservations} unassigned{#if oversizeReservations} · {oversizeReservations} oversize{/if}
+							</p>
+						</div>
+						<div
+							class="w-14 h-14 rounded-xl bg-indigo-600/30 flex items-center justify-center"
+						>
+							<span class="text-2xl">📅</span>
+						</div>
+					</div>
+				</div>
+
 				<!-- This Week's Shifts -->
 				<div
 					class="bg-gradient-to-br from-green-900/50 to-green-800/30 backdrop-blur-sm rounded-xl border border-green-700/50 p-6"
@@ -1223,6 +1352,25 @@ function getWeekDates(sunday) {
 							class="w-14 h-14 rounded-xl bg-green-600/30 flex items-center justify-center"
 						>
 							<span class="text-2xl">🗓️</span>
+						</div>
+					</div>
+				</div>
+
+				<!-- Staff Requests -->
+				<div
+					class="bg-gradient-to-br from-purple-900/50 to-purple-800/30 backdrop-blur-sm rounded-xl border border-purple-700/50 p-6 cursor-pointer"
+					on:click={() => goto('/dashboard/requests')}
+					role="button"
+					aria-label="Go to Staff Requests"
+				>
+					<div class="flex items-center justify-between">
+						<div>
+							<p class="text-purple-200 text-sm font-medium">Staff Requests</p>
+							<p class="text-3xl font-bold text-white">{openWorkRequestsCount}</p>
+							<p class="text-purple-300 text-xs mt-1">open</p>
+						</div>
+						<div class="w-14 h-14 rounded-xl bg-purple-600/30 flex items-center justify-center">
+							<span class="text-2xl">📝</span>
 						</div>
 					</div>
 				</div>
@@ -1890,15 +2038,52 @@ function getWeekDates(sunday) {
 						Staff View
 					</button>
 				</div>
+				<!-- Reservation filter controls -->
+				<div class="mt-3 flex flex-wrap gap-3 items-end">
+					<label class="flex flex-col gap-1">
+						<span class="text-gray-300 text-sm">Date</span>
+						<input type="date" bind:value={floorPlanDate} class="bg-gray-800 text-white rounded px-3 py-2 border border-gray-700" />
+					</label>
+					<label class="flex flex-col gap-1">
+						<span class="text-gray-300 text-sm">Time</span>
+						<input type="time" bind:value={floorPlanTime} class="bg-gray-800 text-white rounded px-3 py-2 border border-gray-700" />
+					</label>
+					<div class="text-gray-300 text-sm px-2 py-2">
+						Unassigned reservations in window: {unassignedReservationsCount}
+					</div>
+					<label class="flex items-center gap-2 text-gray-300 text-sm">
+						<input type="checkbox" bind:checked={showBaseStatuses} class="rounded border-gray-600 bg-gray-800" />
+						<span>Show base statuses</span>
+					</label>
+					<button class="inline-flex items-center px-3 py-2 rounded bg-blue-600 text-white" on:click={refreshFloorReservations}>Refresh</button>
+				</div>
 			</div>
 
 			<!-- Debug Info -->
 			<div class="mb-4 p-2 bg-gray-800/30 rounded text-xs text-gray-400">
-				Current filter: {floorPlanFilter} | 
-				Total sections: {$sections.length} | 
-				Filtered sections: {filteredSections.length} |
-				Available area types: {[...$sections.map(s => s.area_type)].join(', ')}
+			Current filter: {floorPlanFilter} | 
+			Total sections: {$sections.length} | 
+			Filtered sections: {filteredSections.length} |
+			Available area types: {[...$sections.map(s => s.area_type)].join(', ')}
 			</div>
+
+				<!-- Reservations in Window -->
+				<div class="mb-4 p-3 rounded border border-gray-700 bg-gray-800/40">
+					<h3 class="text-sm font-semibold text-gray-200 mb-2">Reservations in window ({reservationsInWindow.length})</h3>
+					{#if reservationsInWindow.length === 0}
+						<p class="text-xs text-gray-400">No reservations in this time window.</p>
+					{:else}
+						<ul class="space-y-1 text-sm">
+							{#each reservationsInWindow as r}
+								{@const t = ($tables || []).find(t => t.id === r.table_id)}
+								<li class="flex justify-between gap-2 text-gray-200">
+									<span>{r.start_time} · {r.customer_name} · party {r.party_size}</span>
+									<span class="text-gray-400">{t?.table_name || t?.table_number_field || '—'} · {r.status}</span>
+								</li>
+							{/each}
+						</ul>
+					{/if}
+				</div>
 
 			<!-- Floor Plan Container -->
 			<div
@@ -1945,7 +2130,10 @@ function getWeekDates(sunday) {
 									<!-- Tables in Section -->
 									<div class="grid grid-cols-3 gap-2 mb-4">
 										{#each sectionTables.slice(0, 9) as table}
-											{@const statusClasses = getTableStatusClasses(table.status)}
+											{@const isReserved = reservedTableIds.has(table.id)}
+{@const baseStatus = (table.status || table.status_field || 'available')}
+{@const displayStatus = isReserved ? 'reserved' : (showBaseStatuses ? baseStatus : 'available')}
+{@const statusClasses = getTableStatusClasses(displayStatus)}
 											<div
 												class="{statusClasses.bg} rounded border {statusClasses.border} flex flex-col items-center justify-center relative group {statusClasses.hover} transition-colors cursor-pointer p-2 min-h-[60px]"
 											>
@@ -1962,7 +2150,7 @@ function getWeekDates(sunday) {
 													class="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity {statusClasses.overlay} rounded flex items-center justify-center"
 												>
 													<span class="text-xs {statusClasses.text} text-center">
-														{table.capacity || 0} seats<br>{table.status || 'Unknown'}
+														{table.capacity || 0} seats<br>{displayStatus || 'Unknown'}
 													</span>
 												</div>
 											</div>
@@ -1978,9 +2166,9 @@ function getWeekDates(sunday) {
 									<!-- Table Stats -->
 									<div class="absolute bottom-4 left-4 right-4">
 										<div class="flex justify-between text-xs text-gray-300">
-											<span>Available: {sectionTables.filter(t => t.status === 'available').length}</span>
-											<span>Occupied: {sectionTables.filter(t => t.status === 'occupied').length}</span>
-											<span>Reserved: {sectionTables.filter(t => t.status === 'reserved').length}</span>
+										<span>Available: {sectionTables.filter(t => { const d = reservedTableIds.has(t.id) ? 'reserved' : (t.status || t.status_field || 'available'); return d === 'available'; }).length}</span>
+										<span>Occupied: {sectionTables.filter(t => { const d = reservedTableIds.has(t.id) ? 'reserved' : (t.status || t.status_field || 'available'); return d === 'occupied'; }).length}</span>
+										<span>Reserved: {sectionTables.filter(t => reservedTableIds.has(t.id)).length}</span>
 										</div>
 									</div>
 								{:else}
@@ -2670,7 +2858,8 @@ function getWeekDates(sunday) {
 					<div class="grid grid-cols-7 gap-2">
 						{#each getWeekDates(getWeekSunday(new Date())) as day}
 							<div class="border border-gray-700 rounded p-2 min-h-[140px]">
-								<div class="text-xs text-gray-400 mb-2">{toISODate(new Date(day))}</div>
+								<div class="text-xs text-gray-400 mb-1"><span class="font-semibold text-gray-200">{getWeekdayLabel(day)}</span></div>
+									<div class="text-xs text-gray-400 mb-2">{toISODate(new Date(day))}</div>
 								{#each filteredShifts.filter(s => (s.shift_date || '').slice(0,10) === toISODate(new Date(day))) as s}
 									<div class={`mb-2 rounded p-2 border ${getPosBg(s.position)}`}>
 										<div class="text-xs text-gray-300 truncate">{getPosIcon(s.position)} {getStaffMemberName(s)} • {s.position}</div>

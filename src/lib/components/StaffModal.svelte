@@ -1,6 +1,7 @@
 <script>
-	import { createEventDispatcher } from 'svelte';
+	import { createEventDispatcher, onMount } from 'svelte';
 	import { collections } from '$lib/stores/collections.js';
+	import pb from '$lib/pocketbase.js';
 	
 	export let isOpen = false;
 	export let editItem = null; // For editing existing staff
@@ -20,20 +21,50 @@
 		user_id: ''
 	};
 	
-	let isSubmitting = false;
-	let error = '';
-	
-	// Position options (restaurant roles)
-	const positions = [
-		{ value: 'owner', label: 'Owner' },
+	// Users for dropdown linking (with filters and pagination)
+	let users = [];
+	let selectedUserId = '';
+	let usersLoading = false;
+	let usersPage = 1;
+	let usersHasMore = true;
+	let userQuery = '';
+	let userRoleFilter = '';
+	let usersError = '';
+	const roleOptions = [
+		{ value: '', label: 'All roles' },
 		{ value: 'manager', label: 'Manager' },
+		{ value: 'general_manager', label: 'General Manager' },
+		{ value: 'owner', label: 'Owner' },
 		{ value: 'server', label: 'Server' },
 		{ value: 'host', label: 'Host' },
 		{ value: 'bartender', label: 'Bartender' },
+		{ value: 'barback', label: 'Barback' },
 		{ value: 'busser', label: 'Busser' },
 		{ value: 'chef', label: 'Chef' },
 		{ value: 'kitchen_prep', label: 'Kitchen Prep' },
-		{ value: 'dishwasher', label: 'Dishwasher' }
+		{ value: 'kitchen', label: 'Kitchen' },
+		{ value: 'dishwasher', label: 'Dishwasher' },
+		{ value: 'security', label: 'Security' }
+	];
+	
+	let isSubmitting = false;
+	let error = '';
+	
+	// Position options (aligned to backend roles/shift positions)
+	const positions = [
+		{ value: 'manager', label: 'Manager' },
+		{ value: 'general_manager', label: 'General Manager' },
+		{ value: 'owner', label: 'Owner' },
+		{ value: 'server', label: 'Server' },
+		{ value: 'host', label: 'Host' },
+		{ value: 'bartender', label: 'Bartender' },
+		{ value: 'barback', label: 'Barback' },
+		{ value: 'busser', label: 'Busser' },
+		{ value: 'chef', label: 'Chef' },
+		{ value: 'kitchen_prep', label: 'Kitchen Prep' },
+		{ value: 'kitchen', label: 'Kitchen' },
+		{ value: 'dishwasher', label: 'Dishwasher' },
+		{ value: 'security', label: 'Security' }
 	];
 	
 	// Status options
@@ -42,6 +73,111 @@
 		{ value: 'inactive', label: 'Inactive' },
 		{ value: 'terminated', label: 'Terminated' }
 	];
+	
+	// Load users on open (for linking)
+	$: if (isOpen) {
+		loadUsers();
+	}
+	
+	async function loadUsers(reset = false) {
+		if (usersLoading) return;
+		try {
+			usersLoading = true;
+			if (reset) {
+				users = [];
+				usersPage = 1;
+				usersHasMore = true;
+				usersError = '';
+			}
+			if (!usersHasMore) return;
+			// Call server endpoint with filters
+			const params = new URLSearchParams();
+			if (userRoleFilter) params.set('role', userRoleFilter);
+			if (userQuery) params.set('q', userQuery);
+			params.set('page', String(usersPage));
+			params.set('perPage', '20');
+			const res = await fetch(`/api/users/search?${params.toString()}`, {
+				headers: {
+					// Forward PB auth token so the server endpoint can authorize against PocketBase
+					'Authorization': pb?.authStore?.token ? `Bearer ${pb.authStore.token}` : ''
+				}
+			});
+			if (!res.ok) {
+				let message = `Failed (${res.status})`;
+				try {
+					const data = await res.json();
+					message = data?.error || message;
+				} catch {}
+				// Surface permission errors clearly in the modal
+				if (res.status === 403) {
+					usersError = 'You do not have permission to search users.';
+					usersHasMore = false; // stop further paging attempts
+					return;
+				}
+				throw new Error(message);
+			}
+			const data = await res.json();
+			const mapped = data.items || [];
+			users = users.concat(mapped);
+			// Ensure currently selected user stays visible even if not in the fetched page
+			if (selectedUserId) {
+				const exists = users.some(u => u.id === selectedUserId);
+				if (!exists) {
+					try {
+						const u = await pb.collection('users').getOne(selectedUserId);
+						users = [u, ...users];
+					} catch (e) {
+						// Fallback placeholder so the select retains the value
+						users = [
+							{ id: selectedUserId, email: formData.email || selectedUserId, role: '' },
+							...users
+						];
+					}
+				}
+			}
+			usersHasMore = data.page < data.totalPages;
+			usersPage += 1;
+		} catch (e) {
+			console.error('Failed to load users:', e);
+			usersError = e?.message || 'Failed to load users';
+		} finally {
+			usersLoading = false;
+		}
+	}
+	
+	// Prefill when selecting a user (for create only)
+	$: if (!editItem && selectedUserId) {
+		const u = users.find(x => x.id === selectedUserId);
+		if (u) {
+			formData.user_id = u.id;
+			formData.email = u.email || formData.email;
+			formData.phone = u.phone || formData.phone;
+			if ((u.name || '').trim()) {
+				const parts = u.name.trim().split(/\s+/);
+				formData.first_name = formData.first_name || parts[0] || '';
+				formData.last_name = formData.last_name || parts.slice(1).join(' ') || '';
+			}
+			// Optional: default position from role if empty
+			if (!formData.position && u.role) {
+				const roleToPosition = new Map([
+					['manager','manager'],
+					['general_manager','general_manager'],
+					['owner','owner'],
+					['server','server'],
+					['host','host'],
+					['bartender','bartender'],
+					['barback','barback'],
+					['busser','busser'],
+					['chef','chef'],
+					['kitchen_prep','kitchen_prep'],
+					['kitchen','kitchen'],
+					['dishwasher','dishwasher'],
+					['security','security']
+				]);
+				formData.position = roleToPosition.get(u.role) || formData.position || 'server';
+			}
+		}
+	}
 	
 	// Watch for edit item changes
 	$: if (editItem) {
@@ -56,6 +192,7 @@
 			status: editItem.status || 'active',
 			user_id: editItem.user_id || ''
 		};
+		selectedUserId = formData.user_id || '';
 	} else {
 		// Reset form for new staff
 		formData = {
@@ -69,6 +206,7 @@
 			status: 'active',
 			user_id: ''
 		};
+		selectedUserId = '';
 	}
 	
 	async function handleSubmit() {
@@ -91,8 +229,8 @@
 			if (formData.hourly_rate) {
 				data.hourly_rate = Number(formData.hourly_rate);
 			}
-			if (formData.user_id) {
-				data.user_id = formData.user_id;
+			if (formData.user_id || selectedUserId) {
+				data.user_id = formData.user_id || selectedUserId;
 			}
 			
 			if (editItem) {
@@ -173,6 +311,55 @@
 					</div>
 				{/if}
 				
+				<!-- Link to existing user (optional) -->
+				<div class="grid grid-cols-1 gap-4">
+					<div>
+						<label class="block text-sm font-medium text-gray-300 mb-2">Link to User (optional)</label>
+						<div class="flex flex-col gap-2">
+							<div class="flex gap-2">
+								<input
+									type="text"
+									class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+									placeholder="Search by name or email"
+									bind:value={userQuery}
+									on:input={() => loadUsers(true)}
+								/>
+								<select bind:value={userRoleFilter} on:change={() => loadUsers(true)} class="px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500">
+									{#each roleOptions as r}
+										<option value={r.value}>{r.label}</option>
+									{/each}
+								</select>
+							</div>
+							<div class="flex gap-2">
+								<select bind:value={selectedUserId} class="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500">
+									<option value="">-- Select user to prefill --</option>
+									{#if usersLoading}
+										<option disabled>Loading users...</option>
+									{:else}
+										{#each users as u}
+											<option value={u.id}>
+												{(u.email || u.id)} ({u.role || 'no role'})
+											</option>
+										{/each}
+									{/if}
+								</select>
+								{#if usersHasMore}
+									<button type="button" class="px-3 py-2 bg-gray-700 text-gray-200 rounded-lg border border-gray-600 hover:bg-gray-600" on:click={() => loadUsers(false)}>Load more</button>
+								{/if}
+								{#if selectedUserId}
+									<button type="button" class="px-3 py-2 bg-gray-700 text-gray-200 rounded-lg border border-gray-600 hover:bg-gray-600" on:click={() => { selectedUserId=''; formData.user_id=''; }}>Clear</button>
+								{/if}
+							</div>
+							{#if usersError}
+								<div class="mt-2 p-2 bg-red-900/40 border border-red-700 text-red-200 text-xs rounded">
+									{usersError}
+								</div>
+							{/if}
+						</div>
+						<p class="text-xs text-gray-400">Selecting a user will prefill name, email, and phone, and link the staff to the user.</p>
+					</div>
+				</div>
+
 				<!-- Personal Information -->
 				<div class="grid grid-cols-1 md:grid-cols-2 gap-4">
 					<!-- First Name -->

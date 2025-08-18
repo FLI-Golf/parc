@@ -52,21 +52,27 @@ The `sample_collections.json` file contains two sample collections:
 
 ## Environment Variables
 
-Update your `.env` file with the correct PocketBase URL:
+Update your `.env` file with the correct PocketBase URL and admin credentials:
 
 ```
+# Client base URL
 VITE_POCKETBASE_URL=https://pocketbase-production-7050.up.railway.app/
+
+# Server admin (used by reservations webhook to update table status)
+PB_ADMIN_EMAIL=your-admin@example.com
+PB_ADMIN_PASSWORD=your-strong-password
 ```
 
 ## Connecting from Your SvelteKit App
 
-In your SvelteKit application, you can connect to PocketBase using the JavaScript SDK:
+In your SvelteKit application, use the SDK with env-based URL:
 
 ```javascript
 // src/lib/pocketbase.js
 import PocketBase from 'pocketbase';
 
-const pb = new PocketBase('https://pocketbase-production-7050.up.railway.app');
+const base = (import.meta.env.VITE_POCKETBASE_URL ?? 'https://pocketbase-production-7050.up.railway.app/').replace(/\/+$/, '');
+const pb = new PocketBase(base);
 
 export default pb;
 ```
