@@ -316,6 +316,10 @@ The system uses 14+ PocketBase collections including:
 
 ## ✅ Recent Updates
 
+### Manager → Schedule Proposal page
+- Fixed invalid closing tag in page markup causing Svelte compile error.
+- Approval UX: on success, silently redirects to Manager dashboard (no blocking success alert). Errors still surface via an alert.
+
 ### Reservations → Table auto-assignment + hold policy (OpenTable webhook + apply-holds)
 - The public reservations form (`/dashboard/reservations/form`) posts to `/api/reservations/opentable`.
 - The webhook:

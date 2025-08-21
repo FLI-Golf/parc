@@ -165,6 +165,15 @@
     return new Date(y, m - 1, d).getDay() === 0;
   }
 
+  // Weekday label helper (e.g., Thu)
+  const WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+  function getWeekdayLabel(isoDate) {
+    if (!isoDate) return '';
+    const [y, m, d] = isoDate.split('-').map(Number);
+    const dow = new Date(y, m - 1, d).getDay();
+    return WEEKDAYS[dow] || '';
+  }
+
   async function generateProposal() {
     error = '';
     proposal = null;
@@ -324,6 +333,9 @@
 
   let saving = false;
   let saveProgress = 0; // 0-100
+  let showApproveModal = false;
+  let showShiftDetail = false;
+  let selectedShift = null;
 
   // Quick add/remove shifts for a given day/position in the proposal (UI only)
   function addShiftForDayPosition(day, position) {
@@ -353,6 +365,11 @@
     } catch (e) {
       console.error('Failed to remove shift:', e);
     }
+  }
+
+  function openShiftDetails(s) {
+    selectedShift = s;
+    showShiftDetail = true;
   }
 
   async function approveSelected() {
@@ -538,10 +555,8 @@
                 <label class="inline-flex items-center gap-2">Bartenders <input type="number" min="0" bind:value={roleConfigs.bartender.barNights.bartenders} class="w-16 bg-gray-700 border border-gray-600 rounded px-2 py-1" /></label>
               </div>
             {/if}
-          </div>
-        {/if}
-
-        <div class="text-sm font-semibold mt-4">Days to include</div>
+            
+            <div class="text-sm font-semibold mt-4">Days to include</div>
         <div class="grid grid-cols-7 gap-2 text-xs">
           <label class="inline-flex items-center gap-1"><input type="checkbox" bind:checked={includeDays.sun} />Sun</label>
           <label class="inline-flex items-center gap-1"><input type="checkbox" bind:checked={includeDays.mon} />Mon</label>
@@ -554,13 +569,70 @@
         <label class="inline-flex items-center gap-2 text-sm mt-2"><input type="checkbox" bind:checked={brunchOnSunday} /> Include Sunday brunch</label>
       </div>
 
+            {/if}
+
+      </div>
+
       <button on:click={generateProposal} class="w-full mt-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 rounded-lg text-sm font-medium">Generate proposal</button>
       {#if error}
         <div class="text-sm text-yellow-300">{error}</div>
       {/if}
+
     </div>
 
-    <!-- Right: review list / calendar -->
+  {#if showShiftDetail}
+    <div class="fixed inset-0 z-[1000] flex items-center justify-center bg-black/60">
+      <div class="w-full max-w-xl bg-gray-900 border border-gray-700 rounded-xl shadow-xl shadow-black/50">
+        <div class="p-4 border-b border-gray-700 flex items-center justify-between">
+          <h3 class="text-lg font-semibold">Shift details</h3>
+          <button class="px-2 py-1 bg-gray-700 hover:bg-gray-600 rounded" on:click={() => { showShiftDetail = false; selectedShift = null; }}>✕</button>
+        </div>
+        <div class="p-4 space-y-3 text-sm">
+          {#if selectedShift}
+            {@const p = (selectedShift.position || (selectedShift.shift_type === 'brunch' ? 'server' : '') || '').toLowerCase()}
+            {@const meta = getPosMeta(p)}
+            <div class="flex items-center gap-2">
+              <span class={`px-1.5 py-0.5 rounded border inline-flex items-center justify-center ${meta.chip}`} title={p || 'role'}>
+                <span>{meta.icon}</span>
+              </span>
+              <div class="font-medium">{selectedShift.staff_name || selectedShift.staff_id}</div>
+            </div>
+            <div class="grid grid-cols-2 gap-3">
+              <div>
+                <div class="text-gray-400">Date</div>
+                <div>{selectedShift.shift_date} {getWeekdayLabel(selectedShift.shift_date)}</div>
+              </div>
+              <div>
+                <div class="text-gray-400">Time</div>
+                <div>{selectedShift.start_time}–{selectedShift.end_time}</div>
+              </div>
+              <div>
+                <div class="text-gray-400">Position</div>
+                <div class="capitalize">{p || '—'}</div>
+              </div>
+              <div>
+                <div class="text-gray-400">Section</div>
+                <div>{selectedShift.section_code || '—'}</div>
+              </div>
+              <div>
+                <div class="text-gray-400">Type</div>
+                <div>{selectedShift.shift_type || 'regular'}</div>
+              </div>
+              <div>
+                <div class="text-gray-400">Notes</div>
+                <div class="break-words">{selectedShift.notes || '—'}</div>
+              </div>
+            </div>
+          {/if}
+          <div class="flex justify-end gap-2 pt-2">
+            <button class="px-3 py-2 bg-gray-700 hover:bg-gray-600 rounded" on:click={() => { showShiftDetail = false; selectedShift = null; }}>Close</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  {/if}
+ 
+      <!-- Right: review list / calendar -->
     <div class="lg:col-span-2 bg-gray-800/50 border border-gray-700 rounded-lg p-4">
       <div class="flex items-center justify-between mb-3">
         <h2 class="text-lg font-semibold">Review</h2>
@@ -590,7 +662,10 @@
                   <tr class="border-t border-gray-700">
                     <td class="p-2">{(s.staff_name || s.staff_id) + ' • ' + (s.position || (s.shift_type === 'brunch' ? 'server' : ''))}</td>
                     <td class="p-2">
-                      <input type="date" bind:value={s.shift_date} class="bg-gray-700 border border-gray-600 rounded px-2 py-1" />
+                      <div class="flex items-center gap-2">
+                        <input type="date" bind:value={s.shift_date} class="bg-gray-700 border border-gray-600 rounded px-2 py-1" />
+                        <span class="text-xs text-gray-400">{getWeekdayLabel(s.shift_date)}</span>
+                      </div>
                       {#if s.shift_type === 'brunch' && !isSunday(s.shift_date)}
                         <div class="text-xs text-yellow-300">Brunch must be on Sunday</div>
                       {/if}
@@ -612,32 +687,34 @@
               {@const dayShifts = proposal.shifts.filter(s => s.shift_date === day)}
               {@const counts = positions.map(p => ({ p, c: dayShifts.filter(s => (s.position || (s.shift_type==='brunch' ? 'server' : '') || '').toLowerCase() === p).length }))}
               <div class="border border-gray-700 rounded p-2 min-h-[140px]">
-                <div class="text-xs text-gray-400 mb-2">{day}</div>
+                <div class="text-xs text-gray-400 mb-2">{day} {getWeekdayLabel(day)}</div>
                 <!-- Position counts row -->
-                <div class="mb-2 flex flex-wrap gap-1">
+                <div class="mb-2 flex flex-wrap gap-2">
                   {#each counts as item}
                     {#if item.c > 0}
-                      <div class="inline-flex items-center gap-1">
+                      <div class="flex flex-col items-start gap-1">
                         <button
                           type="button"
                           class={`px-2 py-0.5 rounded text-[11px] border ${dayFilter[day] === item.p ? getPosMeta(item.p).chipActive : getPosMeta(item.p).chip}`}
                           on:click={() => dayFilter = { ...dayFilter, [day]: (dayFilter[day] === item.p ? '' : item.p) }}
                           title={`Filter ${day} by ${item.p}`}
                         ><span class="mr-1">{getPosMeta(item.p).icon}</span>{item.p} ({item.c})</button>
-                        <button
-                          type="button"
-                          class="px-1.5 py-0.5 text-[11px] rounded border bg-gray-800 border-gray-600 text-gray-300 hover:bg-gray-700"
-                          title={`Add ${item.p} on ${day}`}
-                          on:click={() => addShiftForDayPosition(day, item.p)}
-                        >+
-                        </button>
-                        <button
-                          type="button"
-                          class="px-1.5 py-0.5 text-[11px] rounded border bg-gray-800 border-gray-600 text-gray-300 hover:bg-gray-700"
-                          title={`Remove ${item.p} on ${day}`}
-                          on:click={() => removeShiftForDayPosition(day, item.p)}
-                        >−
-                        </button>
+                        <div class="flex items-center gap-1">
+                          <button
+                            type="button"
+                            class="px-1.5 py-0.5 text-[11px] rounded border bg-gray-800 border-gray-600 text-gray-300 hover:bg-gray-700"
+                            title={`Add ${item.p} on ${day}`}
+                            on:click={() => addShiftForDayPosition(day, item.p)}
+                          >+
+                          </button>
+                          <button
+                            type="button"
+                            class="px-1.5 py-0.5 text-[11px] rounded border bg-gray-800 border-gray-600 text-gray-300 hover:bg-gray-700"
+                            title={`Remove ${item.p} on ${day}`}
+                            on:click={() => removeShiftForDayPosition(day, item.p)}
+                          >−
+                          </button>
+                        </div>
                       </div>
                     {/if}
                   {/each}
@@ -645,7 +722,7 @@
                 {#each dayShifts.filter(s => !dayFilter[day] || ((s.position || (s.shift_type==='brunch' ? 'server' : '') || '').toLowerCase() === dayFilter[day])) as s}
                   {@const p = (s.position || (s.shift_type === 'brunch' ? 'server' : '') || '').toLowerCase()}
                   {@const meta = getPosMeta(p)}
-                  <div class="mb-2 bg-gray-700 rounded p-2">
+                  <button type="button" class="mb-2 bg-gray-700 rounded p-2 w-full text-left hover:bg-gray-600/80 transition-colors" on:click={() => openShiftDetails(s)}>
                     <div class="text-xs text-gray-300 truncate flex items-center gap-2">
                       <span class={`px-1.5 py-0.5 rounded border inline-flex items-center justify-center ${meta.chip}`} title={p || 'role'}>
                         <span>{meta.icon}</span>
@@ -656,7 +733,7 @@
                     {#if s.shift_type === 'brunch'}
                       <div class="text-[10px] text-yellow-300">Brunch</div>
                     {/if}
-                  </div>
+                  </button>
                 {/each}
               </div>
             {/each}
@@ -672,7 +749,7 @@
             </div>
           {/if}
           <div class="flex justify-end">
-            <button on:click={approveSelected} disabled={saving} class="px-4 py-2 rounded-lg text-sm font-medium disabled:opacity-60 disabled:cursor-not-allowed bg-green-600 hover:bg-green-700">
+            <button on:click={() => showApproveModal = true} disabled={saving} class="px-4 py-2 rounded-lg text-sm font-medium disabled:opacity-60 disabled:cursor-not-allowed bg-green-600 hover:bg-green-700">
               {saving ? 'Saving…' : 'Approve and Create'}
             </button>
           </div>
@@ -682,4 +759,56 @@
       {/if}
     </div>
   </div>
+
+  {#if showApproveModal}
+    <div class="fixed inset-0 z-[1000] flex items-center justify-center bg-black/60">
+      <div class="w-full max-w-3xl bg-gray-900 border border-gray-700 rounded-xl shadow-xl shadow-black/50">
+        <div class="p-4 border-b border-gray-700 flex items-center justify-between">
+          <h3 class="text-lg font-semibold">Approve and Create</h3>
+          <button class="px-2 py-1 bg-gray-700 hover:bg-gray-600 rounded" on:click={() => showApproveModal = false}>✕</button>
+        </div>
+        <div class="p-4 space-y-4 text-sm">
+          <div class="text-gray-300">
+            Nothing is created or saved until you click <strong>Approve and Create</strong>. You can generate and edit locally as many times as you want.
+          </div>
+
+          {#if proposal?.shifts?.length}
+            <div class="rounded border border-gray-700 bg-gray-800/40">
+              <div class="p-3 border-b border-gray-700 font-medium">Summary for week starting {week_start}</div>
+              <div class="p-3 space-y-3">
+                {#each getWeekDates(getWeekSunday(week_start)) as day}
+                  {@const dayShifts = proposal.shifts.filter(s => s.shift_date === day)}
+                  {#if dayShifts.length}
+                    <div>
+                      <div class="text-xs text-gray-400 mb-1">{day} {getWeekdayLabel(day)} • {dayShifts.length} shift{dayShifts.length === 1 ? '' : 's'}</div>
+                      <div class="flex flex-wrap gap-2">
+                        {#each positions as p}
+                          {@const c = dayShifts.filter(s => (s.position || (s.shift_type==='brunch' ? 'server' : '') || '').toLowerCase() === p).length}
+                          {#if c > 0}
+                            {@const meta = getPosMeta(p)}
+                            <span class={`inline-flex items-center gap-1 text-[12px] px-2 py-0.5 rounded border ${meta.chip}`}>
+                              <span>{meta.icon}</span>
+                              <span>{p}</span>
+                              <span class="opacity-70">({c})</span>
+                            </span>
+                          {/if}
+                        {/each}
+                      </div>
+                    </div>
+                  {/if}
+                {/each}
+              </div>
+            </div>
+          {/if}
+
+          <div class="flex items-center justify-end gap-2">
+            <button class="px-3 py-2 bg-gray-700 hover:bg-gray-600 rounded" on:click={() => showApproveModal = false}>Cancel</button>
+            <button class="px-3 py-2 bg-green-600 hover:bg-green-700 rounded disabled:opacity-60 disabled:cursor-not-allowed" disabled={saving} on:click={async () => { showApproveModal = false; await approveSelected(); }}>
+              {saving ? 'Saving…' : 'Approve and Create'}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  {/if}
 </div>
