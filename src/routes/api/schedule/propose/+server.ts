@@ -1,10 +1,10 @@
 import { json } from '@sveltejs/kit';
-import { OPENAI_API_KEY } from '$env/static/private';
+import { env } from '$env/dynamic/private';
 import pb from '$lib/pocketbase';
 
 // Simple guard to ensure server has the API key configured
 function assertKeyOrReturn401() {
-  if (!OPENAI_API_KEY) {
+  if (!env.OPENAI_API_KEY) {
     // Throw a typed object the POST handler will map to a 401
     throw { status: 401, message: 'OPENAI_API_KEY is missing on the server. Set it in the server environment.' } as any;
   }
@@ -53,7 +53,7 @@ async function callOpenAI(prompt: { sys: string; usr: string }) {
   const res = await fetch('https://api.openai.com/v1/chat/completions', {
     method: 'POST',
     headers: {
-      Authorization: `Bearer ${OPENAI_API_KEY}`,
+      Authorization: `Bearer ${env.OPENAI_API_KEY}`,
       'Content-Type': 'application/json'
     },
     body: JSON.stringify({
