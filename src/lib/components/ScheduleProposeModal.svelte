@@ -76,16 +76,16 @@
 
         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
-            <label class="block text-xs text-gray-400 mb-1">Week start (YYYY-MM-DD)</label>
-            <input class="w-full bg-gray-800 border border-gray-700 rounded px-2 py-2" type="date" bind:value={week_start} />
+            <label for="week_start" class="block text-xs text-gray-400 mb-1">Week start (YYYY-MM-DD)</label>
+            <input id="week_start" class="w-full bg-gray-800 border border-gray-700 rounded px-2 py-2" type="date" bind:value={week_start} />
           </div>
           <div>
-            <label class="block text-xs text-gray-400 mb-1">Max hours per staff</label>
-            <input class="w-full bg-gray-800 border border-gray-700 rounded px-2 py-2" type="number" bind:value={max_hours} />
+            <label for="max_hours" class="block text-xs text-gray-400 mb-1">Max hours per staff</label>
+            <input id="max_hours" class="w-full bg-gray-800 border border-gray-700 rounded px-2 py-2" type="number" bind:value={max_hours} />
           </div>
           <div>
-            <label class="block text-xs text-gray-400 mb-1">Min rest hours</label>
-            <input class="w-full bg-gray-800 border border-gray-700 rounded px-2 py-2" type="number" bind:value={min_rest_hours} />
+            <label for="min_rest_hours" class="block text-xs text-gray-400 mb-1">Min rest hours</label>
+            <input id="min_rest_hours" class="w-full bg-gray-800 border border-gray-700 rounded px-2 py-2" type="number" bind:value={min_rest_hours} />
           </div>
           <div class="flex items-center gap-2 mt-6">
             <input id="abb" type="checkbox" bind:checked={avoid_back_to_back} class="accent-teal-600" />
@@ -93,19 +93,19 @@
           </div>
         </div>
 
-        <div>
-          <label class="block text-xs text-gray-400 mb-1">Role targets</label>
+        <fieldset class="border-0 p-0 m-0">
+          <legend class="block text-xs text-gray-400 mb-1">Role targets</legend>
           <div class="flex flex-wrap gap-2">
             {#each Object.entries(roles) as [role, count]}
               <div class="flex items-center gap-2 bg-gray-800 border border-gray-700 rounded px-2 py-1">
                 <span class="text-sm">{role}</span>
-                <input class="w-16 bg-gray-700 border border-gray-600 rounded px-2 py-1" type="number" min="0" bind:value={roles[role]} />
+                <input aria-label={`Target count for ${role}`} class="w-16 bg-gray-700 border border-gray-600 rounded px-2 py-1" type="number" min="0" bind:value={roles[role]} />
                 <button class="text-xs text-red-300" on:click={() => { delete roles[role]; roles = { ...roles }; }}>Remove</button>
               </div>
             {/each}
             <button class="px-2 py-1 bg-gray-700 rounded text-sm" on:click={() => { roles[`role_${Object.keys(roles).length+1}`] = 1; roles = { ...roles }; }}>+ Add role</button>
           </div>
-        </div>
+        </fieldset>
 
         <div class="flex items-center gap-2">
           <button class="px-3 py-2 bg-blue-600 hover:bg-blue-700 rounded" on:click={propose} disabled={loading}>{loading ? 'Generating…' : 'Generate proposal'}</button>
