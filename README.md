@@ -252,6 +252,25 @@ pnpm format               # Format code with Prettier
 
 ## 🏗️ Architecture
 
+### Deployment (Netlify)
+- Adapter: `@sveltejs/adapter-netlify` (already configured in `svelte.config.js`)
+- Build command: `pnpm build`
+- Publish directory: `build`
+- Recommended `netlify.toml` (included):
+
+```toml
+[build]
+  command = "pnpm build"
+  publish = "build"
+
+[build.environment]
+  NODE_VERSION = "20"
+```
+
+Troubleshooting:
+- If Netlify shows an error like “react-scripts: command not found” or “missing react-scripts,” it has misdetected the framework as Create React App. Do not install `react-scripts` — this project is SvelteKit. Override the Build command to `pnpm build` and ensure the included `netlify.toml` is present at the repo root.
+
+
 ### Tech Stack
 - **Frontend**: SvelteKit + TypeScript
 - **Backend**: PocketBase (BaaS)
