@@ -3173,24 +3173,17 @@ onMount(async () => {
 		<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
 			<div class="flex justify-between items-center py-6">
 				<div class="flex items-center space-x-4">
-					<div class="w-10 h-10 rounded-lg bg-green-600 flex items-center justify-center">
-						<span class="font-bold text-xl">P</span>
-					</div>
-					<div>
-						<h1 class="text-2xl font-bold">PARC Portal</h1>
-						<p class="text-sm text-green-400">Server Dashboard</p>
-					</div>
+					<img src="/parc-portal.svg" alt="PARC Portal Logo" class="w-10 h-10" />
+					<h1 class="text-2xl font-bold">PARC Portal</h1>
 				</div>
 				<div class="flex items-center space-x-4">
 					{#if user}
-						<div class="flex items-center space-x-2">
+						<div class="flex items-center space-x-3">
+							<span class="hidden md:inline px-2 py-0.5 bg-green-600/20 text-green-400 text-xs font-medium rounded-full border border-green-600/30">Server</span>
 							<div class="w-10 h-10 rounded-full bg-gray-700 flex items-center justify-center">
 								<span class="font-medium">{user.name?.charAt(0) || user.email?.charAt(0) || 'S'}</span>
 							</div>
-							<div class="hidden md:block">
-								<p class="font-medium">{user.name || user.email}</p>
-								<p class="text-sm text-green-400">Server</p>
-							</div>
+							<span class="hidden md:inline font-medium">{user.name || user.email}</span>
 						</div>
 					{/if}
 

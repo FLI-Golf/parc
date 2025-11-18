@@ -55,9 +55,7 @@
 	<header class="py-6 px-4 sm:px-6 lg:px-8">
 		<div class="flex justify-between items-center">
 			<div class="flex items-center space-x-2">
-				<div class="w-10 h-10 rounded-lg bg-blue-600 flex items-center justify-center">
-					<span class="font-bold text-xl">P</span>
-				</div>
+				<img src="/parc-portal.svg" alt="PARC Portal Logo" class="w-10 h-10" />
 				<h1 class="text-2xl font-bold">PARC Portal</h1>
 			</div>
 			<nav class="hidden md:block">
@@ -76,7 +74,8 @@
 		<div class="max-w-md w-full space-y-8">
 			<!-- Welcome Section -->
 			<div class="text-center">
-				<h2 class="mt-6 text-3xl font-extrabold">Welcome to PARC Portal</h2>
+				<img src="/parc-portal.svg" alt="PARC Portal Logo" class="w-24 h-24 mx-auto mb-6" />
+			<h2 class="text-3xl font-extrabold">Welcome to PARC Portal</h2>
 				<p class="mt-2 text-gray-400">
 					Login to manage your information and access company resources
 				</p>
@@ -216,9 +215,7 @@
 	<footer class="py-6 px-4 sm:px-6 lg:px-8 border-t border-gray-800">
 		<div class="flex flex-col md:flex-row justify-between items-center">
 			<div class="flex items-center space-x-2 mb-4 md:mb-0">
-				<div class="w-8 h-8 rounded-lg bg-blue-600 flex items-center justify-center">
-					<span class="font-bold text-lg">P</span>
-				</div>
+				<img src="/parc-portal.svg" alt="PARC Portal Logo" class="w-8 h-8" />
 				<span class="text-gray-400">PARC Portal &copy; 2025</span>
 			</div>
 			<div class="flex space-x-6">

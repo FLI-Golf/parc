@@ -4,6 +4,7 @@
 	import { authStore } from '$lib/auth.js';
 	
 	let user = null;
+	let userRole = '';
 	let loading = true;
 	let error = '';
 	
@@ -20,14 +21,15 @@
 
 			if (auth.isLoggedIn) {
 				user = auth.user;
+				userRole = auth.role || '';
 				loading = false;
 
 				// Redirect to role-specific dashboard
-				const userRole = auth.role?.toLowerCase();
-				if (userRole === 'manager' || userRole === 'owner') {
+				const userRoleLower = auth.role?.toLowerCase();
+				if (userRoleLower === 'manager' || userRoleLower === 'owner') {
 					handled = true;
 					goto('/dashboard/manager');
-				} else if (['server', 'host', 'bartender', 'busser', 'chef', 'kitchen_prep', 'dishwasher'].includes(userRole)) {
+				} else if (['server', 'host', 'bartender', 'busser', 'chef', 'kitchen_prep', 'dishwasher'].includes(userRoleLower)) {
 					handled = true;
 					goto('/dashboard/server');
 				} else {
@@ -53,23 +55,24 @@
 		<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
 			<div class="flex justify-between items-center py-6">
 				<div class="flex items-center space-x-4">
-					<div class="w-10 h-10 rounded-lg bg-blue-600 flex items-center justify-center">
-						<span class="font-bold text-xl">P</span>
-					</div>
+					<img src="/parc-portal.svg" alt="PARC Portal Logo" class="w-10 h-10" />
 					<h1 class="text-2xl font-bold">PARC Portal</h1>
 				</div>
 				<div class="flex items-center space-x-4">
 					{#if user}
-						<div class="flex items-center space-x-2">
+						<div class="flex items-center space-x-3">
+							{#if userRole}
+								<span class="hidden md:inline px-2 py-0.5 bg-blue-600/20 text-blue-400 text-xs font-medium rounded-full border border-blue-600/30 capitalize">{userRole}</span>
+							{/if}
 							<div class="w-10 h-10 rounded-full bg-gray-700 flex items-center justify-center">
 								<span class="font-medium">{user.name?.charAt(0) || user.email?.charAt(0) || 'U'}</span>
 							</div>
-							<span class="hidden md:inline">{user.name || user.email}</span>
+							<span class="hidden md:inline font-medium">{user.name || user.email}</span>
 						</div>
 					{/if}
 					<button
 						on:click={handleLogout}
-						class="px-4 py-2 bg-gray-700 hover:bg-gray-600 rounded-lg transition-colors text-sm font-medium"
+						class="px-4 py-2 bg-red-600 hover:bg-red-700 rounded-lg transition-colors text-sm font-medium"
 					>
 						Logout
 					</button>
@@ -213,9 +216,7 @@
 		<div class="max-w-7xl mx-auto">
 			<div class="flex flex-col md:flex-row justify-between items-center">
 				<div class="flex items-center space-x-2 mb-4 md:mb-0">
-					<div class="w-8 h-8 rounded-lg bg-blue-600 flex items-center justify-center">
-						<span class="font-bold text-lg">P</span>
-					</div>
+					<img src="/parc-portal.svg" alt="PARC Portal Logo" class="w-8 h-8" />
 					<span class="text-gray-400">PARC Portal &copy; 2025</span>
 				</div>
 				<div class="flex space-x-6">

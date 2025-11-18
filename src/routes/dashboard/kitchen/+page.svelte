@@ -5,6 +5,7 @@
 	import { goto } from '$app/navigation';
 
 	let user = null;
+	let userRole = '';
 	let timeInterval;
 	let currentTime = new Date();
 	let kitchenOrders = [];
@@ -56,6 +57,7 @@
 				console.log('✅ Kitchen dashboard access granted for:', auth.user.email);
 				hasHandledAuth = true;
 				user = auth.user;
+				userRole = auth.role || '';
 				
 				try {
 					await collections.getMenuItems(); // Load menu items for preparation times
@@ -280,37 +282,36 @@
 		<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
 			<div class="flex justify-between items-center py-4">
 				<div class="flex items-center space-x-4">
-					<div class="w-10 h-10 rounded-lg bg-orange-600 flex items-center justify-center">
-						<span class="font-bold text-xl">🍳</span>
-					</div>
-					<div>
-						<h1 class="text-2xl font-bold">Kitchen Display System</h1>
-						<p class="text-sm text-orange-400">Real-time Order Tracking</p>
-					</div>
+					<img src="/parc-portal.svg" alt="PARC Portal Logo" class="w-10 h-10" />
+					<h1 class="text-2xl font-bold">Kitchen Display System</h1>
 				</div>
 				<div class="flex items-center space-x-4">
-					<div class="text-lg font-mono">
-						{currentTime.toLocaleTimeString('en-US', { hour12: false })}
-					</div>
 					{#if user}
-						<div class="flex items-center space-x-2">
+						<div class="flex items-center space-x-3">
+							{#if userRole}
+								<span class="hidden md:inline px-2 py-0.5 bg-orange-600/20 text-orange-400 text-xs font-medium rounded-full border border-orange-600/30 capitalize">{userRole}</span>
+							{/if}
 							<div class="w-8 h-8 rounded-full bg-gray-700 flex items-center justify-center">
 								<span class="font-medium text-sm">{user.name?.charAt(0) || user.email?.charAt(0) || 'K'}</span>
 							</div>
-							<button 
-								on:click={() => window.history.back()}
-								class="text-sm px-3 py-1 bg-blue-600 hover:bg-blue-700 rounded text-white flex items-center gap-1"
-							>
-								← Back
-							</button>
-							<button 
-								on:click={logout}
-								class="text-sm px-3 py-1 bg-red-600 hover:bg-red-700 rounded text-white"
-							>
-								Logout
-							</button>
+							<span class="hidden md:inline font-medium text-sm">{user.name || user.email}</span>
 						</div>
 					{/if}
+					<div class="text-lg font-mono">
+						{currentTime.toLocaleTimeString('en-US', { hour12: false })}
+					</div>
+					<button 
+						on:click={() => window.history.back()}
+						class="text-sm px-3 py-1 bg-blue-600 hover:bg-blue-700 rounded text-white flex items-center gap-1"
+					>
+						← Back
+					</button>
+					<button 
+						on:click={logout}
+						class="text-sm px-3 py-1 bg-red-600 hover:bg-red-700 rounded text-white"
+					>
+						Logout
+					</button>
 				</div>
 			</div>
 		</div>
