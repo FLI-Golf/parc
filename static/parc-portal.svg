@@ -1,0 +1,50 @@
+<svg width="200" height="200" viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg">
+  <!-- Background circle -->
+  <circle cx="100" cy="100" r="95" fill="#7C3AED" opacity="0.1"/>
+  
+  <!-- Outer circle border -->
+  <circle cx="100" cy="100" r="85" fill="none" stroke="#7C3AED" stroke-width="4"/>
+  
+  <!-- Center icon - Cloche (food cover) with P -->
+  <g transform="translate(100, 110)">
+    <!-- Cloche base/plate -->
+    <ellipse cx="0" cy="40" rx="55" ry="9" fill="#7C3AED"/>
+    <ellipse cx="0" cy="40" rx="50" ry="7" fill="#A78BFA"/>
+    
+    <!-- Cloche dome (bigger) -->
+    <path d="M -50 40 Q -50 -20, 0 -40 Q 50 -20, 50 40 Z" 
+          fill="#FFFFFF" stroke="#7C3AED" stroke-width="3"/>
+    
+    <!-- Cloche shine/highlight -->
+    <ellipse cx="-15" cy="0" rx="12" ry="20" fill="#F3F4F6" opacity="0.4"/>
+    
+    <!-- Cloche handle/knob -->
+    <circle cx="0" cy="-40" r="6" fill="#7C3AED"/>
+    <ellipse cx="0" cy="-44" rx="5" ry="3" fill="#A78BFA"/>
+    
+    <!-- Hand reaching down to grab the knob (40% bigger) -->
+    <!-- Wrist/arm coming from above -->
+    <rect x="-8.4" y="-75" width="16.8" height="35" fill="#FCD34D" stroke="#F59E0B" stroke-width="1.4" rx="4.2"/>
+    
+    <!-- Palm -->
+    <ellipse cx="0" cy="-48" rx="14" ry="9.8" fill="#FCD34D" stroke="#F59E0B" stroke-width="1.4"/>
+    
+    <!-- Thumb (on side) -->
+    <ellipse cx="-12.6" cy="-46" rx="4.9" ry="7" fill="#FCD34D" stroke="#F59E0B" stroke-width="1.4" transform="rotate(-30 -12.6 -46)"/>
+    
+    <!-- Fingers curving down to grab -->
+    <ellipse cx="9.8" cy="-43" rx="3.5" ry="8.4" fill="#FCD34D" stroke="#F59E0B" stroke-width="1.4" transform="rotate(25 9.8 -43)"/>
+    <ellipse cx="4.2" cy="-42" rx="3.5" ry="9.8" fill="#FCD34D" stroke="#F59E0B" stroke-width="1.4" transform="rotate(10 4.2 -42)"/>
+    <ellipse cx="-2.8" cy="-42" rx="3.5" ry="9.8" fill="#FCD34D" stroke="#F59E0B" stroke-width="1.4" transform="rotate(-10 -2.8 -42)"/>
+    <ellipse cx="-8.4" cy="-43" rx="3.5" ry="8.4" fill="#FCD34D" stroke="#F59E0B" stroke-width="1.4" transform="rotate(-20 -8.4 -43)"/>
+    
+    <!-- Letter P inside cloche (raised) -->
+    <text x="0" y="10" 
+          font-family="Arial, sans-serif" 
+          font-size="50" 
+          font-weight="bold" 
+          fill="#7C3AED" 
+          text-anchor="middle" 
+          dominant-baseline="middle">P</text>
+  </g>
+</svg>
